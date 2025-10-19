@@ -6,14 +6,15 @@ from loguru._logger import Logger
 import numpy
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.constants import TRAINERS, ALTERNATIVES
+from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder
 from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, TaskStatus, AttackTask, MoveTask, \
-    BuildTask
+    BuildTask, ResearchTask
 
 if TYPE_CHECKING:
     from sc2bot.core.bot import BotBase
@@ -51,6 +52,7 @@ class Commander:
     command: Command
     tasks: TaskManager
     orders: dict[int, Optional[Order]]
+    previous_orders: dict[int, Optional[Order]]
 
     def __init__(self, bot: 'BotBase', name: str,
                  tags: Optional[set[int]] = None,
@@ -62,6 +64,7 @@ class Commander:
         self.command = IdleCommand()
         self.tasks = TaskManager(self, tasks)
         self.orders = {}
+        self.previous_orders = {}
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
@@ -76,6 +79,22 @@ class Commander:
     @property
     def logger(self) -> Logger:
         return self.bot.logger.bind(prefix=self.name)
+
+    # --- Resources
+
+    # TODO: per commander
+
+    @property
+    def minerals(self) -> int:
+        return self.bot.minerals
+
+    @property
+    def vespene(self) -> int:
+        return self.bot.vespene
+
+    @property
+    def supply_used(self) -> float:
+        return self.bot.supply_used
 
     # --- Units
 
@@ -104,6 +123,10 @@ class Commander:
         for unit in self.forces:
             counter[unit.type_id] += 1
         return counter
+
+    def can_afford(self, item: UnitTypeId | UpgradeId | AbilityId) -> bool:
+        # TODO
+        return self.bot.can_afford(item, check_supply_cost=True)
 
     # --- Control
 
@@ -214,7 +237,8 @@ class Commander:
         return unit.tag in self.orders
 
     def clear_orders(self) -> None:
-        self.orders.clear()
+        self.previous_orders = self.orders
+        self.orders = {}
 
     # --- Pick unit
 
@@ -239,24 +263,36 @@ class Commander:
         return best, total_times[best]
 
     def _get_trainer(self, utype: UnitTypeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
+        trainer_utype = TRAINERS[utype]
+
+        free_trainers = self.structures(trainer_utype).idle.filter(lambda x: not self.has_order(x))
+        #self.logger.trace("free trainers for {}: {}", utype.name, free_trainers)
+        if not free_trainers:
+            return None
+
+        # Additional logic
         match utype:
             case UnitTypeId.ORBITALCOMMAND:
-                trainers = self.townhalls(UnitTypeId.COMMANDCENTER).idle
+                trainers = free_trainers
             case UnitTypeId.SCV:
-                trainers = self.townhalls(UnitTypeId.COMMANDCENTER).idle
+                trainers = free_trainers
             case UnitTypeId.MARINE:
-                rax = self.structures(UnitTypeId.BARRACKS).idle
                 # Prefer reactors, unless position is given
                 # TODO: prioritize reactors even if position is passed, in close calls
                 if position is None:
-                    reactored_rax = rax.filter(lambda x: x.has_reactor)
-                    trainers = reactored_rax or rax
+                    trainers = free_trainers.filter(lambda x: x.has_reactor)
+                    if not trainers:
+                        trainers = free_trainers.filter(lambda x: not x.has_techlab)
+                    if not trainers:
+                        trainers = free_trainers
                 else:
-                    trainers = rax
+                    trainers = free_trainers
             case UnitTypeId.MARAUDER | UnitTypeId.REAPER:
-                trainers = self.structures(UnitTypeId.BARRACKS).filter(lambda x: x.has_tech_lab).idle
+                trainers = free_trainers.filter(lambda x: x.has_techlab)
+            case UnitTypeId.TECHLAB | UnitTypeId.REACTOR:
+                trainers = free_trainers.filter(lambda x: not x.has_add_on)
             case _:
-                self.logger.error("Trainer for {} not implemented", utype)
+                self.logger.warning("Trainer for {} not implemented", utype)
                 return None
         if not trainers:
             return None
@@ -264,13 +300,21 @@ class Commander:
             return trainers.random
         return trainers.closest_to(position)
 
+    def _get_researcher(self, upgrade: UpgradeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
+        researcher_utype = RESEARCHERS[upgrade]
+        researchers = self.structures(researcher_utype).idle.filter(lambda x: not self.has_order(x))
+        if not researchers:
+            return None
+        if position is None:
+            return researchers.random
+        return researchers.closest_to(position)
+
     # --- Tasks
 
     # def _on_build_task(self, task: BuildTask) -> bool:
     #     # Check if task is worked
     #     if True:
     #         worker = self._get_worker(task.position, include_constructing=True)
-
 
     async def _on_unit_count_task(self, task: UnitCountTask) -> bool:
         utype = ALTERNATIVES.get(task.utype, task.utype)
@@ -294,18 +338,19 @@ class Commander:
 
         if trainer == UnitTypeId.SCV:
             for _ in range(to_build):
-                position = await self.bot.get_building_location(task.utype, near=task.position,
+                target = await self.bot.get_building_location(task.utype, near=task.position,
                                                                 max_distance=task.max_distance)
                 #position = task.position
-                if position is None:
+                if target is None:
                     break
+                position = target if isinstance(target, Point2) else target.position
                 # SCV can start constructing from a distance of 2.5 away
                 worker, travel_time = await self._get_worker(position, target_distance=2.5)
                 #worker = self.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.bot.can_afford(task.utype) and worker.distance_to(position) < 3.0:
+                if self.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                    worker.build(task.utype, position)
+                    worker.build(task.utype, target)
                 else:
                     resource_time = self.bot.time_for_cost(self.bot.get_cost(task.utype), excluded_workers=worker)
                     self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
@@ -314,7 +359,7 @@ class Commander:
                         self.order_move(worker, position)
         else:
             for _ in range(to_build):
-                if not self.bot.can_afford(task.utype):
+                if not self.can_afford(task.utype):
                     #self.logger.trace('cannot afford {}', task)
                     break
                 trainer = self._get_trainer(task.utype)
@@ -329,7 +374,7 @@ class Commander:
         if pending:
             #self.logger.trace('already pending {}', task)
             return False
-        if not self.bot.can_afford(task.utype):
+        if not self.can_afford(task.utype):
             #self.logger.trace('cannot afford {}', task)
             return False
 
@@ -352,6 +397,16 @@ class Commander:
                 self.order_train(trainer, task.utype)
                 return True
 
+    def _on_research_task(self, task: ResearchTask) -> bool:
+        if self.bot.already_pending_upgrade(task.upgrade) > 0:
+            return True
+        if not self.can_afford(task.upgrade):
+            return False
+        researcher = self._get_researcher(task.upgrade)
+        researcher.research(task.upgrade)
+        self.logger.info("Starting {} at {}", task.upgrade.name, researcher)
+        return True
+
     def _on_move_task(self, task: MoveTask) -> bool:
         if task.units is None:
             units = self.units
@@ -368,7 +423,8 @@ class Commander:
         # TODO: fix
         for marine in self.units(UnitTypeId.MARINE):
             self.order_attack(marine, task.target)
-        return True
+        #return True
+        return False
 
     # --- Callbacks
 
@@ -376,10 +432,6 @@ class Commander:
 
         if (number_dead := self.remove_dead_tags()) != 0:
             self.logger.debug("{} units died", number_dead)
-
-        if not self.tasks:
-            self.tasks.add(UnitPendingTask(UnitTypeId.MARINE))
-            self.tasks.add(AttackTask(self.bot.get_enemy_base_location()))
 
         if step % 4 == 0:
             await self._work_on_tasks(step)
@@ -394,6 +446,8 @@ class Commander:
                 completed = await self._on_unit_count_task(task)
             elif isinstance(task, UnitPendingTask):
                 completed = await self._on_unit_pending_task(task)
+            elif isinstance(task, ResearchTask):
+                completed = self._on_research_task(task)
             elif isinstance(task, MoveTask):
                 completed = self._on_move_task(task)
             elif isinstance(task, AttackTask):

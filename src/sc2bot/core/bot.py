@@ -1,7 +1,5 @@
 import random
-import sys
 from enum import Enum
-from time import perf_counter
 from typing import Optional
 
 from loguru import logger
@@ -10,128 +8,64 @@ from sc2.bot_ai import BotAI
 from sc2.constants import IS_STRUCTURE
 from sc2.game_data import Cost
 from sc2.ids.unit_typeid import UnitTypeId
-from sc2.position import Point2, Point3
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 from sc2.ids.ability_id import AbilityId
 
 from sc2bot.core.commander import Commander
+from sc2bot.core.debug import Debug
 from sc2bot.core.history import History
+from sc2bot.core.map import MapKnowledge
 
 
 class BotBase(BotAI):
     name: str
     seed: int
     logger: Logger
-    debug_messages: list[str]
+    debug: Debug
     commander: dict[str, Commander]
     history: History
+    map: Optional[MapKnowledge]
 
     def __init__(self, name: str, *, seed: int = 0) -> None:
         super().__init__()
         self.name = name
         self.seed = seed
         random.seed(seed)
-        self.debug_messages = []
-        self.logger = logger.bind(bot=name, prefix='Bot', frame=0, time=0)
+        self.debug = Debug(self)
+        #self.logger = self.debug.logger
         self.history = History(self)
-
-        def ingame_logging(message):
-            if not hasattr(self, 'client'):
-                return
-            formatted = message.record['extra'].get('formatted', message)
-            self.debug_messages.append(formatted)
-
-        self.logger.add(
-            sys.stderr,
-            level="TRACE",
-            filter=lambda record: record['extra'].get('bot') == name,
-            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
-        )
-        self.logger.add(
-            ingame_logging,
-            level="DEBUG",
-            filter=lambda record: record['extra'].get('bot') == name,
-            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
-        )
         self.commander = {}
         self.logger.debug("Initialized {}", self)
+        self.map = None
 
     def __repr__(self) -> str:
         return f"{self.name}(seed={self.seed})"
 
+    @property
+    def logger(self) -> Logger:
+        return self.debug.logger
+
     async def on_start(self) -> None:
         self.client.game_step = 1
+        self.map = await self.analyze_map()
+        self.load_strategy()
 
-    async def on_step(self, iteration: int):
-        self.logger = self.logger.bind(frame=iteration, time=self.time)
+    def load_strategy(self) -> None:
+        pass
 
-        self.history.on_step(iteration)
-        await self.update_commanders(iteration)
-        self.show_debug_info()
+    async def on_step(self, step: int):
+        #if step == 20:
+        #    self.map = await self.analyze_map()
+        #    self.load_strategy()
 
-    # --- Debug
+        self.debug.on_step_start(step)
 
-    def debug_text_screen(self,
-                          lines: list[str] | str,
-                          *,
-                          position: tuple[float, float] = (0.005, 0.01),
-                          size: int = 16, color: tuple[int, int, int] = (255, 255, 0),
-                          max_lines: int = 10):
-        y = position[1]
-        if isinstance(lines, str):
-            lines = [lines]
-        for line in lines[-max_lines:]:
-            self.client.debug_text_screen(line, (position[0], y), size=size, color=color)
-            y += size / 1000
+        self.history.on_step(step)
+        await self.update_commanders(step)
 
-    def debug_text_world(self,
-                         lines: list[str] | str,
-                         position: Unit | Point3,
-                         *,
-                         size: int = 16, color: tuple[int, int, int] = (0, 255, 0),
-                         max_lines: int = 10):
-        if isinstance(position, Unit):
-            position = position.position3d
-        offset = 0.0
-        if isinstance(lines, str):
-            lines = [lines]
-        for line in lines[-max_lines:]:
-            line_position = position + Point3((0, offset, 0))
-            self.client.debug_text_world(line, line_position, size=size, color=color)
-            offset += size / 1000
-
-    def show_debug_info(self):
-        self.debug_text_screen(self.debug_messages)
-        info = []
-        for commander in self.commander.values():
-            info.append(repr(commander))
-            for task in commander.tasks:
-                info.append("   "+ repr(task))
-        self.debug_text_screen(info, position=(0.005, 0.4))
-
-        mineral_rate, vespene_rate = self.history.get_resource_rates()
-        self.debug_text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.05))
-
-        mineral_rate, vespene_rate = self.estimate_resource_collection_rates()
-        self.debug_text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.08))
-
-        min_step, avg_step, max_step, last_step = self.step_time
-        if last_step <= 10:
-            color = (0, 255, 0)
-        elif last_step <= 40:
-            color = (255, 255, 0)
-        else:
-            color = (255, 0, 0)
-        self.debug_text_screen(f"step time (ms): {last_step:.3f} (avg={avg_step:.3f}, min={min_step:.3f}"
-                               f", max={max_step:.3f})", position=(0.73, 0.7), color=color)
-
-        for commander in self.commander.values():
-            for tag, order in commander.orders.items():
-                unit = (self.units + self.structures).find_by_tag(tag)
-                if unit is None:
-                    continue
-                self.debug_text_world(str(order), unit)
+        self.debug.on_step_end(step)
 
     # --- Commanders
 
@@ -189,33 +123,6 @@ class BotBase(BotAI):
     def get_enemy_base_location(self) -> Point2:
         return self.enemy_start_locations[0]
 
-    def get_expansion_location(self, n: int) -> Point2:
-        base = self.get_base_location()
-        if n == 0:
-            return base
-        expansions = self.get_sorted_expansion_locations(base)
-        if n > len(expansions):
-            raise ValueError(f"expansion {n}")
-        return expansions[n - 1]
-
-    def get_enemy_expansion_location(self, n: int) -> Point2:
-        base = self.get_enemy_base_location()
-        if n == 0:
-            return base
-        expansions = self.get_sorted_expansion_locations(base)
-        if n > len(expansions):
-            raise ValueError(f"expansion {n}")
-        return expansions[n - 1]
-
-    def get_sorted_expansion_locations(self, reference: Point2) -> list[Point2]:
-        return list(sorted(
-            self.expansion_locations_list, key=lambda e: e.distance_to(reference)
-        ))
-
-    def get_proxy_location(self) -> Point2:
-        #return self.game_info.map_center.towards(self.get_enemy_base_location(), 25)
-        return self.get_enemy_expansion_location(3)
-
     def get_scv_build_target(self, scv: Unit) -> Optional[Unit]:
         """Return the building unit that this SCV is constructing, or None."""
         if not scv.is_constructing_scv:
@@ -240,13 +147,19 @@ class BotBase(BotAI):
             return 0.0
         return self.get_cost(building.type_id).time * (1 - building.build_progress)
 
-    async def get_travel_distances(self, units: Units, destination: Point2) -> list[float]:
-        flying_units = units.flying
-        if flying_units:
-            raise NotImplementedError
-        ground_units = units.not_flying
-        query = [[unit.position, destination] for unit in ground_units]
+    async def get_travel_distances(self, start: Units | list[Point2], destination: Point2) -> list[float]:
+        if isinstance(start, Units):
+            flying_units = start.flying
+            if flying_units:
+                raise NotImplementedError
+            ground_units = start.not_flying
+            query = [[unit, destination] for unit in ground_units]
+        else:
+            query = [[position, destination] for position in start]
+        #self.logger.warning("query={}", query)
         distances = await self.client.query_pathings(query)
+        #self.logger.warning("distances={}", distances)
+
         #distances = [d if d >= 0 else None for d in distances]
         return distances
 
@@ -272,13 +185,19 @@ class BotBase(BotAI):
 
     async def get_building_location(self, utype: UnitTypeId, *,
                                     near: Optional[Point2] = None,
-                                    max_distance: int = 10) -> Optional[Point2]:
+                                    max_distance: int = 10) -> Optional[Point2 | Unit]:
         match utype:
+            case UnitTypeId.REFINERY:
+                geysers = self.vespene_geyser.closer_than(10.0, self.get_base_location())
+                if geysers:
+                    return geysers.random
+
             case UnitTypeId.SUPPLYDEPOT:
                 positions = [p for p in self.main_base_ramp.corner_depots if await self.can_place_single(utype, p)]
                 if positions:
                     return self.get_base_location().closest(positions)
                 return await self.find_placement(utype, near=self.get_base_location())
+
             case UnitTypeId.BARRACKS:
                 if near is None:
                     position = self.main_base_ramp.barracks_correct_placement
@@ -348,3 +267,23 @@ class BotBase(BotAI):
         self.logger.trace("Building {} construction started", unit)
         # TODO fix
         self.commander['ProxyMarine'].take_control(unit)
+
+    async def analyze_map(self) -> MapKnowledge:
+        # TODO: fix
+
+        base = self.start_location
+        #distances = await self.get_travel_distances(self.expansion_locations_list[:4], base)
+        distances = [base.distance_to(exp) for exp in self.expansion_locations_list]
+        expansions = [(exp, dist) for dist, exp in sorted(zip(distances, self.expansion_locations_list))]
+
+        enemy_base = self.enemy_start_locations[0]
+        #distances = await self.get_travel_distances(self.expansion_locations_list, enemy_base)
+        distances = [enemy_base.distance_to(exp) for exp in self.expansion_locations_list]
+        enemy_expansions = [(exp, dist) for dist, exp in sorted(zip(distances, self.expansion_locations_list))]
+
+        return MapKnowledge(
+            base=base,
+            enemy_base=enemy_base,
+            expansions=expansions,
+            enemy_expansions=enemy_expansions
+        )
