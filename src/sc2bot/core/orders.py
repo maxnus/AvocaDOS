@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
@@ -16,7 +17,7 @@ class Order(ABC):
 @dataclass
 class BuildOrder(Order):
     utype: UnitTypeId
-    position: Point2
+    position: Point2 | Unit
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name}, {self.position})"
@@ -28,6 +29,14 @@ class TrainOrder(Order):
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name})"
+
+
+@dataclass
+class ResearchOrder(Order):
+    upgrade: UpgradeId
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.upgrade.name})"
 
 
 @dataclass

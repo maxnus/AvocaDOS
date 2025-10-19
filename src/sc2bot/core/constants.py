@@ -22,8 +22,14 @@ TRAINERS: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
     UnitTypeId.BATTLECRUISER: UnitTypeId.STARPORT,
     # Addons
     # TODO
-    UnitTypeId.TECHLAB: UnitTypeId.BARRACKS,
-    UnitTypeId.REACTOR: UnitTypeId.BARRACKS,
+    UnitTypeId.TECHLAB: (UnitTypeId.BARRACKS, UnitTypeId.FACTORY, UnitTypeId.STARPORT),
+    UnitTypeId.REACTOR: (UnitTypeId.BARRACKS, UnitTypeId.FACTORY, UnitTypeId.STARPORT),
+    UnitTypeId.BARRACKSTECHLAB: UnitTypeId.BARRACKS,
+    UnitTypeId.BARRACKSREACTOR: UnitTypeId.BARRACKS,
+    UnitTypeId.FACTORYTECHLAB: UnitTypeId.FACTORY,
+    UnitTypeId.FACTORYREACTOR: UnitTypeId.FACTORY,
+    UnitTypeId.STARPORTTECHLAB: UnitTypeId.STARPORT,
+    UnitTypeId.STARPORTREACTOR: UnitTypeId.STARPORT,
 
     # -- Constructed by SCV
     UnitTypeId.SUPPLYDEPOT: UnitTypeId.SCV,
@@ -34,11 +40,11 @@ TRAINERS: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
 
 
 RESEARCHERS: dict[UpgradeId, UnitTypeId] = {
-    # Tech Lab
-    UpgradeId.STIMPACK: UnitTypeId.TECHLAB,
-    UpgradeId.COMBATSHIELD: UnitTypeId.TECHLAB,
-    UpgradeId.PUNISHERGRENADES: UnitTypeId.TECHLAB,
-    # Engineeringbay
+    # Barracks Tech Lab
+    UpgradeId.STIMPACK: UnitTypeId.BARRACKSTECHLAB,
+    UpgradeId.COMBATSHIELD: UnitTypeId.BARRACKSTECHLAB,
+    UpgradeId.PUNISHERGRENADES: UnitTypeId.BARRACKSTECHLAB,
+    # Engineering Bay
     UpgradeId.TERRANINFANTRYWEAPONSLEVEL1: UnitTypeId.ENGINEERINGBAY,
     UpgradeId.TERRANINFANTRYWEAPONSLEVEL2: UnitTypeId.ENGINEERINGBAY,
     UpgradeId.TERRANINFANTRYWEAPONSLEVEL3: UnitTypeId.ENGINEERINGBAY,
