@@ -11,6 +11,8 @@ from sc2bot.core.tasks import UnitCountTask, UnitPendingTask, TaskStatus, Attack
 class ByzBot(BotBase):
 
     async def on_start(self) -> None:
+        await super().on_start()
+
         cmd = self.add_commander('ProxyMarine')
 
         # Always produce SCV

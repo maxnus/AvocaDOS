@@ -11,8 +11,6 @@ from sc2bot.bots.byzbot import ByzBot
 if __name__ == "__main__":
     sc2map = maps.get("AcropolisLE")
     bot = ByzBot('ByzBot')
+    players = [Bot(Race.Terran, bot), Computer(Race.Protoss, Difficulty.VeryHard)]
 
-    run_game(sc2map, [
-        Bot(Race.Terran, bot),
-        Computer(Race.Protoss, Difficulty.VeryHard)
-    ], realtime='--realtime' in sys.argv)
+    run_game(sc2map, players=players, realtime='--realtime' in sys.argv)

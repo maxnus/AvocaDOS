@@ -372,22 +372,23 @@ class Commander:
 
     # --- Callbacks
 
-    async def on_step(self, iteration: int):
+    async def on_step(self, step: int):
 
         if (number_dead := self.remove_dead_tags()) != 0:
             self.logger.debug("{} units died", number_dead)
-
-        self.clear_orders()
 
         if not self.tasks:
             self.tasks.add(UnitPendingTask(UnitTypeId.MARINE))
             self.tasks.add(AttackTask(self.bot.get_enemy_base_location()))
 
-        await self._work_on_tasks()
-        await self.tasks.update_tasks(iteration)
-        await self._micro(iteration)
+        if step % 4 == 0:
+            await self._work_on_tasks(step)
+            await self.tasks.update_tasks(step)
 
-    async def _work_on_tasks(self) -> None:
+        await self._micro(step)
+
+    async def _work_on_tasks(self, step: int) -> None:
+        self.clear_orders()
         for task in self.tasks:
             if isinstance(task, UnitCountTask):
                 completed = await self._on_unit_count_task(task)

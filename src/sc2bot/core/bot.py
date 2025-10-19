@@ -46,19 +46,22 @@ class BotBase(BotAI):
             sys.stderr,
             level="TRACE",
             filter=lambda record: record['extra'].get('bot') == name,
-            format="[{extra[frame]}:{extra[time]:.3f}[{extra[prefix]}] {message}"
+            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         )
         self.logger.add(
             ingame_logging,
             level="DEBUG",
             filter=lambda record: record['extra'].get('bot') == name,
-            format="[{extra[frame]}:{extra[time]:.3f}][{extra[prefix]}] {message}"
+            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         )
         self.commander = {}
         self.logger.debug("Initialized {}", self)
 
     def __repr__(self) -> str:
         return f"{self.name}(seed={self.seed})"
+
+    async def on_start(self) -> None:
+        self.client.game_step = 1
 
     async def on_step(self, iteration: int):
         self.logger = self.logger.bind(frame=iteration, time=self.time)
@@ -121,7 +124,7 @@ class BotBase(BotAI):
         else:
             color = (255, 0, 0)
         self.debug_text_screen(f"step time (ms): {last_step:.3f} (avg={avg_step:.3f}, min={min_step:.3f}"
-                               f", max={max_step:.3f})", position=(0.75, 0.7), color=color)
+                               f", max={max_step:.3f})", position=(0.73, 0.7), color=color)
 
         for commander in self.commander.values():
             for tag, order in commander.orders.items():
@@ -296,8 +299,7 @@ class BotBase(BotAI):
 
     def estimate_resource_collection_rates(self, *,
                                            excluded_workers: Optional[Unit | Units] = None,
-                                           worker_mineral_rate: float = 0.92) -> tuple[float, float]:
-        """0.7 / 22.4 = 0.03125"""
+                                           worker_mineral_rate: float = 1.0) -> tuple[float, float]:
         # TODO only correctly placed townhalls
         mineral_workers = 0
         for townhall in self.townhalls:
