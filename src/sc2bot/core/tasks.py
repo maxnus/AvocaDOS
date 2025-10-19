@@ -20,11 +20,11 @@ class TaskStatus(Enum):
     FAILED = 3
 
 
-id_counter = itertools.count()
+_task_id_counter = itertools.count()
 
 
-def get_next_id() -> int:
-    return next(id_counter)
+def _get_next_id() -> int:
+    return next(_task_id_counter)
 
 
 class Task(ABC):
@@ -41,12 +41,12 @@ class Task(ABC):
                  started: Optional[int] = None,
                  finished: Optional[int] = None,
                  timeout: Optional[int] = None):
-        self.id = get_next_id()
+        self.id = _get_next_id()
         if deps is None:
             deps = {}
-        if isinstance(deps, int):
-            self.deps = {deps: TaskStatus.COMPLETED}
-        if isinstance(deps, TaskStatus):
+        elif isinstance(deps, int):
+            deps = {deps: TaskStatus.COMPLETED}
+        elif isinstance(deps, TaskStatus):
             deps = {self.id - 1: deps} if self.id > 0 else {}
         self.deps = deps
         self.status = status
@@ -70,6 +70,27 @@ class Task(ABC):
                 self.deps[x] = TaskStatus.COMPLETED
 
 
+class BuildTask(Task):
+    utype: UnitTypeId
+    position: Point2
+    max_distance: float
+
+    def __init__(self,
+                 utype: UnitTypeId,
+                 *,
+                 deps: dict[int, TaskStatus] | TaskStatus | int | None = TaskStatus.COMPLETED,
+                 position: Optional[Point2] = None,
+                 max_distance: Optional[float] = 10,
+                 ) -> None:
+        super().__init__(deps=deps)
+        self.utype = utype
+        self.position = position
+        self.max_distance = max_distance
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(utype={self.utype.name}, position={self.position})"
+
+
 class UnitCountTask(Task):
     utype: UnitTypeId
     number: int
@@ -77,7 +98,7 @@ class UnitCountTask(Task):
     max_distance: int
 
     def __init__(self,
-                 type_id: UnitTypeId,
+                 utype: UnitTypeId,
                  number: int = 1,
                  *,
                  deps: dict[int, TaskStatus] | TaskStatus | int | None = TaskStatus.COMPLETED,
@@ -85,7 +106,7 @@ class UnitCountTask(Task):
                  distance: Optional[int] = 10,
                  ) -> None:
         super().__init__(deps=deps)
-        self.utype = type_id
+        self.utype = utype
         self.number = number
         self.position = position
         self.max_distance = distance
@@ -100,14 +121,14 @@ class UnitPendingTask(Task):
     distance: float
 
     def __init__(self,
-                 type_id: UnitTypeId,
+                 utype: UnitTypeId,
                  *,
                  deps: dict[int, TaskStatus] | TaskStatus | int | None = TaskStatus.COMPLETED,
                  position: Optional[Point2] = None,
                  distance: Optional[float] = 3.0,
                  ) -> None:
         super().__init__(deps=deps)
-        self.utype = type_id
+        self.utype = utype
         self.position = position
         self.distance = distance
 

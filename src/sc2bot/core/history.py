@@ -13,16 +13,17 @@ class History:
         self.resources = []
         self.max_length = max_length
 
-    def on_step(self, frame: int) -> None:
+    def on_step(self, iteration: int) -> None:
         self.resources.append((self.bot.minerals, self.bot.vespene))
         if len(self.resources) > self.max_length:
             self.resources.pop(0)
 
     def get_resource_rates(self, frames: int = 20) -> tuple[float, float]:
+        """Per ingame second (22.4 frames)"""
         if len(self.resources) < frames + 1:
             return 0, 0
-        mineral_rate = (self.resources[-1][0] - self.resources[-frames-1][0]) / frames
-        vespene_rate = (self.resources[-1][1] - self.resources[-frames-1][1]) / frames
+        mineral_rate = 22.4 * (self.resources[-1][0] - self.resources[-frames-1][0]) / frames
+        vespene_rate = 22.4 * (self.resources[-1][1] - self.resources[-frames-1][1]) / frames
         return mineral_rate, vespene_rate
 
     def time_for_cost(self, cost: Cost) -> float:
