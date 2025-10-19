@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Optional, TYPE_CHECKING
 
 from loguru._logger import Logger
@@ -12,6 +13,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES
+from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder
 from sc2bot.core.task import Task, TaskManager, UnitCountTask, UnitPendingTask, TaskStatus, AttackTask, MoveTask
 
 if TYPE_CHECKING:
@@ -43,12 +45,19 @@ class RetreatCommand(Command):
     target: Point2
 
 
+#class UnitFlags(IntEnum):
+#    HAS_ORDER = 1
+
+
+
 class Commander:
     bot: 'BotBase'
     name: str
     tags: set[int]
     command: Command
     tasks: TaskManager
+    #flags: dict[int, UnitFlags]
+    orders: dict[int, Optional[Order]]
 
     def __init__(self, bot: 'BotBase', name: str,
                  tags: Optional[set[int]] = None,
@@ -59,6 +68,8 @@ class Commander:
         self.tags = tags or set()
         self.command = IdleCommand()
         self.tasks = TaskManager(self, tasks)
+        #self.flags = {}
+        self.orders = {}
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
@@ -128,6 +139,11 @@ class Commander:
         tags = units.tags if isinstance(units, Units) else {units.tag}
         self.logger.trace("Taking control of {} / {}", units, tags)
         self.tags.update(tags)
+
+    def has_control(self, units: Unit | Units) -> bool:
+        if isinstance(units, Unit):
+            return units.tag in self.tags
+        return all(u.tag in self.tags for u in units)
 
     def surrender_control(self, units: Units, *, to: Optional['Commander'] = None) -> None:
         size_before = len(self.tags)
@@ -201,10 +217,58 @@ class Commander:
             return trainers.random
         return trainers.closest_to(position)
 
+    # Orders
+
+    def order_move(self, unit: Unit, target: Point2) -> None:
+        if self.has_control(unit):
+            unit.move(target)
+            self.orders[unit.tag] = MoveOrder(target)
+        else:
+            self.logger.error("{} does not control {}", self, unit)
+
+    def order_attack(self, unit: Unit, target: Point2) -> None:
+        if self.has_control(unit):
+            unit.attack(target)
+            self.orders[unit.tag] = AttackOrder(target)
+        else:
+            self.logger.error("{} does not control {}", self, unit)
+
+    def order_gather(self, unit: Unit, target: Unit) -> None:
+        if self.has_control(unit):
+            unit.gather(target)
+            self.orders[unit.tag] = GatherOrder(target)
+        else:
+            self.logger.error("{} does not control {}", self, unit)
+
+    def order_build(self, unit: Unit, utype: UnitTypeId, position: Point2) -> None:
+        if self.has_control(unit):
+            unit.build(utype)
+            self.orders[unit.tag] = BuildOrder(utype, position)
+        else:
+            self.logger.error("{} does not control {}", self, unit)
+
+    def order_train(self, unit: Unit, utype: UnitTypeId) -> None:
+        if self.has_control(unit):
+            unit.train(utype)
+            self.orders[unit.tag] = TrainOrder(utype)
+        else:
+            self.logger.error("{} does not control {}", self, unit)
+
+    def get_order(self, unit: Unit) -> Optional[Order]:
+        return self.orders.get(unit.tag)
+
+    def has_order(self, unit: Unit) -> bool:
+        return unit.tag in self.orders
+
+    def clear_orders(self) -> None:
+        self.orders.clear()
+
     async def get_free_worker(self, position: Point2, *, include_constructing: bool = False) -> Optional[Unit]:
-        workers = self.workers.idle + self.workers.collecting
+        #workers = self.workers.idle + self.workers.collecting
+        workers = self.workers.idle + self.workers.collecting + self.workers.filter(lambda x: x.is_moving)
         if include_constructing:
             workers += self.workers.filter(lambda unit: unit.is_constructing_scv)
+        workers = workers.filter(lambda w: not self.has_order(w))
         if not workers:
             return None
         # Prefilter for performance
@@ -250,9 +314,16 @@ class Commander:
                     worker.build(task.utype, position)
                 else:
                     resource_time = self.bot.history.time_for_cost(self.bot.get_cost(task.utype))
-                    travel_time = await self.bot.get_travel_time(worker, position)
-                    if travel_time >= resource_time:
-                        worker.move(position)
+                    # Avoid pathing calculation for trivial cases:
+                    if resource_time < 2:
+                        travel_time = -1
+                    elif resource_time > 30:
+                        travel_time = float('inf')
+                    else:
+                        travel_time = await self.bot.get_travel_time(worker, position)
+                    self.logger.trace("{}: resource_time={}, travel_time={}", task, resource_time, travel_time)
+                    if travel_time <= resource_time:
+                        self.order_move(worker, position)
         else:
             for _ in range(to_build):
                 if not self.bot.can_afford(task.utype):
@@ -260,7 +331,7 @@ class Commander:
                     break
                 trainer = await self.get_best_training_unit(task.utype)
                 if trainer is not None:
-                    trainer.train(task.utype)
+                    self.order_train(trainer, task.utype)
                 #else:
                 #    self.logger.trace('No trainer for {}', task)
         return False
@@ -282,7 +353,7 @@ class Commander:
                 return False
             else:
                 self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                worker.build(task.utype, position)
+                self.order_build(worker, task.utype, position)
                 return True
         else:
             trainer = await self.get_best_training_unit(task.utype)
@@ -290,7 +361,7 @@ class Commander:
                 self.logger.trace('No trainer for {}', task)
                 return False
             else:
-                trainer.train(task.utype)
+                self.order_train(trainer, task.utype)
                 return True
 
     def on_move_task(self, task: MoveTask) -> bool:
@@ -302,13 +373,13 @@ class Commander:
             units = sum((self.units(utype).closest_n_units(task.target, number) for utype, number in task.units.items()),
                         start=[])
         for unit in units:
-            unit.attack(task.target)
+            self.order_move(unit, task.target)
         return True
 
     def on_attack_task(self, task: AttackTask) -> bool:
         # TODO: fix
         for marine in self.units(UnitTypeId.MARINE):
-            marine.attack(task.target)
+            self.order_attack(marine, task.target)
         return True
 
     async def work_on_tasks(self) -> None:
@@ -332,6 +403,8 @@ class Commander:
         if (number_dead := self.remove_dead_tags()) != 0:
             self.logger.debug("{} units died", number_dead)
 
+        self.clear_orders()
+
         if not self.tasks:
             self.tasks.add(UnitPendingTask(UnitTypeId.MARINE))
             self.tasks.add(AttackTask(self.bot.get_enemy_base_location()))
@@ -349,3 +422,9 @@ class Commander:
                 if orbital.energy >= 50:
                     mineral_field = self.bot.mineral_field.in_distance_between(orbital.position, 0, 8).random
                     orbital(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field)
+
+        if iteration % 10 == 0:
+            minerals = self.bot.mineral_field.filter(
+                lambda x:  any(x.distance_to(base) <= 8 for base in self.townhalls.ready))
+            for worker in self.workers.idle.filter(lambda w: not self.has_order(w)):
+                self.order_gather(worker, minerals.closest_to(worker))

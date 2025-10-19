@@ -1,4 +1,3 @@
-from collections import deque
 
 from sc2.bot_ai import BotAI
 from sc2.game_data import Cost
@@ -6,39 +5,37 @@ from sc2.game_data import Cost
 
 class History:
     bot: BotAI
-    minerals: deque[int]
-    vespene: deque[int]
+    resources: list[tuple[int, int]]
+    max_length: int
 
-    def __init__(self, bot: BotAI, *, maxlen: int = 100) -> None:
+    def __init__(self, bot: BotAI, *, max_length: int = 1000) -> None:
         self.bot = bot
-        self.minerals = deque(maxlen=maxlen)
-        self.vespene = deque(maxlen=maxlen)
+        self.resources = []
+        self.max_length = max_length
 
     def on_step(self, frame: int) -> None:
-        self.minerals.append(self.bot.minerals)
-        self.vespene.append(self.bot.vespene)
+        self.resources.append((self.bot.minerals, self.bot.vespene))
+        if len(self.resources) > self.max_length:
+            self.resources.pop(0)
 
-    def get_mineral_rate(self, frames: int = 10) -> float:
-        minerals = list(self.minerals)[-frames:]
-        return sum(minerals) / len(minerals)
-
-    def get_vespene_rate(self, frames: int = 10) -> float:
-        vespene = list(self.vespene)[-frames:]
-        return sum(vespene) / len(vespene)
+    def get_resource_rates(self, frames: int = 20) -> tuple[float, float]:
+        if len(self.resources) < frames + 1:
+            return 0, 0
+        mineral_rate = (self.resources[-1][0] - self.resources[-frames-1][0]) / frames
+        vespene_rate = (self.resources[-1][1] - self.resources[-frames-1][1]) / frames
+        return mineral_rate, vespene_rate
 
     def time_for_cost(self, cost: Cost) -> float:
         if self.bot.minerals >= cost.minerals and self.bot.vespene >= cost.vespene:
             return 0
-
+        mineral_rate, vespene_rate = self.get_resource_rates()
         time = 0
         if cost.minerals > 0:
-            rate = self.get_mineral_rate()
-            if rate == 0:
+            if mineral_rate == 0:
                 return float('inf')
-            time = max((cost.minerals - self.bot.minerals) / rate, time)
+            time = max((cost.minerals - self.bot.minerals) / mineral_rate, time)
         if cost.vespene > 0:
-            rate = self.get_vespene_rate()
-            if rate == 0:
+            if vespene_rate == 0:
                 return float('inf')
-            time = max((cost.vespene - self.bot.vespene) / rate, time)
+            time = max((cost.vespene - self.bot.vespene) / vespene_rate, time)
         return time

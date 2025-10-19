@@ -8,7 +8,7 @@ from sc2bot.core.task import UnitCountTask, UnitPendingTask, TaskStatus, AttackT
 class ByzBot(BotBase):
 
     async def on_start(self) -> None:
-        cmd = self.add_commander('proxy_marine')
+        cmd = self.add_commander('ProxyMarine')
 
         # Always produce SCV
         cmd.tasks.add(UnitCountTask(UnitTypeId.SCV, 19))
@@ -44,12 +44,5 @@ class ByzBot(BotBase):
             self.commander['proxy_marine'].take_control(self.units | self.structures)
         await super().on_step(iteration)
 
-    async def on_unit_created(self, unit: Unit) -> None:
-        self.logger.trace("Unit {} created", unit)
-        self.commander['proxy_marine'].take_control(unit)
-
-    async def on_building_construction_started(self, unit: Unit) -> None:
-        self.logger.trace("Building {} construction started", unit)
-        self.commander['proxy_marine'].take_control(unit)
 
     #async def on_building_construction_started(self, unit: Unit) -> None:

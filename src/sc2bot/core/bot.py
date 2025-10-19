@@ -65,19 +65,21 @@ class BotBase(BotAI):
         self.history.on_step(iteration)
 
         await self.update_commanders(iteration)
-        await self.update_workers()
+        #await self.update_workers()
 
         self.show_debug_info()
 
     # --- Debug
 
     def show_debug_text(self,
-                        lines: list[str],
+                        lines: list[str] | str,
                         *,
                         position: tuple[float, float] = (0.005, 0.01),
                         size: int = 16, color: tuple[int, int, int] = (255, 255, 0),
                         max_lines: int = 10):
         y = position[1]
+        if isinstance(lines, str):
+            lines = [lines]
         for line in lines[-max_lines:]:
             self.client.debug_text_screen(line, (position[0], y), size=size, color=color)
             y += size / 1000
@@ -91,6 +93,9 @@ class BotBase(BotAI):
                 info.append("   "+ repr(task))
         self.show_debug_text(info, position=(0.005, 0.4))
 
+        mineral_rate, vespene_rate = self.history.get_resource_rates()
+        self.show_debug_text(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.05))
+
     # --- Commanders
 
     def add_commander(self, name, **kwargs) -> Commander:
@@ -103,34 +108,13 @@ class BotBase(BotAI):
         for commander in self.commander.values():
             await commander.on_step(iteration)
 
+    def get_controlling_commander(self, unit: Unit) -> Optional[Commander]:
+        for commander in self.commander.values():
+            if unit.tag in commander.tags:
+                return commander
+        return None
+
     # --- Macro utility
-
-    async def update_workers(self) -> None:
-        #await self.distribute_workers()
-        #all_minerals_near_base = [
-        #    mineral
-        #    for mineral in self.mineral_field
-        #    if any(mineral.distance_to(base) <= 8 for base in self.townhalls.ready)
-        #]
-        all_minerals_near_base = self.mineral_field.filter(
-            lambda x:  any(x.distance_to(base) <= 8 for base in self.townhalls.ready))
-        for worker in self.workers.idle:
-            worker.gather(all_minerals_near_base.closest_to(worker))
-
-    async def build_workers(self) -> int:
-        workers = self.workers.amount
-        if workers >= 80:
-            return 0
-        ccs = self.townhalls(UnitTypeId.COMMANDCENTER)
-        if workers >= len(ccs) * 20:
-            return 0
-        queued = 0
-        for cc in self.townhalls(UnitTypeId.COMMANDCENTER).ready.idle:
-            if not self.can_afford(UnitTypeId.SCV):
-                break
-            cc.train(UnitTypeId.SCV)
-            queued += 1
-        return queued
 
     async def expand(self) -> int:
         if not self.can_afford(UnitTypeId.COMMANDCENTER):
@@ -240,15 +224,12 @@ class BotBase(BotAI):
                 self.logger.error("Not implemented: {}", utype)
                 return None
 
-    async def train_unit_at(self, structure: UnitTypeId, unit: UnitTypeId, max_number: Optional[int] = None) -> int:
-        number = 0
-        for rax in self.structures(structure).ready.idle:
-            if not self.can_afford(unit) or (max_number and number >= max_number):
-                break
-            rax.train(unit)
-            number += 1
-        return number
+    async def on_unit_created(self, unit: Unit) -> None:
+        self.logger.trace("Unit {} created", unit)
+        # TODO fix
+        self.commander['proxy_marine'].take_control(unit)
 
-    # async def on_unit_created(self, unit: Unit) -> None:
-    #     if unit.type_id == UnitTypeId.MARINE:
-    #         self.commander['proxy'].add_units(unit)
+    async def on_building_construction_started(self, unit: Unit) -> None:
+        self.logger.trace("Building {} construction started", unit)
+        # TODO fix
+        self.commander['proxy_marine'].take_control(unit)
