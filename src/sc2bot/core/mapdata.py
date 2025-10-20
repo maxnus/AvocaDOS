@@ -25,7 +25,7 @@ class MapData:
 
         center = bot.game_info.map_center
         base_townhall = bot.start_location
-        base_center = base_townhall.towards(center, 6)
+        base_center = base_townhall.towards(center, 8)
         #distances = await bot.get_travel_distances(bot.expansion_locations_list[:4], base)
         distances = [base_townhall.distance_to(exp) for exp in bot.expansion_locations_list]
         expansions = [(exp, dist) for dist, exp in sorted(zip(distances, bot.expansion_locations_list))]

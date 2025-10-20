@@ -13,7 +13,9 @@ async def get_building_location(bot: 'BotBase', utype: UnitTypeId, *,
                                 max_distance: int = 10) -> Optional[Point2 | Unit]:
     match utype:
         case UnitTypeId.REFINERY:
-            geysers = bot.vespene_geyser.closer_than(10.0, bot.map.base_townhall)
+            if near is None:
+                near = bot.map.base_townhall
+            geysers = bot.vespene_geyser.closer_than(10.0, near)
             if geysers:
                 return geysers.random
 
@@ -21,6 +23,8 @@ async def get_building_location(bot: 'BotBase', utype: UnitTypeId, *,
             positions = [p for p in bot.main_base_ramp.corner_depots if await bot.can_place_single(utype, p)]
             if positions:
                 return bot.map.base_center.closest(positions)
+            if await bot.can_place_single(utype, bot.main_base_ramp.depot_in_middle):
+                return bot.main_base_ramp.depot_in_middle
             return await bot.find_placement(utype, near=bot.map.base_center)
 
         case UnitTypeId.BARRACKS:

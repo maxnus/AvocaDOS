@@ -1,5 +1,7 @@
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
 from loguru._logger import Logger
@@ -16,7 +18,7 @@ from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder
 from sc2bot.core.resources import Resources
 from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, TaskStatus, AttackTask, MoveTask, \
-    BuildTask, ResearchTask
+    BuildTask, ResearchTask, HandoverUnitsTask
 
 if TYPE_CHECKING:
     from sc2bot.core.bot import BotBase
@@ -140,10 +142,15 @@ class Commander:
             self.logger.trace("Removed {} dead tags", number_dead)
         return number_dead
 
-    def take_control(self, units: Units | Unit) -> None:
+    def add_units(self, units: Units | Unit) -> None:
         tags = units.tags if isinstance(units, Units) else {units.tag}
-        self.logger.trace("Taking control of {} / {}", units, tags)
+        self.logger.trace("Adding {}", units)
         self.tags.update(tags)
+
+    def remove_units(self, units: int | Iterable[int]) -> None:
+        units = units if isinstance(units, Units) else {units}
+        self.logger.trace("Removing {}", units)
+        self.tags.difference_update(units)
 
     def has_control(self, units: Unit | Units) -> bool:
         if isinstance(units, Unit):
@@ -330,6 +337,9 @@ class Commander:
 
     # --- Tasks
 
+    def add_task(self, task: Task) -> int:
+        return self.tasks.add(task)
+
     # def _on_build_task(self, task: BuildTask) -> bool:
     #     # Check if task is worked
     #     if True:
@@ -383,12 +393,11 @@ class Commander:
 
         else:
             for _ in range(to_build):
-                if  self.resources.can_afford(task.utype):
-                    trainer = self._get_trainer(task.utype)
-                    if trainer is not None:
-                        self.order_train(trainer, task.utype)
-                    else:
-                        self.logger.trace('No trainer for {}', task)
+                trainer = self._get_trainer(task.utype)
+                if trainer is None:
+                    break
+                if self.resources.can_afford(task.utype):
+                    self.order_train(trainer, task.utype)
                 else:
                     self.resources.reserve(task.utype)
         return False
@@ -427,19 +436,19 @@ class Commander:
             return True
         try:
             if self.bot.already_pending_upgrade(task.upgrade) > 0:
-                self.logger.trace("Upgrade {} already pending", task.upgrade)
+                #self.logger.trace("Upgrade {} already pending", task.upgrade)
                 return False
         except Exception as exc:
             self.logger.error("EXCEPTION {}", str(exc))
         if not self.resources.can_afford(task.upgrade):
-            self.logger.trace("Cannot afford {}", task.upgrade)
+            #self.logger.trace("Cannot afford {}", task.upgrade)
             return False
         researcher = self._get_researcher(task.upgrade)
         if researcher is not None:
             self.order_research(researcher, task.upgrade)
             self.logger.info("Starting {} at {}", task.upgrade.name, researcher)
-        else:
-            self.logger.trace("No researcher for {}", task.upgrade)
+        #else:
+        #    self.logger.trace("No researcher for {}", task.upgrade)
         return False
 
     def _on_move_task(self, task: MoveTask) -> bool:
@@ -461,12 +470,20 @@ class Commander:
         #return True
         return False
 
+    def _on_handover_units_task(self, task: HandoverUnitsTask) -> bool:
+        commander = self.bot.commander.get(task.commander)
+        if commander is None:
+            return False
+        units = self.units(task.utype)
+        self.surrender_control(units, to=commander)
+        return True
+
     # --- Callbacks
 
     async def on_step(self, step: int):
 
-        if (number_dead := self.remove_dead_tags()) != 0:
-            self.logger.debug("{} units died", number_dead)
+        # if (number_dead := self.remove_dead_tags()) != 0:
+        #     self.logger.debug("{} units died", number_dead)
 
         if step % 4 == 0:
             await self._work_on_tasks(step)
@@ -477,6 +494,7 @@ class Commander:
     async def _work_on_tasks(self, step: int) -> None:
         self.clear_orders()
         for task in self.tasks:
+            t0 = perf_counter()
             if isinstance(task, UnitCountTask):
                 completed = await self._on_unit_count_task(task)
             elif isinstance(task, UnitPendingTask):
@@ -487,25 +505,33 @@ class Commander:
                 completed = self._on_move_task(task)
             elif isinstance(task, AttackTask):
                 completed = self._on_attack_task(task)
+            elif isinstance(task, HandoverUnitsTask):
+                completed = self._on_handover_units_task(task)
             else:
                 completed = False
                 self.logger.warning("Not implemented: {}", task)
+            if (time_ms := 1000 * (perf_counter() - t0))  > 1:
+                self.logger.warning("{} took {:.3f} ms", task, time_ms)
             if completed:
                 task.mark_complete()
 
     async def _micro(self, iteration: int) -> None:
-        if iteration % 20 == 0:
+        if iteration % 8 == 0:
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
-                raise_ = False
-                unit(AbilityId.MORPH_SUPPLYDEPOT_RAISE if raise_ else AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+                raise_depot = self.bot.enemy_units.closer_than(2.5, unit)
+                unit(AbilityId.MORPH_SUPPLYDEPOT_RAISE if raise_depot else AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+
+        if iteration % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
                 if orbital.energy >= 50:
-                    mineral_field = self.bot.mineral_field.in_distance_between(orbital.position, 0, 8).random
-                    orbital(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field)
+                    mineral_field = self.bot.mineral_field.in_distance_between(orbital.position, 0, 8)
+                    if mineral_field:
+                        orbital(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field.random)
 
-        if iteration % 10 == 0:
+        if iteration % 8 == 0:
             minerals = self.bot.mineral_field.filter(
                 lambda x:  any(x.distance_to(base) <= 8 for base in self.townhalls.ready))
-            workers = self.workers.filter(lambda w: (w.is_idle or w.is_moving) and not self.has_order(w))
-            for worker in workers:
-                self.order_gather(worker, minerals.closest_to(worker))
+            if minerals:
+                workers = self.workers.filter(lambda w: (w.is_idle or w.is_moving) and not self.has_order(w))
+                for worker in workers:
+                    self.order_gather(worker, minerals.closest_to(worker))

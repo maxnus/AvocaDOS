@@ -1,8 +1,9 @@
+import copy
 import itertools
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from enum import Enum, StrEnum
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Self
 
 from loguru._logger import Logger
 from sc2.ids.unit_typeid import UnitTypeId
@@ -18,7 +19,6 @@ class TaskStatus(Enum):
     NOT_STARTED = 0
     STARTED = 1
     COMPLETED = 2
-    FAILED = 3
 
 
 class RequirementType(StrEnum):
@@ -43,20 +43,23 @@ class Task(ABC):
     id: int
     reqs: Requirements
     deps: Dependencies
-    status: TaskStatus
     priority: int
-    started: Optional[int]
-    finished: Optional[int]
-    timeout: Optional[int]
+    repeat: bool = False
+    status: TaskStatus
+    # started: Optional[int]
+    # finished: Optional[int]
+    # timeout: Optional[int]
 
     def __init__(self,
                  reqs: Optional[Requirements | UnitTypeId | UpgradeId] = None,
                  deps: Optional[Dependencies | TaskStatus | int] =  None,
                  priority: int = 50,
+                 repeat: bool = False,
                  status: TaskStatus = TaskStatus.NOT_STARTED,
-                 started: Optional[int] = None,
-                 finished: Optional[int] = None,
-                 timeout: Optional[int] = None):
+                 #started: Optional[int] = None,
+                 #finished: Optional[int] = None,
+                 #timeout: Optional[int] = None
+                 ) -> None:
         self.id = _get_next_id()
         self.reqs = self._normalize_reqs(reqs)
         if deps is None:
@@ -67,10 +70,11 @@ class Task(ABC):
             deps = {self.id - 1: deps} if self.id > 0 else {}
         self.deps = deps
         self.priority = priority
+        self.repeat = repeat
         self.status = status
-        self.started = started
-        self.finished = finished
-        self.timeout = timeout
+        # self.started = started
+        # self.finished = finished
+        # self.timeout = timeout
 
     @staticmethod
     def _normalize_reqs(reqs: Optional[Requirements | UnitTypeId | UpgradeId]) -> Requirements:
@@ -89,6 +93,11 @@ class Task(ABC):
     def mark_complete(self) -> None:
         self.status = TaskStatus.COMPLETED
 
+    def copy(self, status: Optional[TaskStatus] = None) -> Self:
+        copied_task = copy.copy(self)
+        copied_task.status = status or self.status
+        return copied_task
+
     # def add_deps(self, *, started: Optional[list[int]] = None, completed: Optional[list[int]]) -> None:
     #     if started:
     #         for x in started:
@@ -96,6 +105,30 @@ class Task(ABC):
     #     if completed:
     #         for x in completed:
     #             self.deps[x] = TaskStatus.COMPLETED
+
+
+class HandoverUnitsTask(Task):
+    utype: UnitTypeId
+    commander: str
+    number: Optional[int]
+
+    def __init__(self,
+                 utype: UnitTypeId,
+                 commander: str,
+                 number: Optional[int] = None,
+                 *,
+                 reqs: Optional[Requirements] = None,
+                 deps: Optional[Dependencies | TaskStatus | int] =  None,
+                 priority: int = 50,
+                 repeat: bool = False,
+                 ) -> None:
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        self.utype = utype
+        self.commander = commander
+        self.number = number
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(utype={self.utype.name}, commander={self.commander}, priority={self.priority})"
 
 
 class BuildTask(Task):
@@ -109,17 +142,17 @@ class BuildTask(Task):
                  reqs: Optional[Requirements] = None,
                  deps: Optional[Dependencies | TaskStatus | int] =  None,
                  priority: int = 50,
+                 repeat: bool = False,
                  position: Optional[Point2] = None,
                  max_distance: Optional[float] = 10,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
         self.position = position
         self.max_distance = max_distance
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(utype={self.utype.name}, position={self.position}, priority={self.priority})"
-
 
 
 class ResearchTask(Task):
@@ -133,10 +166,11 @@ class ResearchTask(Task):
                  reqs: Optional[Requirements] = None,
                  deps: Optional[Dependencies | TaskStatus | int] =  None,
                  priority: int = 50,
+                 repeat: bool = False,
                  position: Optional[Point2] = None,
                  max_distance: Optional[float] = 10,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.upgrade = upgrade
         self.position = position
         self.max_distance = max_distance
@@ -158,10 +192,11 @@ class UnitCountTask(Task):
                  reqs: Optional[Requirements] = None,
                  deps: Optional[Dependencies | TaskStatus | int] = None,
                  priority: int = 50,
+                 repeat: bool = False,
                  position: Optional[Point2] = None,
                  distance: Optional[int] = 10,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
         self.number = number
         self.position = position
@@ -182,10 +217,11 @@ class UnitPendingTask(Task):
                  reqs: Optional[Requirements] = None,
                  deps: Optional[Dependencies | TaskStatus | int] = None,
                  priority: int = 50,
+                 repeat: bool = False,
                  position: Optional[Point2] = None,
                  distance: Optional[float] = 3.0,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
         self.position = position
         self.distance = distance
@@ -205,8 +241,9 @@ class OrderTask(Task):
                  reqs: Optional[Requirements] = None,
                  deps: Optional[Dependencies | TaskStatus | int] = None,
                  priority: int = 50,
+                 repeat: bool = False,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         if isinstance(units, UnitTypeId):
             units = {units: 1}
         self.units = units
@@ -293,26 +330,15 @@ class TaskManager:
     async def update_tasks(self, iteration: int) -> None:
         for task in self.current.copy().values():
             if task.status == TaskStatus.COMPLETED:
-                task.finished = iteration
                 self.current.pop(task.id)
                 self.completed[task.id] = task
                 self.logger.debug("Completed {}", task)
+                if task.repeat:
+                    self.add(task.copy(status=TaskStatus.NOT_STARTED))
 
         for task in self.future.copy().values():
             if self._task_ready(task):
                 task = self.future.pop(task.id)
                 task.status = TaskStatus.STARTED
-                task.started = iteration
                 self.current[task.id] = task
                 self.logger.debug("Started {}", task)
-
-    # def _check_timeout(self, objective: Task, iteration: int) -> bool:
-    #     if objective.timeout is None:
-    #         return False
-    #     if objective.status != TaskStatus.IN_PROGRESS:
-    #         return False
-    #     if iteration < objective.started + objective.timeout:
-    #         return False
-    #     objective.status = TaskStatus.FAILED
-    #     self.logger.debug("Objective {} timed out", objective)
-    #     return True

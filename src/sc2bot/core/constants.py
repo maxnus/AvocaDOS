@@ -42,7 +42,6 @@ TRAINERS: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
 RESEARCHERS: dict[UpgradeId, UnitTypeId] = {
     # Barracks Tech Lab
     UpgradeId.STIMPACK: UnitTypeId.BARRACKSTECHLAB,
-    #UpgradeId.COMBATSHIELD: UnitTypeId.BARRACKSTECHLAB,
     UpgradeId.SHIELDWALL: UnitTypeId.BARRACKSTECHLAB,   # Combat Shields
     UpgradeId.PUNISHERGRENADES: UnitTypeId.BARRACKSTECHLAB, # Marauder Slow
     # Engineering Bay

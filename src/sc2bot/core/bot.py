@@ -80,9 +80,10 @@ class BotBase(BotAI):
         for commander in self.commander.values():
             await commander.on_step(iteration)
 
-    def get_controlling_commander(self, unit: Unit) -> Optional[Commander]:
+    def get_controlling_commander(self, unit: Unit | int) -> Optional[Commander]:
+        tag = unit.tag if isinstance(unit, Unit) else unit
         for commander in self.commander.values():
-            if unit.tag in commander.tags:
+            if tag in commander.tags:
                 return commander
         return None
 
@@ -174,7 +175,9 @@ class BotBase(BotAI):
     async def get_travel_times(self, units: Units, destination: Point2, *,
                                target_distance: float = 0.0) -> list[float]:
         #distances = [d if d is not None else float('inf') for d in await self.get_travel_distances(units, destination)]
-        distances = await self.get_travel_distances(units, destination)
+        #distances = await self.get_travel_distances(units, destination)
+        # Too expensive at the moment, use euclidean distance instead
+        distances = [1.2 * unit.distance_to(destination) for unit in units]
         times = [max(d - target_distance, 0) / (1.4 * unit.real_speed) for (unit, d) in zip(units, distances)]
         return times
 
@@ -243,9 +246,15 @@ class BotBase(BotAI):
     async def on_unit_created(self, unit: Unit) -> None:
         self.logger.trace("Unit {} created", unit)
         # TODO fix
-        self.commander['ProxyMarine'].take_control(unit)
+        self.commander['ProxyMarine'].add_units(unit)
+
+    async def on_unit_destroyed(self, unit_tag: int) -> None:
+        commander = self.get_controlling_commander(unit_tag)
+        self.logger.trace("Unit {} destroyed (commander= {})", unit_tag, commander)
+        if commander is not None:
+            commander.remove_units(unit_tag)
 
     async def on_building_construction_started(self, unit: Unit) -> None:
         self.logger.trace("Building {} construction started", unit)
         # TODO fix
-        self.commander['ProxyMarine'].take_control(unit)
+        self.commander['ProxyMarine'].add_units(unit)
