@@ -15,6 +15,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
+from sc2bot.core.mapdata import MapData
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder
 from sc2bot.core.resources import Resources
 from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, TaskStatus, AttackTask, MoveTask, \
@@ -87,6 +88,10 @@ class Commander:
     def logger(self) -> Logger:
         return self.bot.logger.bind(prefix=self.name)
 
+    @property
+    def map(self) -> MapData:
+        return self.bot.map
+
     # --- Resources
 
     # TODO: per commander
@@ -133,14 +138,14 @@ class Commander:
 
     # --- Control
 
-    def remove_dead_tags(self) -> int:
-        size_before = len(self.tags)
-        alive = self.bot.units | self.bot.structures
-        self.tags.intersection_update(alive.tags)
-        number_dead = size_before - len(self.tags)
-        if number_dead:
-            self.logger.trace("Removed {} dead tags", number_dead)
-        return number_dead
+    # def remove_dead_tags(self) -> int:
+    #     size_before = len(self.tags)
+    #     alive = self.bot.units | self.bot.structures
+    #     self.tags.intersection_update(alive.tags)
+    #     number_dead = size_before - len(self.tags)
+    #     if number_dead:
+    #         self.logger.trace("Removed {} dead tags", number_dead)
+    #     return number_dead
 
     def add_units(self, units: Units | Unit) -> None:
         tags = units.tags if isinstance(units, Units) else {units.tag}
@@ -152,31 +157,10 @@ class Commander:
         self.logger.trace("Removing {}", units)
         self.tags.difference_update(units)
 
-    def has_control(self, units: Unit | Units) -> bool:
+    def has_units(self, units: Unit | Units) -> bool:
         if isinstance(units, Unit):
             return units.tag in self.tags
         return all(u.tag in self.tags for u in units)
-
-    def surrender_control(self, units: Units, *, to: Optional['Commander'] = None) -> None:
-        size_before = len(self.tags)
-        tags = {unit.tag for unit in units if unit.tag in self.tags}
-        self.tags.difference_update(tags)
-        surrendered = size_before - len(self.tags)
-        if surrendered == 0:
-            return
-        if to is not None:
-            to.tags.update(tags)
-
-    # --- Commands
-
-    # def move(self, target: Point2) -> None:
-    #     self.command = MoveCommand(target)
-    #
-    # def attack(self, target: Point2) -> None:
-    #     self.command = AttackCommand(target)
-    #
-    # def retreat(self, target: Point2) -> None:
-    #     self.command = RetreatCommand(target)
 
     # --- Position
 
@@ -198,7 +182,7 @@ class Commander:
     # --- Orders
 
     def order_move(self, unit: Unit, target: Point2) -> bool:
-        if not self.has_control(unit):
+        if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
         unit.move(target)
@@ -206,7 +190,7 @@ class Commander:
         return True
 
     def order_attack(self, unit: Unit, target: Point2) -> bool:
-        if not self.has_control(unit):
+        if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
         unit.attack(target)
@@ -214,7 +198,7 @@ class Commander:
         return True
 
     def order_gather(self, unit: Unit, target: Unit) -> bool:
-        if not self.has_control(unit):
+        if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
         unit.gather(target)
@@ -222,7 +206,7 @@ class Commander:
         return True
 
     def order_build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit) -> bool:
-        if not self.has_control(unit):
+        if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
         if self.resources.spend(utype):
@@ -234,7 +218,7 @@ class Commander:
 
     def order_train(self, unit: Unit, utype: UnitTypeId) -> bool:
         # TODO: do not train if already training
-        if not self.has_control(unit):
+        if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
         if self.resources.spend(utype):
@@ -245,7 +229,7 @@ class Commander:
             return False
 
     def order_research(self, unit: Unit, upgrade: UpgradeId) -> bool:
-        if not self.has_control(unit):
+        if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
         if self.resources.spend(upgrade):
@@ -281,7 +265,7 @@ class Commander:
         # Prefilter for performance
         if len(workers) > 10:
             workers = workers.closest_n_units(position=position, n=10)
-        travel_times = await self.bot.get_travel_times(workers, position, target_distance=target_distance)
+        travel_times = await self.map.get_travel_times(workers, position, target_distance=target_distance)
         total_times = {unit: travel_time + construction_time_discount * self.bot.get_remaining_construction_time(unit)
                        for unit, travel_time in zip(workers, travel_times)}
         #self.logger.trace("worker travel times: {}", list(total_times.values())[:8])
@@ -342,8 +326,8 @@ class Commander:
 
     # def _on_build_task(self, task: BuildTask) -> bool:
     #     # Check if task is worked
-    #     if True:
-    #         worker = self._get_worker(task.position, include_constructing=True)
+    #     #if True:
+    #     worker = self._get_worker(task.position, include_constructing=True)
 
     async def _on_unit_count_task(self, task: UnitCountTask) -> bool:
         utype = ALTERNATIVES.get(task.utype, task.utype)
@@ -368,8 +352,8 @@ class Commander:
 
         if trainer_utype == UnitTypeId.SCV:
             for _ in range(to_build):
-                target = await self.bot.get_building_location(task.utype, near=task.position,
-                                                              max_distance=task.max_distance)
+                target = await self.bot.map.get_building_location(task.utype, near=task.position,
+                                                                  max_distance=task.max_distance)
                 #position = task.position
                 if target is None:
                     break
@@ -412,7 +396,7 @@ class Commander:
             return False
 
         if self.bot.is_structure(task.utype):
-            position = task.position or await self.bot.get_building_location(task.utype)
+            position = task.position or await self.bot.map.get_building_location(task.utype)
             worker, travel_time = await self._get_worker(position)
             if worker is None:
                 #self.logger.trace('No worker for {}', task)
@@ -475,7 +459,8 @@ class Commander:
         if commander is None:
             return False
         units = self.units(task.utype)
-        self.surrender_control(units, to=commander)
+        self.remove_units(units)
+        commander.add_units(units)
         return True
 
     # --- Callbacks
