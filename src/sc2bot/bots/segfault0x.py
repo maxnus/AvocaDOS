@@ -66,14 +66,14 @@ class SegFault0x(BotBase):
         ref = tasks.add(UnitCountTask(UnitTypeId.REFINERY))
         rax = tasks.add(UnitCountTask(UnitTypeId.BARRACKS))
         tasks.add(UnitCountTask(UnitTypeId.BARRACKSTECHLAB, deps=rax, reqs=('G', 25), position=base, distance=20, priority=100))
-        tasks.add(ResearchTask(UpgradeId.STIMPACK, reqs=UnitTypeId.BARRACKSTECHLAB, position=base, priority=100))
-        tasks.add(ResearchTask(UpgradeId.COMBATSHIELD, reqs=UpgradeId.STIMPACK, position=base, priority=100))
+        #tasks.add(ResearchTask(UpgradeId.STIMPACK, reqs=UnitTypeId.BARRACKSTECHLAB, position=base, priority=100))
+        tasks.add(ResearchTask(UpgradeId.SHIELDWALL, reqs=UnitTypeId.BARRACKSTECHLAB, position=base, priority=100))
 
     async def on_step(self, step: int) -> None:
+        cmd = self.commander['ProxyMarine']
         if step == 0:
-            cmd = self.commander['ProxyMarine']
             cmd.take_control(self.units | self.structures)
-        #await asyncio.sleep(0.1)
+        cmd.resources.reset(self.minerals, self.vespene)
         await super().on_step(step)
 
     #async def on_building_construction_started(self, unit: Unit) -> None:

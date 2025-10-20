@@ -4,6 +4,7 @@ from typing import Optional, TYPE_CHECKING
 
 from loguru._logger import Logger
 import numpy
+from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -13,6 +14,7 @@ from sc2.units import Units
 
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder
+from sc2bot.core.resources import Resources
 from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, TaskStatus, AttackTask, MoveTask, \
     BuildTask, ResearchTask
 
@@ -45,6 +47,7 @@ class RetreatCommand(Command):
     target: Point2
 
 
+
 class Commander:
     bot: 'BotBase'
     name: str
@@ -53,6 +56,7 @@ class Commander:
     tasks: TaskManager
     orders: dict[int, Optional[Order]]
     previous_orders: dict[int, Optional[Order]]
+    resources: Resources
 
     def __init__(self, bot: 'BotBase', name: str,
                  tags: Optional[set[int]] = None,
@@ -65,6 +69,7 @@ class Commander:
         self.tasks = TaskManager(self, tasks)
         self.orders = {}
         self.previous_orders = {}
+        self.resources = Resources(bot)
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
@@ -86,11 +91,11 @@ class Commander:
 
     @property
     def minerals(self) -> int:
-        return self.bot.minerals
+        return self.resources.total_minerals
 
     @property
     def vespene(self) -> int:
-        return self.bot.vespene
+        return self.resources.total_vespene
 
     @property
     def supply_used(self) -> float:
@@ -123,10 +128,6 @@ class Commander:
         for unit in self.forces:
             counter[unit.type_id] += 1
         return counter
-
-    def can_afford(self, item: UnitTypeId | UpgradeId | AbilityId) -> bool:
-        # TODO
-        return self.bot.can_afford(item, check_supply_cost=True)
 
     # --- Control
 
@@ -217,26 +218,35 @@ class Commander:
         if not self.has_control(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
-        unit.build(utype, position=position)
-        self.orders[unit.tag] = BuildOrder(utype, position)
-        return True
+        if self.resources.spend(utype):
+            unit.build(utype, position=position)
+            self.orders[unit.tag] = BuildOrder(utype, position)
+            return True
+        else:
+            return False
 
     def order_train(self, unit: Unit, utype: UnitTypeId) -> bool:
         # TODO: do not train if already training
         if not self.has_control(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
-        unit.train(utype)
-        self.orders[unit.tag] = TrainOrder(utype)
-        return True
+        if self.resources.spend(utype):
+            unit.train(utype)
+            self.orders[unit.tag] = TrainOrder(utype)
+            return True
+        else:
+            return False
 
     def order_research(self, unit: Unit, upgrade: UpgradeId) -> bool:
         if not self.has_control(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
-        unit.research(upgrade)
-        self.orders[unit.tag] = ResearchOrder(upgrade)
-        return True
+        if self.resources.spend(upgrade):
+            unit.research(upgrade)
+            self.orders[unit.tag] = ResearchOrder(upgrade)
+            return True
+        else:
+            return False
 
     def get_order(self, unit: Unit) -> Optional[Order]:
         return self.orders.get(unit.tag)
@@ -329,12 +339,12 @@ class Commander:
         utype = ALTERNATIVES.get(task.utype, task.utype)
         units = self.forces(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
-        self.logger.trace("units for {}: {}", task, units)
+        #self.logger.trace("units for {}: {}", task, units)
         if task.position is not None:
             units = units.closer_than(task.max_distance, task.position)
             #self.logger.trace("Have {} units of type {} within range of {}",
             #                  units.amount, task.utype.name, task.max_distance)
-        self.logger.trace("units for {} within {}: {}", task, task.position, units)
+        #self.logger.trace("units for {} within {}: {}", task, task.position, units)
         if units.amount >= task.number:
             return True
 
@@ -356,27 +366,31 @@ class Commander:
                 position = target if isinstance(target, Point2) else target.position
                 # SCV can start constructing from a distance of 2.5 away
                 worker, travel_time = await self._get_worker(position, target_distance=2.5)
+                if not worker:
+                    break
                 #worker = self.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
+                if self.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
                     self.order_build(worker, task.utype, target)
                 else:
-                    resource_time = self.bot.time_for_cost(self.bot.get_cost(task.utype), excluded_workers=worker)
+                    resource_time = self.resources.can_afford_in(task.utype, excluded_workers=worker)
                     #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
                         self.order_move(worker, position)
+                        self.resources.reserve(task.utype)
+
         else:
             for _ in range(to_build):
-                if not self.can_afford(task.utype):
-                    #self.logger.trace('cannot afford {}', task)
-                    break
-                trainer = self._get_trainer(task.utype)
-                if trainer is not None:
-                    self.order_train(trainer, task.utype)
+                if  self.resources.can_afford(task.utype):
+                    trainer = self._get_trainer(task.utype)
+                    if trainer is not None:
+                        self.order_train(trainer, task.utype)
+                    else:
+                        self.logger.trace('No trainer for {}', task)
                 else:
-                    self.logger.trace('No trainer for {}', task)
+                    self.resources.reserve(task.utype)
         return False
 
     async def _on_unit_pending_task(self, task: UnitPendingTask) -> bool:
@@ -384,7 +398,7 @@ class Commander:
         if pending:
             #self.logger.trace('already pending {}', task)
             return False
-        if not self.can_afford(task.utype):
+        if not self.resources.can_afford(task.utype):
             #self.logger.trace('cannot afford {}', task)
             return False
 
@@ -417,7 +431,7 @@ class Commander:
                 return False
         except Exception as exc:
             self.logger.error("EXCEPTION {}", str(exc))
-        if not self.can_afford(task.upgrade):
+        if not self.resources.can_afford(task.upgrade):
             self.logger.trace("Cannot afford {}", task.upgrade)
             return False
         researcher = self._get_researcher(task.upgrade)

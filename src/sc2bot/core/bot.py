@@ -243,20 +243,6 @@ class BotBase(BotAI):
         workers = workers.filter(lambda w: (w.orders and w.orders[0].ability.id in allowed_orders) and w.order_target in allowed_tags)
         return Units(workers, self)
 
-    def time_for_cost(self, cost: Cost, *, excluded_workers: Optional[Unit | Units] = None) -> float:
-        if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
-            return 0
-        mineral_rate, vespene_rate = self.estimate_resource_collection_rates(excluded_workers=excluded_workers)
-        time = 0
-        if cost.minerals > 0:
-            if mineral_rate == 0:
-                return float('inf')
-            time = max((cost.minerals - self.minerals) / mineral_rate, time)
-        if cost.vespene > 0:
-            if vespene_rate == 0:
-                return float('inf')
-            time = max((cost.vespene - self.vespene) / vespene_rate, time)
-        return time
 
     async def on_unit_created(self, unit: Unit) -> None:
         self.logger.trace("Unit {} created", unit)
