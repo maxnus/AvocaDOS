@@ -263,7 +263,7 @@ class Commander:
     async def _get_worker(self, position: Point2, *,
                           target_distance: float = 0.0,
                           include_constructing: bool = True,
-                          construction_time_discount: float = 0.8) -> tuple[Optional[Unit], Optional[float]]:
+                          construction_time_discount: float = 0.7) -> tuple[Optional[Unit], Optional[float]]:
         #workers = self.workers.idle + self.workers.collecting
         workers = self.workers.idle + self.workers.collecting + self.workers.filter(lambda x: x.is_moving)
         if include_constructing:
@@ -359,7 +359,7 @@ class Commander:
         if trainer_utype == UnitTypeId.SCV:
             for _ in range(to_build):
                 target = await self.bot.get_building_location(task.utype, near=task.position,
-                                                                max_distance=task.max_distance)
+                                                              max_distance=task.max_distance)
                 #position = task.position
                 if target is None:
                     break

@@ -60,7 +60,7 @@ class SegFault0x(BotBase):
 
     def load_strategy(self) -> None:
         cmd = self.add_commander('ProxyMarine')
-        base = self.get_base_location()
+        base = self.map.base_center
         tasks = cmd.tasks
         supply = tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, priority=100))
         ref = tasks.add(UnitCountTask(UnitTypeId.REFINERY))

@@ -16,7 +16,7 @@ from sc2.ids.ability_id import AbilityId
 from sc2bot.core.commander import Commander
 from sc2bot.core.debug import Debug
 from sc2bot.core.history import History
-from sc2bot.core.map import MapKnowledge
+from sc2bot.core.mapdata import MapData
 
 
 class BotBase(BotAI):
@@ -26,7 +26,7 @@ class BotBase(BotAI):
     debug: Debug
     commander: dict[str, Commander]
     history: History
-    map: Optional[MapKnowledge]
+    map: Optional[MapData]
 
     def __init__(self, name: str, *, seed: int = 0) -> None:
         super().__init__()
@@ -49,7 +49,7 @@ class BotBase(BotAI):
 
     async def on_start(self) -> None:
         self.client.game_step = 1
-        self.map = await self.analyze_map()
+        self.map = await MapData.analyze_map(self)
         self.load_strategy()
 
     def load_strategy(self) -> None:
@@ -117,12 +117,6 @@ class BotBase(BotAI):
     def is_structure(self, utype: UnitTypeId) -> bool:
         return IS_STRUCTURE in self.get_attributes(utype)
 
-    def get_base_location(self) -> Point2:
-        return self.townhalls.first.position
-
-    def get_enemy_base_location(self) -> Point2:
-        return self.enemy_start_locations[0]
-
     def get_scv_build_target(self, scv: Unit) -> Optional[Unit]:
         """Return the building unit that this SCV is constructing, or None."""
         if not scv.is_constructing_scv:
@@ -188,22 +182,22 @@ class BotBase(BotAI):
                                     max_distance: int = 10) -> Optional[Point2 | Unit]:
         match utype:
             case UnitTypeId.REFINERY:
-                geysers = self.vespene_geyser.closer_than(10.0, self.get_base_location())
+                geysers = self.vespene_geyser.closer_than(10.0, self.map.base_center)
                 if geysers:
                     return geysers.random
 
             case UnitTypeId.SUPPLYDEPOT:
                 positions = [p for p in self.main_base_ramp.corner_depots if await self.can_place_single(utype, p)]
                 if positions:
-                    return self.get_base_location().closest(positions)
-                return await self.find_placement(utype, near=self.get_base_location())
+                    return self.map.base_center.closest(positions)
+                return await self.find_placement(utype, near=self.map.base_center)
 
             case UnitTypeId.BARRACKS:
                 if near is None:
                     position = self.main_base_ramp.barracks_correct_placement
                     if await self.can_place_single(utype, position):
                         return position
-                    return await self.find_placement(utype, near=self.get_base_location(), addon_place=True)
+                    return await self.find_placement(utype, near=self.map.base_center, addon_place=True)
                 else:
                     return await self.find_placement(utype, near=near, max_distance=max_distance,
                                                      random_alternative=False, addon_place=True)
@@ -253,23 +247,3 @@ class BotBase(BotAI):
         self.logger.trace("Building {} construction started", unit)
         # TODO fix
         self.commander['ProxyMarine'].take_control(unit)
-
-    async def analyze_map(self) -> MapKnowledge:
-        # TODO: fix
-
-        base = self.start_location
-        #distances = await self.get_travel_distances(self.expansion_locations_list[:4], base)
-        distances = [base.distance_to(exp) for exp in self.expansion_locations_list]
-        expansions = [(exp, dist) for dist, exp in sorted(zip(distances, self.expansion_locations_list))]
-
-        enemy_base = self.enemy_start_locations[0]
-        #distances = await self.get_travel_distances(self.expansion_locations_list, enemy_base)
-        distances = [enemy_base.distance_to(exp) for exp in self.expansion_locations_list]
-        enemy_expansions = [(exp, dist) for dist, exp in sorted(zip(distances, self.expansion_locations_list))]
-
-        return MapKnowledge(
-            base=base,
-            enemy_base=enemy_base,
-            expansions=expansions,
-            enemy_expansions=enemy_expansions
-        )
