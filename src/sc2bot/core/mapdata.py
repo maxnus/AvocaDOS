@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class MapData:
-    base: Point2
+    center: Point2
+    base_townhall: Point2
     base_center: Point2
     enemy_base: Point2
-    center: Point2
     expansions: list[tuple[Point2, float]]
     enemy_expansions: list[tuple[Point2, float]]
 
@@ -23,11 +23,11 @@ class MapData:
     async def analyze_map(cls, bot: 'BotBase') -> Self:
         # TODO: fix
 
-        base = bot.start_location
         center = bot.game_info.map_center
-        base_center = base.towards(center, 6)
+        base_townhall = bot.start_location
+        base_center = base_townhall.towards(center, 6)
         #distances = await bot.get_travel_distances(bot.expansion_locations_list[:4], base)
-        distances = [base.distance_to(exp) for exp in bot.expansion_locations_list]
+        distances = [base_townhall.distance_to(exp) for exp in bot.expansion_locations_list]
         expansions = [(exp, dist) for dist, exp in sorted(zip(distances, bot.expansion_locations_list))]
 
         enemy_base = bot.enemy_start_locations[0]
@@ -36,10 +36,10 @@ class MapData:
         enemy_expansions = [(exp, dist) for dist, exp in sorted(zip(distances, bot.expansion_locations_list))]
 
         return MapData(
-            base=base,
+            center=center,
+            base_townhall=base_townhall,
             base_center=base_center,
             enemy_base=enemy_base,
-            center=center,
             expansions=expansions,
             enemy_expansions=enemy_expansions
         )

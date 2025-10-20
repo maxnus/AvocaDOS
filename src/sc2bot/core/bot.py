@@ -17,6 +17,7 @@ from sc2bot.core.commander import Commander
 from sc2bot.core.debug import Debug
 from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
+from sc2bot.core import building
 
 
 class BotBase(BotAI):
@@ -138,7 +139,7 @@ class BotBase(BotAI):
             return 0
         building = self.get_scv_build_target(scv)
         if not building:
-            return 0.0
+            return 0
         return self.get_cost(building.type_id).time * (1 - building.build_progress)
 
     async def get_travel_distances(self, start: Units | list[Point2], destination: Point2) -> list[float]:
@@ -177,38 +178,39 @@ class BotBase(BotAI):
         times = [max(d - target_distance, 0) / (1.4 * unit.real_speed) for (unit, d) in zip(units, distances)]
         return times
 
-    async def get_building_location(self, utype: UnitTypeId, *,
-                                    near: Optional[Point2] = None,
-                                    max_distance: int = 10) -> Optional[Point2 | Unit]:
-        match utype:
-            case UnitTypeId.REFINERY:
-                geysers = self.vespene_geyser.closer_than(10.0, self.map.base_center)
-                if geysers:
-                    return geysers.random
-
-            case UnitTypeId.SUPPLYDEPOT:
-                positions = [p for p in self.main_base_ramp.corner_depots if await self.can_place_single(utype, p)]
-                if positions:
-                    return self.map.base_center.closest(positions)
-                return await self.find_placement(utype, near=self.map.base_center)
-
-            case UnitTypeId.BARRACKS:
-                if near is None:
-                    position = self.main_base_ramp.barracks_correct_placement
-                    if await self.can_place_single(utype, position):
-                        return position
-                    return await self.find_placement(utype, near=self.map.base_center, addon_place=True)
-                else:
-                    return await self.find_placement(utype, near=near, max_distance=max_distance,
-                                                     random_alternative=False, addon_place=True)
-            case UnitTypeId.COMMANDCENTER:
-                if near is None:
-                    self.logger.error("NotImplemented")
-                else:
-                    return await self.find_placement(utype, near=near)
-            case _:
-                self.logger.error("Not implemented: {}", utype)
-        return None
+    # async def get_building_location(self, utype: UnitTypeId, *,
+    #                                 near: Optional[Point2] = None,
+    #                                 max_distance: int = 10) -> Optional[Point2 | Unit]:
+    #     match utype:
+    #         case UnitTypeId.REFINERY:
+    #             geysers = self.vespene_geyser.closer_than(10.0, self.map.base_center)
+    #             if geysers:
+    #                 return geysers.random
+    #
+    #         case UnitTypeId.SUPPLYDEPOT:
+    #             positions = [p for p in self.main_base_ramp.corner_depots if await self.can_place_single(utype, p)]
+    #             if positions:
+    #                 return self.map.base_center.closest(positions)
+    #             return await self.find_placement(utype, near=self.map.base_center)
+    #
+    #         case UnitTypeId.BARRACKS:
+    #             if near is None:
+    #                 position = self.main_base_ramp.barracks_correct_placement
+    #                 if await self.can_place_single(utype, position):
+    #                     return position
+    #                 return await self.find_placement(utype, near=self.map.base_center, addon_place=True)
+    #             else:
+    #                 return await self.find_placement(utype, near=near, max_distance=max_distance,
+    #                                                  random_alternative=False, addon_place=True)
+    #         case UnitTypeId.COMMANDCENTER:
+    #             if near is None:
+    #                 self.logger.error("NotImplemented")
+    #             else:
+    #                 return await self.find_placement(utype, near=near)
+    #         case _:
+    #             self.logger.error("Not implemented: {}", utype)
+    #     return None
+    get_building_location = building.get_building_location
 
     def estimate_resource_collection_rates(self, *,
                                            excluded_workers: Optional[Unit | Units] = None,
