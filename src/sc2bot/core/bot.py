@@ -12,9 +12,10 @@ from sc2.units import Units
 from sc2.ids.ability_id import AbilityId
 
 from sc2bot.core.commander import Commander
-from sc2bot.core.debug import Debug
+from sc2bot.debug.debug import Debug
 from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
+from sc2bot.core.util import UnitCost
 
 
 class BotBase(BotAI):
@@ -54,28 +55,10 @@ class BotBase(BotAI):
     def load_strategy(self) -> None:
         pass
 
-    async def _handle_chat(self):
-        for chat_message in self.state.chat:
-            self.logger.debug("Chat message: {}", chat_message.message)
-            if chat_message.message.startswith('-'):
-                cmd, *args = chat_message.message.split()
-                valid_args = {'show_map', 'control_enemy', 'food', 'free', 'all_resources', 'god', 'minerals', 'gas',
-                              'cooldown', 'tech_tree', 'upgrade', 'fast_build'}
-                if cmd == '-debug' and len(args) == 1 and args[0] in {'0', '1'}:
-                    self.debug_enabled = bool(int(args[0]))
-                elif cmd == '-debug' and len(args) == 1 and args[0] in valid_args:
-                    func = getattr(self.client, f'debug_{args[0]}', None)
-                    if func is not None:
-                        await func()
-                elif cmd == '-test' and len(args) == 1 and args[0] == 'micro':
-                    await self.debug.start_micro_test()
-
-
     async def on_step(self, step: int):
-        await self._handle_chat()
 
         if self.debug_enabled:
-            self.debug.on_step_start(step)
+            await self.debug.on_step_start(step)
 
         self.history.on_step(step)
         # Update commander
@@ -83,7 +66,7 @@ class BotBase(BotAI):
             await commander.on_step(step)
 
         if self.debug_enabled:
-            self.debug.on_step_end(step)
+            await self.debug.on_step_end(step)
 
     # --- Commanders
 
@@ -129,6 +112,17 @@ class BotBase(BotAI):
     def get_cost(self, utype: UnitTypeId) -> Cost:
         return self.game_data.units[utype.value].cost
 
+    def get_unit_value(self, unit: UnitTypeId | Unit | Units) -> UnitCost:
+        """Return 450 for orbital"""
+        if isinstance(unit, Unit):
+            unit = unit.type_id
+        if isinstance(unit, Units):
+            return sum((self.get_unit_value(u) for u in unit), start=UnitCost(0, 0, 0))
+
+        cost = self.get_cost(unit)
+        supply = self.game_data.units[unit.value]._proto.food_required
+        return UnitCost(cost.minerals, cost.vespene, supply)
+
     def get_remaining_construction_time(self, scv: Unit) -> float:
         if not scv.is_constructing_scv:
             return 0
@@ -167,15 +161,19 @@ class BotBase(BotAI):
     async def on_unit_created(self, unit: Unit) -> None:
         self.logger.trace("Unit {} created", unit)
         # TODO fix
-        self.commander['ProxyMarine'].add_units(unit)
+        if self.commander:
+            commander = next(iter(self.commander.values()))
+            commander.add_units(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
         commander = self.get_controlling_commander(unit_tag)
-        self.logger.trace("Unit {} destroyed (commander= {})", unit_tag, commander)
+        #self.logger.trace("Unit {} destroyed (commander= {})", unit_tag, commander)
         if commander is not None:
             commander.remove_units(unit_tag)
 
     async def on_building_construction_started(self, unit: Unit) -> None:
-        self.logger.trace("Building {} construction started", unit)
+        #self.logger.trace("Building {} construction started", unit)
         # TODO fix
-        self.commander['ProxyMarine'].add_units(unit)
+        if self.commander:
+            commander = next(iter(self.commander.values()))
+            commander.add_units(unit)

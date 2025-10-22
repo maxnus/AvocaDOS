@@ -49,6 +49,8 @@ class CombatSim(System):
 
         t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
 
+        return target.health_max + target.shield_max - target.health - target.shield + 1
+
         #a_in_range = attacker.target_in_range(target)
         #t_in_range = target.target_in_range(attacker)
 
@@ -137,11 +139,12 @@ class CombatSim(System):
                     self.commander.order_move(marine, task.target)
 
             # Defend
-            else:
-
-                priorities = list(zip(self.commander.combat.get_defence_priorities(marine, enemies), enemies))
-                highest_priority, threat = max(priorities, key=lambda p: p[0])
-                if highest_priority > 0:
-                    self.commander.order_move(marine, marine.position.towards(threat, distance=-2.0))
-                else:
-                    self.commander.order_move(marine, task.target)
+            #elif marine.weapon_cooldown > 0.2:
+            # else:
+            #     priorities = list(zip(self.commander.combat.get_defence_priorities(marine, enemies), enemies))
+            #     highest_priority, threat = max(priorities, key=lambda p: p[0])
+            #
+            #     if highest_priority > 0:
+            #         self.commander.order_move(marine, marine.position.towards(threat, distance=-2.0))
+            #     else:
+            #         self.commander.order_move(marine, task.target)

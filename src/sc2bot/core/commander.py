@@ -135,8 +135,13 @@ class Commander:
     #         self.logger.trace("Removed {} dead tags", number_dead)
     #     return number_dead
 
-    def add_units(self, units: Units | Unit) -> None:
-        tags = units.tags if isinstance(units, Units) else {units.tag}
+    def add_units(self, units: Units | Unit | set[int]) -> None:
+        if isinstance(units, Unit):
+            tags = {units.tag}
+        elif isinstance(units, Units):
+            tags = units.tags
+        else:
+            tags = units
         self.logger.trace("Adding {}", units)
         self.tags.update(tags)
 
