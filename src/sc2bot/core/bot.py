@@ -27,9 +27,9 @@ class BotBase(BotAI):
     map: Optional[MapData]
     debug_enabled: bool
 
-    def __init__(self, name: str, *, seed: int = 0, debug_enabled: bool = True) -> None:
+    def __init__(self, name: Optional[str] = None, *, seed: int = 0, debug_enabled: bool = True) -> None:
         super().__init__()
-        self.name = name
+        self.name = name or self.__class__.__name__
         self.seed = seed
         random.seed(seed)
         self.debug = Debug(self)
@@ -54,7 +54,26 @@ class BotBase(BotAI):
     def load_strategy(self) -> None:
         pass
 
+    async def _handle_chat(self):
+        for chat_message in self.state.chat:
+            self.logger.debug("Chat message: {}", chat_message.message)
+            if chat_message.message.startswith('-'):
+                cmd, *args = chat_message.message.split()
+                valid_args = {'show_map', 'control_enemy', 'food', 'free', 'all_resources', 'god', 'minerals', 'gas',
+                              'cooldown', 'tech_tree', 'upgrade', 'fast_build'}
+                if cmd == '-debug' and len(args) == 1 and args[0] in {'0', '1'}:
+                    self.debug_enabled = bool(int(args[0]))
+                elif cmd == '-debug' and len(args) == 1 and args[0] in valid_args:
+                    func = getattr(self.client, f'debug_{args[0]}', None)
+                    if func is not None:
+                        await func()
+                elif cmd == '-test' and len(args) == 1 and args[0] == 'micro':
+                    await self.debug.start_micro_test()
+
+
     async def on_step(self, step: int):
+        await self._handle_chat()
+
         if self.debug_enabled:
             self.debug.on_step_start(step)
 

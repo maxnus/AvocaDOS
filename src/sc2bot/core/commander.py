@@ -6,7 +6,6 @@ from typing import Optional, TYPE_CHECKING
 
 from loguru._logger import Logger
 import numpy
-from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -14,12 +13,13 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from sc2bot.micro.combat import CombatSim
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder
 from sc2bot.core.resources import Resources
-from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, TaskStatus, AttackTask, MoveTask, \
-    BuildTask, ResearchTask, HandoverUnitsTask
+from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, AttackTask, MoveTask, \
+    ResearchTask, HandoverUnitsTask
 
 if TYPE_CHECKING:
     from sc2bot.core.bot import BotBase
@@ -55,11 +55,13 @@ class Commander:
     bot: 'BotBase'
     name: str
     tags: set[int]
-    command: Command
-    tasks: TaskManager
     orders: dict[int, Optional[Order]]
     previous_orders: dict[int, Optional[Order]]
+    assigned: dict[int, list[int]]
+    # Systems
     resources: Resources
+    tasks: TaskManager
+    combat: CombatSim
 
     def __init__(self, bot: 'BotBase', name: str,
                  tags: Optional[set[int]] = None,
@@ -68,11 +70,13 @@ class Commander:
         self.bot = bot
         self.name = name
         self.tags = tags or set()
-        self.command = IdleCommand()
-        self.tasks = TaskManager(self, tasks)
         self.orders = {}
         self.previous_orders = {}
-        self.resources = Resources(bot)
+        self.assigned = {}
+        # Systems
+        self.resources = Resources(self)
+        self.tasks = TaskManager(self, tasks)
+        self.combat = CombatSim(self)
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
@@ -91,22 +95,6 @@ class Commander:
     @property
     def map(self) -> MapData:
         return self.bot.map
-
-    # --- Resources
-
-    # TODO: per commander
-
-    @property
-    def minerals(self) -> int:
-        return self.resources.total_minerals
-
-    @property
-    def vespene(self) -> int:
-        return self.resources.total_vespene
-
-    @property
-    def supply_used(self) -> float:
-        return self.bot.supply_used
 
     # --- Units
 
@@ -189,7 +177,7 @@ class Commander:
         self.orders[unit.tag] = MoveOrder(target)
         return True
 
-    def order_attack(self, unit: Unit, target: Point2) -> bool:
+    def order_attack(self, unit: Unit, target: Point2 | Unit) -> bool:
         if not self.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
@@ -324,10 +312,30 @@ class Commander:
     def add_task(self, task: Task) -> int:
         return self.tasks.add(task)
 
-    # def _on_build_task(self, task: BuildTask) -> bool:
+    # async def _on_build_task(self, task: BuildTask) -> bool:
     #     # Check if task is worked
     #     #if True:
-    #     worker = self._get_worker(task.position, include_constructing=True)
+    #     assigned = self.assigned.get(task.id)
+    #     if not assigned:
+    #         target = await self.bot.map.get_building_location(task.utype, near=task.position,
+    #                                                           max_distance=int(task.max_distance))
+    #         if target is None:
+    #             return False
+    #         position = target if isinstance(target, Point2) else target.position
+    #         # SCV can start constructing from a distance of 2.5 away
+    #         worker, travel_time = await self._get_worker(position, target_distance=2.5)
+    #         if not worker:
+    #             return False
+    #
+    #         if self.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
+    #             self.order_build(worker, task.utype, target)
+    #         else:
+    #             resource_time = self.resources.can_afford_in(task.utype, excluded_workers=worker)
+    #             if resource_time <= travel_time:
+    #                 self.order_move(worker, position)
+    #                 self.resources.reserve(task.utype)
+    #         self.assigned[task.id] = [worker.tag]
+    #     return False
 
     async def _on_unit_count_task(self, task: UnitCountTask) -> bool:
         utype = ALTERNATIVES.get(task.utype, task.utype)
@@ -448,10 +456,7 @@ class Commander:
         return True
 
     def _on_attack_task(self, task: AttackTask) -> bool:
-        # TODO: fix
-        for marine in self.units(UnitTypeId.MARINE):
-            self.order_attack(marine, task.target)
-        #return True
+        self.combat.marine_micro(task)
         return False
 
     def _on_handover_units_task(self, task: HandoverUnitsTask) -> bool:
@@ -469,6 +474,7 @@ class Commander:
 
         # if (number_dead := self.remove_dead_tags()) != 0:
         #     self.logger.debug("{} units died", number_dead)
+
 
         if step % 4 == 0:
             await self._work_on_tasks(step)

@@ -1,8 +1,9 @@
 import sys
 from typing import TYPE_CHECKING, Optional, ClassVar
 
-from loguru import logger
+from loguru import logger as _logger
 from sc2.client import Client
+from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
 
@@ -22,7 +23,7 @@ class Debug:
     def __init__(self, bot: 'BotBase') -> None:
         self.bot = bot
         self.debug_messages = []
-        self.logger = logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
+        self.logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
 
         def ingame_logging(message):
             if not hasattr(self, 'client'):
@@ -143,3 +144,25 @@ class Debug:
             #    self.box_with_text(expansion, f"Enemy expansion {idx}")
             for idx, expansion in enumerate(self.bot.map.expansions):
                 self.box_with_text(expansion[0], f"Expansion {idx}: {expansion[1]}")
+
+    async def start_micro_test(self, *,
+                               location: Optional[Point2] = None,
+                               units: Optional[list[tuple[UnitTypeId, int]]] = None,
+                               separation: float = 10) -> None:
+        if location is None:
+            location = self.bot.map.center
+        if current_units := self.bot.all_units.closer_than(separation + 2, location):
+            await self.client.debug_kill_unit(current_units)
+        if units is None:
+            units = [(UnitTypeId.MARINE, 8)]
+
+        spawn_p1 = location.towards(self.bot.start_location, separation/2)
+        spawn_p2 = location.towards(self.bot.start_location, -separation/2)
+        for player in self.bot.game_info.players:
+            spawn = spawn_p1 if player.id == 1 else spawn_p2
+            await self.client.debug_create_unit(
+                [[utype, number, spawn, player.id] for utype, number in units]
+            )
+        await self.client.debug_control_enemy()
+        for unit in self.bot.enemy_units.closer_than(separation + 2, location):
+            unit.attack(location)

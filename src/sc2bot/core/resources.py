@@ -7,12 +7,13 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.unit import Unit
 from sc2.units import Units
 
+from sc2bot.core.system import System
+
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.commander import Commander
 
 
-class Resources:
-    bot: 'BotBase'
+class Resources(System):
     total_minerals: int
     total_vespene: int
     spent_minerals: int
@@ -20,8 +21,8 @@ class Resources:
     reserved_minerals: int
     reserved_vespene: int
 
-    def __init__(self, bot: 'BotBase', minerals: int = 0, vespene: int = 0) -> None:
-        self.bot = bot
+    def __init__(self, commander: 'Commander', *, minerals: int = 0, vespene: int = 0) -> None:
+        super().__init__(commander)
         self.reset(minerals, vespene)
 
     def __repr__(self) -> str:

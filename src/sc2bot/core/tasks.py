@@ -11,6 +11,8 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
+from .system import System
+
 if TYPE_CHECKING:
     from .commander import Commander
 
@@ -95,6 +97,7 @@ class Task(ABC):
 
     def copy(self, status: Optional[TaskStatus] = None) -> Self:
         copied_task = copy.copy(self)
+        copied_task.id = _get_next_id()
         copied_task.status = status or self.status
         return copied_task
 
@@ -261,21 +264,16 @@ class AttackTask(OrderTask):
     pass
 
 
-class TaskManager:
-    commander: 'Commander'
+class TaskManager(System):
     completed: dict[int, Task]
     current: dict[int, Task]
     future: dict[int, Task]
 
     def __init__(self, commander: 'Commander', tasks: Optional[dict[int, Task]]) -> None:
-        self.commander = commander
+        super().__init__(commander)
         self.completed = {}
         self.current = {}
         self.future = tasks or {}
-
-    @property
-    def logger(self) -> Logger:
-        return self.commander.logger
 
     def add(self, task: Task) -> int:
         self.future[task.id] = task
@@ -305,13 +303,13 @@ class TaskManager:
             elif isinstance(req_type, UpgradeId):
                 value = req_type in self.commander.bot.state.upgrades
             elif req_type == RequirementType.TIME:
-                value = self.commander.time
+                value = self.bot.time
             elif req_type == RequirementType.SUPPLY:
-                value = self.commander.supply_used
+                value = self.bot.supply_used
             elif req_type == RequirementType.MINERALS:
-                value = self.commander.minerals
+                value = self.bot.minerals
             elif req_type == RequirementType.VESPENE:
-                value = self.commander.vespene
+                value = self.bot.vespene
             else:
                 self.logger.warning(f"Unknown requirement: {req_type}")
                 continue
