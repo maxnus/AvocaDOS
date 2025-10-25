@@ -1,11 +1,14 @@
+import asyncio
+from typing import Optional
+
 from sc2 import maps
 from sc2.bot_ai import BotAI
+from sc2.ids.unit_typeid import UnitTypeId
 from sc2.maps import Map
 from sc2.player import Bot, Computer
 from sc2.main import run_game
 from sc2.data import Race, Difficulty
 
-from sc2bot.bots.amovebot import AMoveBot
 from sc2bot.bots.segfault0x import SegFault0x
 from sc2bot.core.bot import BotBase
 
@@ -21,7 +24,7 @@ class GameRunner:
                  bot: Bot,
                  opponent: Bot | Computer,
                  *,
-                 realtime: bool = False):
+                 realtime: bool = False) -> None:
         if isinstance(map_, str):
             map_ = maps.get(map_)
         self.map = map_
@@ -36,10 +39,14 @@ class GameRunner:
 
 if __name__ == "__main__":
     # map_name = "AcropolisLE"
-    map_name = '144-66'
+    map_name = 'micro-training-4x4'
+
+    #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZEALOT: 4})
+    micro_scenario = {UnitTypeId.MARINE: 8}
+
     runner = GameRunner(
         map_name,
-        bot=Bot(Race.Terran, BotBase()),
+        bot=Bot(Race.Terran, BotBase(micro_scenario=micro_scenario)),
         #opponent=Bot(Race.Protoss, AMoveBot())
         opponent = Computer(Race.Protoss, Difficulty.Hard),
     )

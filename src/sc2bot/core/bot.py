@@ -18,6 +18,8 @@ from sc2bot.debug.debug import Debug
 from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.util import UnitCost
+from sc2bot.debug.micro_scenario import MicroScenario
+from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
 from sc2bot.mapinfo import Sc2Map
 
 
@@ -32,12 +34,15 @@ class BotBase(BotAI):
     map: Optional[MapData]
     debug_enabled: bool
     slowdown_time: float
+    micro_scenario: Optional[MicroScenarioManager]
 
     def __init__(self, name: Optional[str] = None, *,
                  sc2map: Optional[Sc2Map] = None,
                  seed: int = 0,
                  debug_enabled: bool = True,
-                 slowdown_time: float = 0) -> None:
+                 slowdown_time: float = 0,
+                 micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
+                 ) -> None:
         super().__init__()
         self.name = name or self.__class__.__name__
         self.sc2map = sc2map
@@ -50,6 +55,10 @@ class BotBase(BotAI):
         self.map = None
         self.debug_enabled = debug_enabled
         self.slowdown_time = slowdown_time
+        if micro_scenario is not None:
+            self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
+        else:
+            self.micro_scenario = None
 
     def __repr__(self) -> str:
         return f"{self.name}(seed={self.seed})"
@@ -63,6 +72,9 @@ class BotBase(BotAI):
         self.map = await MapData.analyze_map(self)
         self.load_strategy()
 
+        if self.micro_scenario is not None:
+            await self.micro_scenario.start()
+
     def load_strategy(self) -> None:
         pass
 
@@ -71,6 +83,9 @@ class BotBase(BotAI):
 
         if self.debug_enabled:
             await self.debug.on_step_start(step)
+
+        if self.micro_scenario is not None and self.micro_scenario.running:
+            await self.micro_scenario.step()
 
         self.history.on_step(step)
         # Update commander

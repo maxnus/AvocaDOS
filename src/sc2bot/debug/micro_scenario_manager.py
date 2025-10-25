@@ -12,14 +12,19 @@ if TYPE_CHECKING:
 
 class MicroScenarioManager:
     bot: 'BotBase'
+    units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     running: bool
     number_scenarios: int
     scenarios: dict[int, MicroScenario]
     locations: list[Point2]
     results: list[MicroScenarioResults]
 
-    def __init__(self, bot: 'BotBase') -> None:
+    def __init__(self, bot: 'BotBase', *,
+        units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]) -> None:
+        if isinstance(units, dict):
+            units = (units, units)
         self.bot = bot
+        self.units = units
         self.running = False
         self.number_scenarios = 0
         self.scenarios = {}
@@ -27,24 +32,17 @@ class MicroScenarioManager:
 
     def get_locations(self) -> list[Point2]:
         locations = []
-        if self.bot.game_info.map_name == '144-66':
-            for row in range(6):
-                for col in range(6):
-                    if (row, col) in {(5, 0), (5, 5)}:
-                        continue
-                    x = col * 24 + 12
-                    y = row * 24 + 12
+        if self.bot.game_info.map_name == 'Micro Training 4x4':
+            for row in range(4):
+                y = row * 40 + 12
+                for col in range(4):
+                    x = col * 40 + 12
                     locations.append(Point2((x, y)))
         else:
             raise NotImplementedError(f"map {self.bot.game_info.map_name}")
         return locations
 
-    async def start(self,
-              units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]], *,
-              number_scenarios: int = 100) -> None:
-
-        if self.bot.game_info.map_name != '144-66':
-            raise ValueError
+    async def start(self, *, number_scenarios: int = 64) -> None:
 
         self.running = True
         await self.bot.debug.reveal_map()
@@ -55,7 +53,7 @@ class MicroScenarioManager:
         for idx, location in enumerate(self.locations):
             if idx >= self.number_scenarios:
                 break
-            scenario = MicroScenario(self.bot, units=units, location=location)
+            scenario = MicroScenario(self.bot, units=self.units, location=location)
             self.scenarios[scenario.id] = scenario
             await scenario.start()
 
@@ -115,7 +113,7 @@ class MicroScenarioManager:
         wins_p2 = sum(1 for result in self.results if result.winner == 2)
         win_rate_p1 = wins_p1 / len(self.results)
         win_rate_p2 = wins_p2 / len(self.results)
-        self.bot.logger.info("Win rates: P1={:.1%} P2={:.1f}", win_rate_p1, win_rate_p2)
+        self.bot.logger.info("Win rates: P1={:.1%} P2={:.1%}", win_rate_p1, win_rate_p2)
 
         total_resources_lost = resource_lost_p1 + resource_lost_p2
         if total_resources_lost == 0:

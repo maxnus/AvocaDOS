@@ -3,11 +3,8 @@ from typing import TYPE_CHECKING, Optional, ClassVar
 
 from loguru import logger as _logger
 from sc2.client import Client
-from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
-
-from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
 
 if TYPE_CHECKING:
     from sc2bot.core.bot import BotBase
@@ -22,7 +19,6 @@ class Debug:
     bot: 'BotBase'
     debug_messages: list[str]
     text_size: ClassVar[int] = 16
-    micro_scenario_manager: MicroScenarioManager
     # State
     map_revealed: bool
     enemy_control: bool
@@ -35,12 +31,11 @@ class Debug:
         self.bot = bot
         self.debug_messages = []
         self.logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
-        self.micro_scenario_manager = MicroScenarioManager(bot)
         self.map_revealed = False
         self.enemy_control = False
-        self.show_log = True
+        self.show_log = False
         self.show_orders = False
-        self.show_commanders = True
+        self.show_commanders = False
 
         def ingame_logging(message):
             if not hasattr(self, 'client'):
@@ -89,9 +84,6 @@ class Debug:
         self.logger = self.logger.bind(step=step, time=self.bot.time)
         await self._handle_chat()
 
-        if self.micro_scenario_manager.running:
-            await self.micro_scenario_manager.step()
-
     async def on_step_end(self, step: int) -> None:
         if self.show_log:
             self.text_screen(self.debug_messages)
@@ -128,6 +120,19 @@ class Debug:
                         continue
                     #self.text_world(str(order), unit)
                     self.box_with_text(unit, str(order))
+
+        if True:
+            for commander in self.bot.commander.values():
+                for unit in commander.units:
+                    if unit.orders:
+                        order = unit.orders[0]
+                        if isinstance(order.target, int):
+                            target = self.bot.all_units.find_by_tag(order.target)
+                        else:
+                            target = order.target
+                        if target is not None:
+                            self.line(unit, target)
+                        #self.text_world(str(order), unit, size=14)
 
         #if self.bot.map is not None:
         #    #for idx, expansion in enumerate(self.bot.map.enemy_expansions):
@@ -181,6 +186,12 @@ class Debug:
         self.box(center, size, color=color)
         self.text_world(text, center, color=color)
 
+    def line(self, start: Point2 | Point3 | Unit, end: Point2 | Point3 | Unit, *,
+             color: tuple[int, int, int] = YELLOW) -> None:
+        start = self._normalize_point3(start)
+        end = self._normalize_point3(end)
+        self.client.debug_line_out(start, end, color=color)
+
     async def _handle_chat(self):
         for chat_message in self.bot.state.chat:
             self.logger.debug("Chat message: {}", chat_message.message)
@@ -194,12 +205,6 @@ class Debug:
                     func = getattr(self.client, f'debug_{args[0]}', None)
                     if func is not None:
                         await func()
-                elif cmd == '!micro':
-                    units = (
-                        {UnitTypeId.MARINE: 8},
-                        {UnitTypeId.ZEALOT: 4},
-                    )
-                    await self.micro_scenario_manager.start(units)
 
                 elif cmd == '!slow':
                     if len(args) == 0:

@@ -51,7 +51,7 @@ class MicroScenario:
                  *,
                  location: Optional[Point2] = None,
                  spawns: Optional[tuple[Point2, Point2]] = None,
-                 max_duration: float = 300,
+                 max_duration: float = 60,
                  ) -> None:
         super().__init__()
         self.bot = bot

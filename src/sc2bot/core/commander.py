@@ -13,7 +13,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.micro.combat import CombatSim
+from sc2bot.micro.combat import MicroManager
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder
@@ -61,7 +61,7 @@ class Commander:
     # Systems
     resources: Resources
     tasks: TaskManager
-    combat: CombatSim
+    combat: MicroManager
 
     def __init__(self, bot: 'BotBase', name: str,
                  tags: Optional[set[int]] = None,
@@ -76,7 +76,7 @@ class Commander:
         # Systems
         self.resources = Resources(self)
         self.tasks = TaskManager(self, tasks)
-        self.combat = CombatSim(self)
+        self.combat = MicroManager(self)
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
@@ -461,7 +461,9 @@ class Commander:
         return True
 
     def _on_attack_task(self, task: AttackTask) -> bool:
-        self.combat.marine_micro(task)
+        #self.combat.marine_micro(task)
+        for unit in self.units.idle:
+           unit.attack(task.target)
         return False
 
     def _on_handover_units_task(self, task: HandoverUnitsTask) -> bool:
@@ -476,10 +478,8 @@ class Commander:
     # --- Callbacks
 
     async def on_step(self, step: int):
-
         # if (number_dead := self.remove_dead_tags()) != 0:
         #     self.logger.debug("{} units died", number_dead)
-
 
         if step % 4 == 0:
             await self._work_on_tasks(step)
@@ -506,12 +506,14 @@ class Commander:
             else:
                 completed = False
                 self.logger.warning("Not implemented: {}", task)
-            if (time_ms := 1000 * (perf_counter() - t0))  > 1:
+            if (time_ms := 1000 * (perf_counter() - t0))  > 5:
                 self.logger.warning("{} took {:.3f} ms", task, time_ms)
             if completed:
                 task.mark_complete()
 
     async def _micro(self, iteration: int) -> None:
+        self.combat.micro()
+
         if iteration % 8 == 0:
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
                 raise_depot = self.bot.enemy_units.closer_than(2.5, unit)
