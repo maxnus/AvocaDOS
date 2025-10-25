@@ -128,23 +128,30 @@ class CombatSim(System):
                 self.commander.order_move(marine, task.target)
                 continue
 
-            # Attack
-            if marine.weapon_cooldown == 0:
+            attack_priorities = list(zip(self.commander.combat.get_attack_priorities(marine, enemies), enemies))
+            defense_priorities = list(zip(self.commander.combat.get_defence_priorities(marine, enemies), enemies))
 
-                priorities = list(zip(self.commander.combat.get_attack_priorities(marine, enemies), enemies))
-                highest_priority, target = max(priorities, key=lambda p: p[0])
-                if highest_priority > 0:
-                    self.commander.order_attack(marine, target)
-                else:
-                    self.commander.order_move(marine, task.target)
+            highest_attack_priority, target = max(attack_priorities, key=lambda p: p[0])
+            highest_defense_priority, threat = max(defense_priorities, key=lambda p: p[0])
+            defense_position = marine.position.towards(threat, distance=-2.0)
+
+            if marine.weapon_cooldown < 0.01:
+                self.commander.order_attack(marine, target)
+            else:
+                self.commander.order_move(marine, defense_position)
+            #self.commander.order_move(marine, defense_position)
+
+            # Attack
+            # if marine.weapon_cooldown > 0.03:
+            #     if highest_attack_priority > 0:
+            #         self.commander.order_attack(marine, target)
+            #         #marine.move(defense_position, queue=True)
+            #     else:
+            #         self.commander.order_move(marine, task.target)
 
             # Defend
-            #elif marine.weapon_cooldown > 0.2:
-            # else:
-            #     priorities = list(zip(self.commander.combat.get_defence_priorities(marine, enemies), enemies))
-            #     highest_priority, threat = max(priorities, key=lambda p: p[0])
-            #
-            #     if highest_priority > 0:
-            #         self.commander.order_move(marine, marine.position.towards(threat, distance=-2.0))
+            # else: # marine.weapon_cooldown > 0.01:
+            #     if highest_defense_priority > 0:
+            #         self.commander.order_move(marine, defense_position)
             #     else:
             #         self.commander.order_move(marine, task.target)

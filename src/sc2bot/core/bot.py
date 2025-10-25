@@ -1,5 +1,7 @@
+import asyncio
 import random
 from enum import Enum
+from time import perf_counter
 from typing import Optional
 
 from loguru._logger import Logger
@@ -16,10 +18,12 @@ from sc2bot.debug.debug import Debug
 from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.util import UnitCost
+from sc2bot.mapinfo import Sc2Map
 
 
 class BotBase(BotAI):
     name: str
+    sc2map: Optional[Sc2Map]
     seed: int
     logger: Logger
     debug: Debug
@@ -27,10 +31,16 @@ class BotBase(BotAI):
     history: History
     map: Optional[MapData]
     debug_enabled: bool
+    slowdown_time: float
 
-    def __init__(self, name: Optional[str] = None, *, seed: int = 0, debug_enabled: bool = True) -> None:
+    def __init__(self, name: Optional[str] = None, *,
+                 sc2map: Optional[Sc2Map] = None,
+                 seed: int = 0,
+                 debug_enabled: bool = True,
+                 slowdown_time: float = 0) -> None:
         super().__init__()
         self.name = name or self.__class__.__name__
+        self.sc2map = sc2map
         self.seed = seed
         random.seed(seed)
         self.debug = Debug(self)
@@ -39,6 +49,7 @@ class BotBase(BotAI):
         self.logger.debug("Initialized {}", self)
         self.map = None
         self.debug_enabled = debug_enabled
+        self.slowdown_time = slowdown_time
 
     def __repr__(self) -> str:
         return f"{self.name}(seed={self.seed})"
@@ -56,6 +67,7 @@ class BotBase(BotAI):
         pass
 
     async def on_step(self, step: int):
+        t0 = perf_counter()
 
         if self.debug_enabled:
             await self.debug.on_step_start(step)
@@ -67,6 +79,11 @@ class BotBase(BotAI):
 
         if self.debug_enabled:
             await self.debug.on_step_end(step)
+
+        if self.slowdown_time:
+            sleep = self.slowdown_time / 1000 - (perf_counter() - t0)
+            if sleep > 0:
+                await asyncio.sleep(sleep)
 
     # --- Commanders
 
@@ -161,9 +178,9 @@ class BotBase(BotAI):
     async def on_unit_created(self, unit: Unit) -> None:
         self.logger.trace("Unit {} created", unit)
         # TODO fix
-        if self.commander:
-            commander = next(iter(self.commander.values()))
-            commander.add_units(unit)
+        # if self.commander:
+        #     commander = next(iter(self.commander.values()))
+        #     commander.add_units(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
         commander = self.get_controlling_commander(unit_tag)

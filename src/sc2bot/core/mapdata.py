@@ -23,6 +23,13 @@ class MapData:
     def get_proxy_location(self) -> Point2:
         return self.enemy_expansions[2][0]
 
+    @staticmethod
+    def get_expansion_list(bot: 'BaseBot') -> list[Point2]:
+        try:
+            return bot.expansion_locations_list
+        except AssertionError:
+            return []
+
     @classmethod
     async def analyze_map(cls, bot: 'BotBase') -> Self:
         # TODO: fix
@@ -31,13 +38,14 @@ class MapData:
         base_townhall = bot.start_location
         base_center = base_townhall.towards(center, 8)
         #distances = await bot.get_travel_distances(bot.expansion_locations_list[:4], base)
-        distances = [base_townhall.distance_to(exp) for exp in bot.expansion_locations_list]
-        expansions = [(exp, dist) for dist, exp in sorted(zip(distances, bot.expansion_locations_list))]
+        expansion_list = cls.get_expansion_list(bot)
+        distances = [base_townhall.distance_to(exp) for exp in expansion_list]
+        expansions = [(exp, dist) for dist, exp in sorted(zip(distances, expansion_list))]
 
         enemy_base = bot.enemy_start_locations[0]
         #distances = await bot.get_travel_distances(bot.expansion_locations_list, enemy_base)
-        distances = [enemy_base.distance_to(exp) for exp in bot.expansion_locations_list]
-        enemy_expansions = [(exp, dist) for dist, exp in sorted(zip(distances, bot.expansion_locations_list))]
+        distances = [enemy_base.distance_to(exp) for exp in expansion_list]
+        enemy_expansions = [(exp, dist) for dist, exp in sorted(zip(distances, expansion_list))]
 
         return MapData(
             bot,
