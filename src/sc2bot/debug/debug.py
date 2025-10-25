@@ -7,7 +7,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
 
-from sc2bot.debug.micro_scenario import MicroScenario
+from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
 
 if TYPE_CHECKING:
     from sc2bot.core.bot import BotBase
@@ -22,7 +22,7 @@ class Debug:
     bot: 'BotBase'
     debug_messages: list[str]
     text_size: ClassVar[int] = 16
-    micro_scenarios: dict[int, MicroScenario]
+    micro_scenario_manager: MicroScenarioManager
     # State
     map_revealed: bool
     enemy_control: bool
@@ -35,7 +35,7 @@ class Debug:
         self.bot = bot
         self.debug_messages = []
         self.logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
-        self.micro_scenarios = {}
+        self.micro_scenario_manager = MicroScenarioManager(bot)
         self.map_revealed = False
         self.enemy_control = False
         self.show_log = True
@@ -89,15 +89,8 @@ class Debug:
         self.logger = self.logger.bind(step=step, time=self.bot.time)
         await self._handle_chat()
 
-        scenarios_finished: set[int] = set()
-        for scenario in self.micro_scenarios.values():
-            if await scenario.step():
-                scenarios_finished.add(scenario.id)
-        for scenario_id in scenarios_finished:
-            self.micro_scenarios.pop(scenario_id)
-        if scenarios_finished and not self.micro_scenarios:
-            await self.hide_map()
-            await self.control_enemy_off()
+        if self.micro_scenario_manager.running:
+            await self.micro_scenario_manager.step()
 
     async def on_step_end(self, step: int) -> None:
         if self.show_log:
@@ -202,25 +195,11 @@ class Debug:
                     if func is not None:
                         await func()
                 elif cmd == '!micro':
-                    if self.bot.game_info.map_name != '144-66':
-                        continue
-
-                    await self.reveal_map()
-                    await self.control_enemy()
                     units = (
                         {UnitTypeId.MARINE: 8},
                         {UnitTypeId.ZEALOT: 4},
                     )
-                    for row in range(6):
-                        for col in range(6):
-                            if (row, col) in {(5, 0), (5, 5)}:
-                                continue
-                            x = col * 24 + 12
-                            y = row * 24 + 12
-                            location = Point2((x, y))
-                            scenario = MicroScenario(self.bot, units=units, location=location)
-                            self.micro_scenarios[scenario.id] = scenario
-                            await scenario.start()
+                    await self.micro_scenario_manager.start(units)
 
                 elif cmd == '!slow':
                     if len(args) == 0:

@@ -53,3 +53,10 @@ class UnitCost:
             vespene=self.vespene / divisor,
             supply=self.supply / divisor,
         )
+
+    def __pow__(self, exponent: float) -> Self:
+        return UnitCost(
+            minerals=self.minerals ** exponent,
+            vespene=self.vespene ** exponent,
+            supply=self.supply ** exponent,
+        )

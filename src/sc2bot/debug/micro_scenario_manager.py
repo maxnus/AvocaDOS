@@ -1,0 +1,127 @@
+from typing import TYPE_CHECKING, Optional
+
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.position import Point2
+
+from sc2bot.core.util import UnitCost
+from sc2bot.debug.micro_scenario import MicroScenario, MicroScenarioResults
+
+if TYPE_CHECKING:
+    from sc2bot.core.bot import BotBase
+
+
+class MicroScenarioManager:
+    bot: 'BotBase'
+    running: bool
+    number_scenarios: int
+    scenarios: dict[int, MicroScenario]
+    locations: list[Point2]
+    results: list[MicroScenarioResults]
+
+    def __init__(self, bot: 'BotBase') -> None:
+        self.bot = bot
+        self.running = False
+        self.number_scenarios = 0
+        self.scenarios = {}
+        self.results = []
+
+    def get_locations(self) -> list[Point2]:
+        locations = []
+        if self.bot.game_info.map_name == '144-66':
+            for row in range(6):
+                for col in range(6):
+                    if (row, col) in {(5, 0), (5, 5)}:
+                        continue
+                    x = col * 24 + 12
+                    y = row * 24 + 12
+                    locations.append(Point2((x, y)))
+        else:
+            raise NotImplementedError(f"map {self.bot.game_info.map_name}")
+        return locations
+
+    async def start(self,
+              units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]], *,
+              number_scenarios: int = 100) -> None:
+
+        if self.bot.game_info.map_name != '144-66':
+            raise ValueError
+
+        self.running = True
+        await self.bot.debug.reveal_map()
+        await self.bot.debug.control_enemy()
+
+        self.locations = self.get_locations()
+        self.number_scenarios = number_scenarios
+        for idx, location in enumerate(self.locations):
+            if idx >= self.number_scenarios:
+                break
+            scenario = MicroScenario(self.bot, units=units, location=location)
+            self.scenarios[scenario.id] = scenario
+            await scenario.start()
+
+    async def step(self) -> Optional[float]:
+        if not self.running:
+            raise RuntimeError
+
+        await self.bot.debug.control_enemy_off()
+        await self.bot.debug.control_enemy()
+
+        finished_ids: set[int] = set()
+        for scenario in self.scenarios.values():
+            if await scenario.step():
+                result = await scenario.finish()
+                self.results.append(result)
+                finished_ids.add(scenario.id)
+
+        for scenario_id in finished_ids:
+            finished_scenario = self.scenarios.pop(scenario_id)
+            # Restart
+            if len(self.results) + len(self.scenarios) < self.number_scenarios:
+                scenario = MicroScenario(self.bot, units=finished_scenario.units, location=finished_scenario.location)
+                self.scenarios[scenario.id] = scenario
+                await scenario.start()
+
+        if finished_ids and not self.scenarios:
+            await self.bot.debug.hide_map()
+            await self.bot.debug.control_enemy_off()
+            self.running = False
+            return self.analyse()
+        else:
+            return None
+
+    def analyse(self, *, vespene_mineral_value: float | tuple[float, float] = 2.0) -> float:
+        if isinstance(vespene_mineral_value, float):
+            vespene_mineral_value = (vespene_mineral_value, vespene_mineral_value)
+
+        losses_p1, losses_p2 = zip(*[result.get_losses() for result in self.results])
+        mean_loss_p1 = sum(losses_p1, start=UnitCost(0, 0, 0)) / len(losses_p1)
+        mean_loss_p2 = sum(losses_p2, start=UnitCost(0, 0, 0)) / len(losses_p2)
+        mean_squared_loss_p1 = sum([l**2 for l in losses_p1], start=UnitCost(0, 0, 0)) / len(losses_p1)
+        mean_squared_loss_p2 = sum([l**2 for l in losses_p2], start=UnitCost(0, 0, 0)) / len(losses_p2)
+        std_loss_p1 = (mean_squared_loss_p1 - mean_loss_p1 ** 2)**0.5
+        std_loss_p2 = (mean_squared_loss_p2 - mean_loss_p2 ** 2)**0.5
+
+        self.bot.logger.info("[Player 1] minerals= {:4.0f} +/- {:4.0f}  vespene= {:4.0f} +/- {:4.0f}",
+                             mean_loss_p1.minerals, std_loss_p1.minerals, mean_loss_p1.vespene, std_loss_p1.vespene)
+        self.bot.logger.info("[Player 2] minerals= {:4.0f} +/- {:4.0f}  vespene= {:4.0f} +/- {:4.0f}",
+                             mean_loss_p2.minerals, std_loss_p2.minerals, mean_loss_p2.vespene, std_loss_p2.vespene)
+
+        resource_lost_p1 = mean_loss_p1.minerals + vespene_mineral_value[0] * mean_loss_p1.vespene
+        resource_lost_p2 = mean_loss_p2.minerals + vespene_mineral_value[1] * mean_loss_p2.vespene
+        #self.bot.logger.info("[Total]    P1: {:.1f}  P2: {:.1f}",
+        #                     resource_lost_p1, resource_lost_p2)
+
+        wins_p1 = sum(1 for result in self.results if result.winner == 1)
+        wins_p2 = sum(1 for result in self.results if result.winner == 2)
+        win_rate_p1 = wins_p1 / len(self.results)
+        win_rate_p2 = wins_p2 / len(self.results)
+        self.bot.logger.info("Win rates: P1={:.1%} P2={:.1f}", win_rate_p1, win_rate_p2)
+
+        total_resources_lost = resource_lost_p1 + resource_lost_p2
+        if total_resources_lost == 0:
+            return 0.5
+        rating_p1 = resource_lost_p2 / total_resources_lost
+        rating_p2 = resource_lost_p1 / total_resources_lost
+        self.bot.logger.info("rating: P1 = {:.1%} P2 = {:.1%}", rating_p1, rating_p2)
+
+        return rating_p1
