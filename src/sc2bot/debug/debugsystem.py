@@ -1,5 +1,4 @@
 import math
-import sys
 from typing import TYPE_CHECKING, Optional, ClassVar
 
 from loguru import logger as _logger
@@ -44,7 +43,7 @@ class DebugSystem(System):
         self.enemy_control = False
         self.show_log = False
         self.show_orders = False
-        self.show_commanders = False
+        self.show_commanders = True
         self.show_combat = True
 
         def ingame_logging(message):
@@ -233,6 +232,16 @@ class DebugSystem(System):
             self.logger.debug("Chat message: {}", chat_message.message)
             if chat_message.message.startswith('!'):
                 cmd, *args = chat_message.message.split()
+
+                if cmd == '!log' and len(args) == 1 and args[0] in {'0', '1'}:
+                    self.show_log = bool(int(args[0]))
+
+                if cmd == '!cmd' and len(args) == 1 and args[0] in {'0', '1'}:
+                    self.show_commanders = bool(int(args[0]))
+
+                if cmd == '!orders' and len(args) == 1 and args[0] in {'0', '1'}:
+                    self.show_orders = bool(int(args[0]))
+
                 valid_args = {'control_enemy', 'food', 'free', 'all_resources', 'god', 'minerals', 'gas',
                               'cooldown', 'tech_tree', 'upgrade', 'fast_build'}
                 if cmd == '!debug' and len(args) == 1 and args[0] in {'0', '1'}:

@@ -1,20 +1,14 @@
 import copy
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from enum import Enum, StrEnum
-from typing import Optional, TYPE_CHECKING, Self
+from typing import Optional, Self
 
-from loguru._logger import Logger
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
-
-from .manager import Manager
-
-if TYPE_CHECKING:
-    from .commander import Commander
+from sc2.units import Units
 
 
 class TaskStatus(Enum):
@@ -23,7 +17,7 @@ class TaskStatus(Enum):
     COMPLETED = 2
 
 
-class RequirementType(StrEnum):
+class TaskRequirementType(StrEnum):
     TIME = "T"
     SUPPLY = "S"
     MINERALS = "M"
@@ -37,30 +31,25 @@ def _get_next_id() -> int:
     return next(_task_id_counter)
 
 
-Dependencies = dict[int, TaskStatus]
-Requirements = list[tuple[RequirementType | UnitTypeId | UpgradeId, int | bool]]
+TaskDependencies = dict[int, TaskStatus]
+TaskRequirements = list[tuple[TaskRequirementType | UnitTypeId | UpgradeId, int | bool]]
 
 
 class Task(ABC):
     id: int
-    reqs: Requirements
-    deps: Dependencies
+    reqs: TaskRequirements
+    deps: TaskDependencies
     priority: int
     repeat: bool = False
     status: TaskStatus
-    # started: Optional[int]
-    # finished: Optional[int]
-    # timeout: Optional[int]
+    assigned: set[int]
 
     def __init__(self,
-                 reqs: Optional[Requirements | UnitTypeId | UpgradeId] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] =  None,
+                 reqs: Optional[TaskRequirements | UnitTypeId | UpgradeId] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  status: TaskStatus = TaskStatus.NOT_STARTED,
-                 #started: Optional[int] = None,
-                 #finished: Optional[int] = None,
-                 #timeout: Optional[int] = None
                  ) -> None:
         self.id = _get_next_id()
         self.reqs = self._normalize_reqs(reqs)
@@ -74,12 +63,10 @@ class Task(ABC):
         self.priority = priority
         self.repeat = repeat
         self.status = status
-        # self.started = started
-        # self.finished = finished
-        # self.timeout = timeout
+        self.assigned = set()
 
     @staticmethod
-    def _normalize_reqs(reqs: Optional[Requirements | UnitTypeId | UpgradeId]) -> Requirements:
+    def _normalize_reqs(reqs: Optional[TaskRequirements | UnitTypeId | UpgradeId]) -> TaskRequirements:
         if reqs is None:
             return []
         if isinstance(reqs, (UnitTypeId, UpgradeId)):
@@ -94,6 +81,13 @@ class Task(ABC):
 
     def mark_complete(self) -> None:
         self.status = TaskStatus.COMPLETED
+
+    def assign_units(self, units: Unit | Units | set[int]) -> None:
+        if isinstance(units, Unit):
+            units = {units.tag}
+        elif isinstance(units, Units):
+            units = units.tags
+        self.assigned.update(units)
 
     def copy(self, status: Optional[TaskStatus] = None) -> Self:
         copied_task = copy.copy(self)
@@ -120,8 +114,8 @@ class HandoverUnitsTask(Task):
                  commander: str,
                  number: Optional[int] = None,
                  *,
-                 reqs: Optional[Requirements] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] =  None,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  ) -> None:
@@ -142,12 +136,12 @@ class BuildTask(Task):
     def __init__(self,
                  utype: UnitTypeId,
                  *,
-                 reqs: Optional[Requirements] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] =  None,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
-                 max_distance: Optional[float] = 10,
+                 max_distance: Optional[float] = 5,
                  ) -> None:
         super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
@@ -166,8 +160,8 @@ class ResearchTask(Task):
     def __init__(self,
                  upgrade: UpgradeId,
                  *,
-                 reqs: Optional[Requirements] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] =  None,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -192,8 +186,8 @@ class UnitCountTask(Task):
                  utype: UnitTypeId,
                  number: int = 1,
                  *,
-                 reqs: Optional[Requirements] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] = None,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] = None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -217,8 +211,8 @@ class UnitPendingTask(Task):
     def __init__(self,
                  utype: UnitTypeId,
                  *,
-                 reqs: Optional[Requirements] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] = None,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] = None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -241,8 +235,8 @@ class OrderTask(Task):
                  target: Point2,
                  units: Optional[dict[UnitTypeId, int]] | UnitTypeId = None,
                  *,
-                 reqs: Optional[Requirements] = None,
-                 deps: Optional[Dependencies | TaskStatus | int] = None,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] = None,
                  priority: int = 50,
                  repeat: bool = False,
                  ) -> None:
@@ -262,81 +256,3 @@ class MoveTask(OrderTask):
 
 class AttackTask(OrderTask):
     pass
-
-
-class TaskManager(Manager):
-    completed: dict[int, Task]
-    current: dict[int, Task]
-    future: dict[int, Task]
-
-    def __init__(self, commander: 'Commander', tasks: Optional[dict[int, Task]]) -> None:
-        super().__init__(commander)
-        self.completed = {}
-        self.current = {}
-        self.future = tasks or {}
-
-    def add(self, task: Task) -> int:
-        self.future[task.id] = task
-        return task.id
-
-    def __bool__(self) -> bool:
-        return bool(self.current)
-
-    def __iter__(self) -> Iterator[Task]:
-        yield from sorted(self.current.values(), key=lambda task: task.priority, reverse=True)
-
-    def get_status(self, task_id: int) -> Optional[TaskStatus]:
-        if task_id in self.current:
-            return self.current[task_id].status
-        if task_id in self.future:
-            return self.future[task_id].status
-        if task_id in self.completed:
-            return self.completed[task_id].status
-        self.logger.warning(f"Unknown task id: {task_id}")
-        return None
-
-    def _requirements_fulfilled(self, requirements: Requirements) -> bool:
-        fulfilled = True
-        for req_type, req_value in requirements:
-            if isinstance(req_type, UnitTypeId):
-                value = self.commander.forces(req_type).ready.amount
-            elif isinstance(req_type, UpgradeId):
-                value = req_type in self.commander.bot.state.upgrades
-            elif req_type == RequirementType.TIME:
-                value = self.bot.time
-            elif req_type == RequirementType.SUPPLY:
-                value = self.bot.supply_used
-            elif req_type == RequirementType.MINERALS:
-                value = self.bot.minerals
-            elif req_type == RequirementType.VESPENE:
-                value = self.bot.vespene
-            else:
-                self.logger.warning(f"Unknown requirement: {req_type}")
-                continue
-            if isinstance(value, bool):
-                fulfilled = value == req_value and fulfilled
-            else:
-                fulfilled = value >= req_value and fulfilled
-        return fulfilled
-
-    def _dependencies_fulfilled(self, dependencies: Dependencies) -> bool:
-        return all(self.get_status(dep) in {status, None} for dep, status in dependencies.items())
-
-    def _task_ready(self, task: Task) -> bool:
-        return self._dependencies_fulfilled(task.deps) and self._requirements_fulfilled(task.reqs)
-
-    async def update_tasks(self, iteration: int) -> None:
-        for task in self.current.copy().values():
-            if task.status == TaskStatus.COMPLETED:
-                self.current.pop(task.id)
-                self.completed[task.id] = task
-                self.logger.debug("Completed {}", task)
-                if task.repeat:
-                    self.add(task.copy(status=TaskStatus.NOT_STARTED))
-
-        for task in self.future.copy().values():
-            if self._task_ready(task):
-                task = self.future.pop(task.id)
-                task.status = TaskStatus.STARTED
-                self.current[task.id] = task
-                self.logger.debug("Started {}", task)

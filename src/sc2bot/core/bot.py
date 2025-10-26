@@ -13,12 +13,12 @@ from sc2.unit import Unit
 from sc2.units import Units
 from sc2.ids.ability_id import AbilityId
 
+from sc2bot.build import BuildOrder, ProxyReaper, get_build_order
 from sc2bot.core.commander import Commander
 from sc2bot.debug.debugsystem import DebugSystem
 from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.util import UnitCost
-from sc2bot.debug.micro_scenario import MicroScenario
 from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
 from sc2bot.mapinfo import Sc2Map
 
@@ -26,6 +26,7 @@ from sc2bot.mapinfo import Sc2Map
 class BotBase(BotAI):
     name: str
     sc2map: Optional[Sc2Map]
+    build: Optional[BuildOrder]
     seed: int
     logger: Logger
     debug: DebugSystem
@@ -38,6 +39,7 @@ class BotBase(BotAI):
 
     def __init__(self, name: Optional[str] = None, *,
                  sc2map: Optional[Sc2Map] = None,
+                 build: Optional[str] = None,
                  seed: int = 0,
                  debug_enabled: bool = True,
                  slowdown_time: float = 0,
@@ -46,6 +48,10 @@ class BotBase(BotAI):
         super().__init__()
         self.name = name or self.__class__.__name__
         self.sc2map = sc2map
+        if build:
+            self.build = get_build_order(build)(self)
+        else:
+            self.build = None
         self.seed = seed
         random.seed(seed)
         self.debug = DebugSystem(self)
@@ -70,13 +76,17 @@ class BotBase(BotAI):
     async def on_start(self) -> None:
         self.client.game_step = 1
         self.map = await MapData.analyze_map(self)
-        self.load_strategy()
+
+        if self.build is not None:
+            self.logger.debug("Loading build order {}", self.build)
+            self.build.load()
+
+        commander = self.commander.get('Main')
+        if commander:
+            commander.add_units(self.units | self.structures)
 
         if self.micro_scenario is not None:
             await self.micro_scenario.start()
-
-    def load_strategy(self) -> None:
-        pass
 
     async def on_step(self, step: int):
         t0 = perf_counter()
@@ -86,6 +96,11 @@ class BotBase(BotAI):
 
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.step()
+
+        # Distribute resources
+        if self.commander:
+            commander = max(self.commander.values(), key=lambda cmd: cmd.resource_priority)
+            commander.resources.reset(self.minerals, self.vespene)
 
         # Update commander
         for commander in self.commander.values():
@@ -195,21 +210,21 @@ class BotBase(BotAI):
         return Units(workers, self)
 
     async def on_unit_created(self, unit: Unit) -> None:
-        self.logger.trace("Unit {} created", unit)
-        # TODO fix
-        # if self.commander:
-        #     commander = next(iter(self.commander.values()))
-        #     commander.add_units(unit)
+        #self.logger.trace("Unit {} created", unit)
+        # TODO fix (add automatically to owner of producer?)
+        commander = self.commander.get('Main')
+        if commander:
+            commander.add_units(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
-        commander = self.get_controlling_commander(unit_tag)
         #self.logger.trace("Unit {} destroyed (commander= {})", unit_tag, commander)
+        commander = self.get_controlling_commander(unit_tag)
         if commander is not None:
             commander.remove_units(unit_tag)
 
     async def on_building_construction_started(self, unit: Unit) -> None:
         #self.logger.trace("Building {} construction started", unit)
-        # TODO fix
-        if self.commander:
-            commander = next(iter(self.commander.values()))
+        # TODO fix (add automatically to owner of producer?)
+        commander = self.commander.get('Main')
+        if commander:
             commander.add_units(unit)

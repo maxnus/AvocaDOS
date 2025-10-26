@@ -1,6 +1,7 @@
 import math
 from typing import Optional
 
+from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -80,6 +81,18 @@ class MicroManager(Manager):
             if prev_frame and prev_frame.weapon_cooldown < 1 <= unit.weapon_cooldown:
                 return True
         return unit.weapon_cooldown < 1
+
+    async def get_abilities(self, units: Units) -> list[list[AbilityId]]:
+        if units:
+            ability_list = await self.bot.get_available_abilities(units)
+        else:
+            ability_list = []
+        # Filter down to relevant
+        keep = {
+            AbilityId.KD8CHARGE_KD8CHARGE,
+        }
+        ability_list = [[ability for ability in abilities if ability in keep] for abilities in ability_list]
+        return ability_list
 
     def get_scan_range(self, unit: Unit, *, scan_factor: float = 0.75) -> float:
         scan_range = 0
@@ -184,9 +197,9 @@ class MicroManager(Manager):
                     break
         return Units(enemies, self.bot)
 
-    def micro_units(self, *,
-                    units: Optional[Units] = None,
-                    enemies: Optional[Units] = None) -> None:
+    async def micro_units(self,
+                          units: Optional[Units] = None, *,
+                          enemies: Optional[Units] = None) -> None:
         if units is None:
             units = self.commander.units
         if enemies is None:
@@ -199,9 +212,19 @@ class MicroManager(Manager):
             group_target = None
             group_target_prio = 0
 
-        for unit in units:
-            self._micro_unit(unit, enemies=enemies, group_attack_priorities=group_attack_priorities,
-                             group_target=group_target)
+        #if self.bot.state.game_loop % 20 == 0:
+        #    abilities = await self.get_abilities(units)
+        #else:
+        #    abilities = [[] for _ in range(len(units))]
+        abilities = await self.get_abilities(units)
+        for unit, unit_abilities in zip(units, abilities):
+            self._micro_unit(
+                unit,
+                enemies=enemies,
+                abilities=unit_abilities,
+                group_attack_priorities=group_attack_priorities,
+                group_target=group_target
+            )
 
             # weapon_ready = self.weapon_ready(unit)
             # scan_range = self.get_scan_range(unit)
@@ -259,6 +282,42 @@ class MicroManager(Manager):
             # elif group_target is not None:
             #     self.commander.order_attack(unit, group_target)
 
+    def _micro_unit(self, unit: Unit, *,
+                    enemies: Units,
+                    abilities: list[AbilityId],
+                    group_attack_priorities: dict[Unit, float],
+                    group_target: Optional[Unit]) -> bool:
+
+        # --- Defense
+        defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
+
+        if defense_prio >= 0.5:  # or (defense_position and unit.shield_health_percentage < 0.2):
+            return self.commander.order.move(unit, defense_position)
+
+        # --- Offense
+        attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=group_attack_priorities)
+
+        if target:
+            return self.commander.order.attack(unit, target)
+
+        # --- Ability
+        if abilities and group_attack_priorities:
+            ability_prio, ability_id, ability_target = self._evaluate_ability(
+                unit, abilities=abilities, group_attack_priorities=group_attack_priorities)
+            if ability_prio > 0.5:
+                return self.commander.order.ability(unit, ability_id, ability_target)
+
+        if group_target and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready):
+            return self.commander.order.attack(unit, group_target)
+
+        if defense_position and unit.shield_health_percentage < 0.8:
+            return self.commander.order.move(unit, defense_position)
+
+        if group_target is not None:
+            return self.commander.order.attack(unit, group_target)
+
+        return False
+
     def _evaluate_defense(self, unit: Unit, *, enemies: Units) -> tuple[float, Point2]:
         threat_range = self.get_threat_range(unit)
         threats = enemies.closer_than(threat_range, unit)
@@ -292,30 +351,23 @@ class MicroManager(Manager):
         target, attack_prio = max(attack_priorities_attack_range.items(), key=lambda kv: kv[1])
         return attack_prio, target
 
-    def _micro_unit(self, unit: Unit, *,
-                    enemies: Units,
-                    group_attack_priorities: dict[Unit, float],
-                    group_target: Optional[Unit]) -> bool:
+    def _evaluate_ability(self, unit: Unit, *,
+                          abilities: list[AbilityId],
+                          group_attack_priorities: dict[Unit, float]
+                          ) -> tuple[float, Optional[AbilityId], Optional[Unit | Point2]]:
 
-        # --- Defense
-        defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
+        for ability_id in abilities:
+            attack_priorities_ability_range = {target: priority for target, priority
+                                               in group_attack_priorities.items()
+                                               if unit.in_ability_cast_range(ability_id, target)}
 
-        if defense_prio >= 0.5:  # or (defense_position and unit.shield_health_percentage < 0.2):
-            return self.commander.order_move(unit, defense_position)
+            if not attack_priorities_ability_range:
+                continue
 
-        # --- Offense
-        attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=group_attack_priorities)
+            if ability_id == AbilityId.KD8CHARGE_KD8CHARGE:
+                target, ability_prio = max(attack_priorities_ability_range.items(), key=lambda kv: kv[1])
+                # TODO
+                #target = target.position.towards(unit, distance=0)
+                return 1.0, ability_id, target
 
-        if target:
-            return self.commander.order_attack(unit, target)
-
-        if group_target and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready):
-            return self.commander.order_attack(unit, group_target)
-
-        if defense_position and unit.shield_health_percentage < 0.8:
-            return self.commander.order_move(unit, defense_position)
-
-        if group_target is not None:
-            return self.commander.order_attack(unit, group_target)
-
-        return False
+        return 0, None, None

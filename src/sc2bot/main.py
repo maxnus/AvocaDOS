@@ -37,15 +37,17 @@ class GameRunner:
         run_game(self.map, players=players, realtime=self.realtime)
 
 
-if __name__ == "__main__":
+def micro():
     # map_name = "AcropolisLE"
     map_name = 'micro-training-4x4'
 
     #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZEALOT: 4})
     #micro_scenario = {UnitTypeId.MARINE: 8}
     #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4})
-    micro_scenario = {UnitTypeId.REAPER: 8}
+    #micro_scenario = {UnitTypeId.REAPER: 8}
     #micro_scenario = {UnitTypeId.REAPER: 1}
+    #micro_scenario = {UnitTypeId.REAPER: 8}, {UnitTypeId.MARINE: 12}
+    micro_scenario = {UnitTypeId.REAPER: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4}
 
     slowdown_time = 0
     #slowdown_time = 1000
@@ -57,3 +59,18 @@ if __name__ == "__main__":
         opponent = Computer(Race.Protoss, Difficulty.Hard),
     )
     runner.run()
+
+
+def macro():
+    runner = GameRunner(
+        'AcropolisLE',
+        bot=Bot(Race.Terran, BotBase()),
+        opponent=Computer(Race.Protoss, Difficulty.Hard),
+    )
+    runner.run()
+
+
+if __name__ == "__main__":
+    micro()
+    #macro()
+
