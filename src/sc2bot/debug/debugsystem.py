@@ -2,9 +2,12 @@ import sys
 from typing import TYPE_CHECKING, Optional, ClassVar
 
 from loguru import logger as _logger
+from loguru._logger import Logger
 from sc2.client import Client
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
+
+from sc2bot.core.system import System
 
 if TYPE_CHECKING:
     from sc2bot.core.bot import BotBase
@@ -13,29 +16,34 @@ if TYPE_CHECKING:
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 YELLOW = (255, 255, 0)
+CYAN = (0, 255, 255)
 
 
-class Debug:
-    bot: 'BotBase'
-    debug_messages: list[str]
+class DebugSystem(System):
     text_size: ClassVar[int] = 16
     # State
     map_revealed: bool
     enemy_control: bool
+    # Frame data
+    debug_messages: list[str]
+    damage_taken: dict[Unit, float]
     # Config
     show_log: bool
     show_orders: bool
     show_commanders: bool
+    show_combat: bool
 
     def __init__(self, bot: 'BotBase') -> None:
-        self.bot = bot
+        super().__init__(bot)
         self.debug_messages = []
-        self.logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
+        self.damage_taken = {}
+        self._logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
         self.map_revealed = False
         self.enemy_control = False
         self.show_log = False
         self.show_orders = False
         self.show_commanders = False
+        self.show_combat = True
 
         def ingame_logging(message):
             if not hasattr(self, 'client'):
@@ -49,7 +57,7 @@ class Debug:
         #     filter=lambda record: record['extra'].get('bot') == bot.name,
         #     format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         # )
-        self.logger.add(
+        self._logger.add(
             ingame_logging,
             level="DEBUG",
             filter=lambda record: record['extra'].get('bot') == bot.name,
@@ -59,6 +67,12 @@ class Debug:
     @property
     def client(self) -> Client:
         return self.bot.client
+
+    @property
+    def logger(self) -> Logger:
+        return self._logger
+
+    # Controls
 
     async def reveal_map(self) -> None:
         if not self.map_revealed:
@@ -80,8 +94,15 @@ class Debug:
             await self.client.debug_control_enemy()
             self.enemy_control = False
 
+    # Callbacks
+
+    async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
+        assert unit not in self.damage_taken
+        self.damage_taken[unit] = amount_damage_taken
+
     async def on_step_start(self, step: int) -> None:
-        self.logger = self.logger.bind(step=step, time=self.bot.time)
+        #self.damage_taken.clear()
+        self._logger = self.logger.bind(step=step, time=self.bot.time)
         await self._handle_chat()
 
     async def on_step_end(self, step: int) -> None:
@@ -121,9 +142,13 @@ class Debug:
                     #self.text_world(str(order), unit)
                     self.box_with_text(unit, str(order))
 
-        if True:
+        if self.show_combat:
             for commander in self.bot.commander.values():
                 for unit in commander.units:
+                    if unit.weapon_cooldown != 0:
+                        self.text_world(f"{unit.weapon_cooldown:.3f}", unit.position3d - Point3((0, 0, -0.5)),
+                                        size=12, color=CYAN)
+
                     if unit.orders:
                         order = unit.orders[0]
                         if isinstance(order.target, int):
@@ -133,6 +158,11 @@ class Debug:
                         if target is not None:
                             self.line(unit, target)
                         #self.text_world(str(order), unit, size=14)
+            for unit, damage in self.damage_taken.items():
+                color = RED if damage > 0 else GREEN
+                self.text_world(f"-{damage:.2f}", unit.position3d + Point3((0, 0, 1.5)), size=12, color=color)
+
+        self.damage_taken.clear()
 
         #if self.bot.map is not None:
         #    #for idx, expansion in enumerate(self.bot.map.enemy_expansions):

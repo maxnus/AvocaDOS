@@ -11,7 +11,7 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
-from .system import System
+from .manager import Manager
 
 if TYPE_CHECKING:
     from .commander import Commander
@@ -264,7 +264,7 @@ class AttackTask(OrderTask):
     pass
 
 
-class TaskManager(System):
+class TaskManager(Manager):
     completed: dict[int, Task]
     current: dict[int, Task]
     future: dict[int, Task]

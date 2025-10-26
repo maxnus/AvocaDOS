@@ -1,3 +1,4 @@
+import asyncio
 import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
@@ -85,6 +86,11 @@ class MicroScenario:
         return self.started is not None and self.finished is None
 
     async def start(self) -> None:
+        # Clean arena
+        # units_in_arena = self._get_all_units_in_arena()
+        # if units_in_arena:
+        #     await self.client.debug_kill_unit(units_in_arena)
+
         for player in self.bot.game_info.players:
             await self.client.debug_create_unit(
                 [[utype, number, self.spawns[player.id - 1], player.id]
@@ -130,8 +136,11 @@ class MicroScenario:
         return (-self.arena_size[0] <= 2*(point.x - self.location.x) <= self.arena_size[0]
                 and -self.arena_size[1] <= 2*(point.y - self.location.y) <= self.arena_size[1])
 
+    def _get_all_units_in_arena(self) -> Units:
+        return self.bot.all_units.filter(lambda u: self._in_arena(u))
+
     def _get_units_in_arena(self) -> tuple[Units, Units]:
-        units_in_arena = self.bot.all_units.filter(lambda u: self._in_arena(u))
+        units_in_arena = self._get_all_units_in_arena()
         units_p1 = units_in_arena.filter(lambda u: u.owner_id == 1)
         units_p2 = units_in_arena.filter(lambda u: u.owner_id == 2)
         return units_p1, units_p2

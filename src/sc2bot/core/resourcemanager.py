@@ -7,13 +7,13 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.system import System
+from sc2bot.core.manager import Manager
 
 if TYPE_CHECKING:
     from sc2bot.core.commander import Commander
 
 
-class Resources(System):
+class ResourceManager(Manager):
     total_minerals: int
     total_vespene: int
     spent_minerals: int

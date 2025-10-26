@@ -42,7 +42,9 @@ if __name__ == "__main__":
     map_name = 'micro-training-4x4'
 
     #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZEALOT: 4})
-    micro_scenario = {UnitTypeId.MARINE: 8}
+    #micro_scenario = {UnitTypeId.MARINE: 8}
+    #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4})
+    micro_scenario = {UnitTypeId.REAPER: 8}
 
     runner = GameRunner(
         map_name,

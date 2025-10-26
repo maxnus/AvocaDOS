@@ -14,7 +14,7 @@ from sc2.units import Units
 from sc2.ids.ability_id import AbilityId
 
 from sc2bot.core.commander import Commander
-from sc2bot.debug.debug import Debug
+from sc2bot.debug.debugsystem import DebugSystem
 from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.util import UnitCost
@@ -28,7 +28,7 @@ class BotBase(BotAI):
     sc2map: Optional[Sc2Map]
     seed: int
     logger: Logger
-    debug: Debug
+    debug: DebugSystem
     commander: dict[str, Commander]
     history: History
     map: Optional[MapData]
@@ -48,7 +48,7 @@ class BotBase(BotAI):
         self.sc2map = sc2map
         self.seed = seed
         random.seed(seed)
-        self.debug = Debug(self)
+        self.debug = DebugSystem(self)
         self.history = History(self)
         self.commander = {}
         self.logger.debug("Initialized {}", self)
@@ -99,6 +99,9 @@ class BotBase(BotAI):
             sleep = self.slowdown_time / 1000 - (perf_counter() - t0)
             if sleep > 0:
                 await asyncio.sleep(sleep)
+
+    async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
+        await self.debug.on_unit_took_damage(unit, amount_damage_taken)
 
     # --- Commanders
 

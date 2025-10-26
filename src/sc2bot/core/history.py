@@ -1,22 +1,29 @@
 
 from sc2.bot_ai import BotAI
 from sc2.game_data import Cost
+from sc2.unit import Unit
 
 
 class History:
     bot: BotAI
     resources: list[tuple[int, int]]
+    enemy_units: dict[int, tuple[int, Unit]]
     max_length: int
 
     def __init__(self, bot: BotAI, *, max_length: int = 1000) -> None:
         self.bot = bot
         self.resources = []
         self.max_length = max_length
+        self.enemy_units = {}
 
     def on_step(self, iteration: int) -> None:
+        # Rsources
         self.resources.append((self.bot.minerals, self.bot.vespene))
         if len(self.resources) > self.max_length:
             self.resources.pop(0)
+        # Enemies
+        for unit in self.bot.enemy_units:
+            self.enemy_units[unit.tag] = (self.bot.state.game_loop, unit)
 
     def get_resource_rates(self, steps: int = 20) -> tuple[float, float]:
         """Per ingame second (22.4 frames)"""

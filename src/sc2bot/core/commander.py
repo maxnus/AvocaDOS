@@ -13,11 +13,12 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from sc2bot.core.system import System
 from sc2bot.micro.combat import MicroManager
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder
-from sc2bot.core.resources import Resources
+from sc2bot.core.resourcemanager import ResourceManager
 from sc2bot.core.tasks import Task, TaskManager, UnitCountTask, UnitPendingTask, AttackTask, MoveTask, \
     ResearchTask, HandoverUnitsTask
 
@@ -51,30 +52,28 @@ class RetreatCommand(Command):
 
 
 
-class Commander:
-    bot: 'BotBase'
+class Commander(System):
     name: str
     tags: set[int]
     orders: dict[int, Optional[Order]]
     previous_orders: dict[int, Optional[Order]]
     assigned: dict[int, list[int]]
     # Systems
-    resources: Resources
+    resources: ResourceManager
     tasks: TaskManager
     combat: MicroManager
 
     def __init__(self, bot: 'BotBase', name: str,
                  tags: Optional[set[int]] = None,
                  tasks: Optional[list[Task]] = None) -> None:
-        super().__init__()
-        self.bot = bot
+        super().__init__(bot)
         self.name = name
         self.tags = tags or set()
         self.orders = {}
         self.previous_orders = {}
         self.assigned = {}
         # Systems
-        self.resources = Resources(self)
+        self.resources = ResourceManager(self)
         self.tasks = TaskManager(self, tasks)
         self.combat = MicroManager(self)
 
@@ -90,7 +89,7 @@ class Commander:
 
     @property
     def logger(self) -> Logger:
-        return self.bot.logger.bind(prefix=self.name)
+        return super().logger.bind(prefix=self.name)
 
     @property
     def map(self) -> MapData:

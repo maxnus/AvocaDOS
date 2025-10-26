@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Optional
 
+from pip._internal import locations
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
@@ -17,6 +18,7 @@ class MicroScenarioManager:
     number_scenarios: int
     scenarios: dict[int, MicroScenario]
     locations: list[Point2]
+    free_locations: list[Point2]
     results: list[MicroScenarioResults]
 
     def __init__(self, bot: 'BotBase', *,
@@ -28,6 +30,8 @@ class MicroScenarioManager:
         self.running = False
         self.number_scenarios = 0
         self.scenarios = {}
+        self.locations = []
+        self.free_locations = []
         self.results = []
 
     def get_locations(self) -> list[Point2]:
@@ -44,15 +48,16 @@ class MicroScenarioManager:
 
     async def start(self, *, number_scenarios: int = 64) -> None:
 
+        self.locations = self.get_locations()
+        self.free_locations = self.locations.copy()
+
         self.running = True
         await self.bot.debug.reveal_map()
         await self.bot.debug.control_enemy()
 
-        self.locations = self.get_locations()
         self.number_scenarios = number_scenarios
-        for idx, location in enumerate(self.locations):
-            if idx >= self.number_scenarios:
-                break
+        for idx in range(min(self.number_scenarios, len(self.locations))):
+            location = self.free_locations.pop(0)
             scenario = MicroScenario(self.bot, units=self.units, location=location)
             self.scenarios[scenario.id] = scenario
             await scenario.start()
@@ -75,7 +80,7 @@ class MicroScenarioManager:
             finished_scenario = self.scenarios.pop(scenario_id)
             # Restart
             if len(self.results) + len(self.scenarios) < self.number_scenarios:
-                scenario = MicroScenario(self.bot, units=finished_scenario.units, location=finished_scenario.location)
+                scenario = MicroScenario(self.bot, units=self.units, location=finished_scenario.location)
                 self.scenarios[scenario.id] = scenario
                 await scenario.start()
 
