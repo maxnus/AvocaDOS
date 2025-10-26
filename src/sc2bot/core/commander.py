@@ -511,7 +511,7 @@ class Commander(System):
                 task.mark_complete()
 
     async def _micro(self, iteration: int) -> None:
-        self.combat.micro()
+        self.combat.micro_units()
 
         if iteration % 8 == 0:
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:

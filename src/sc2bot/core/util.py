@@ -3,11 +3,28 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Self
 
+from sc2.position import Point2
+from sc2.unit import Unit
+
 
 async def wait_until(predicate: Callable[..., Any], check_interval: float = 1) -> None:
     """Repeatedly check predicate() until it returns True."""
     while not predicate():
         await asyncio.sleep(check_interval)
+
+
+def get_squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
+    if isinstance(pos1, Unit):
+        p1 = pos1.position
+    else:
+        p1 = pos1
+    if isinstance(pos2, Unit):
+        p2 = pos2.position
+    else:
+        p2 = pos2
+    dx = p1.x - p2.x
+    dy = p1.y - p2.y
+    return dx * dx + dy * dy
 
 
 @dataclass
