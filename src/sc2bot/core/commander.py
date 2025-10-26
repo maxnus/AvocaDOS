@@ -25,7 +25,7 @@ from sc2bot.core.tasks import Task, UnitCountTask, UnitPendingTask, AttackTask, 
 from sc2bot.core.taskmanager import TaskManager
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 @dataclass
@@ -68,7 +68,7 @@ class Commander(System):
     tasks: TaskManager
     combat: MicroManager
 
-    def __init__(self, bot: 'BotBase', name: str, *,
+    def __init__(self, bot: 'AvocaDOS', name: str, *,
                  tags: Optional[set[int]] = None,
                  tasks: Optional[list[Task]] = None,
                  resource_priority: float = 0.5,

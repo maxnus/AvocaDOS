@@ -8,11 +8,11 @@ from sc2bot.core.util import UnitCost
 from sc2bot.debug.micro_scenario import MicroScenario, MicroScenarioResults
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 class MicroScenarioManager:
-    bot: 'BotBase'
+    bot: 'AvocaDOS'
     units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     running: bool
     number_scenarios: int
@@ -21,8 +21,8 @@ class MicroScenarioManager:
     free_locations: list[Point2]
     results: list[MicroScenarioResults]
 
-    def __init__(self, bot: 'BotBase', *,
-        units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]) -> None:
+    def __init__(self, bot: 'AvocaDOS', *,
+                 units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]) -> None:
         if isinstance(units, dict):
             units = (units, units)
         self.bot = bot

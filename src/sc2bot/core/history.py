@@ -6,7 +6,7 @@ from sc2.unit import Unit
 from sc2bot.core.system import System
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 class History(System):
@@ -15,7 +15,7 @@ class History(System):
     #enemy_units: dict[int, tuple[int, Unit]]
     max_length: int
 
-    def __init__(self, bot: 'BotBase', *, max_length: int = 1000) -> None:
+    def __init__(self, bot: 'AvocaDOS', *, max_length: int = 1000) -> None:
         super().__init__(bot)
         self.resources = []
         self.max_length = max_length

@@ -1,5 +1,7 @@
+import asyncio
 import math
 import sys
+from time import perf_counter
 from typing import TYPE_CHECKING, Optional, ClassVar
 
 from loguru import logger as _logger
@@ -11,7 +13,7 @@ from sc2.unit import Unit
 from sc2bot.core.system import System
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 RED = (255, 0, 0)
@@ -25,6 +27,8 @@ class DebugSystem(System):
     # State
     map_revealed: bool
     enemy_control: bool
+    slowdown: float
+    frame_start: Optional[float]
     # Frame data
     debug_messages: list[str]
     damage_taken: dict[Unit, float]
@@ -34,12 +38,14 @@ class DebugSystem(System):
     show_commanders: bool
     show_combat: bool
 
-    def __init__(self, bot: 'BotBase', *, log_level: str = "DEBUG") -> None:
+    def __init__(self, bot: 'AvocaDOS', *, slowdown: float = 0.0, log_level: str = "DEBUG") -> None:
         super().__init__(bot)
         self.debug_messages = []
         self.damage_taken = {}
         self.shot_last_frame = set()
         self._logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
+        self.slowdown = slowdown
+        self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
         self.show_log = False
@@ -104,6 +110,7 @@ class DebugSystem(System):
 
     async def on_step_start(self, step: int) -> None:
         self._logger = self.logger.bind(step=self.bot.state.game_loop, time=self.bot.time)
+        self.frame_start = perf_counter()
         await self._handle_chat()
 
     async def on_step_end(self, step: int) -> None:
@@ -174,6 +181,11 @@ class DebugSystem(System):
         #    #    self.box_with_text(expansion, f"Enemy expansion {idx}")
         #    for idx, expansion in enumerate(self.bot.map.expansions):
         #        self.box_with_text(expansion[0], f"Expansion {idx}: {expansion[1]}")
+
+        if self.slowdown and self.frame_start:
+            sleep = self.slowdown / 1000 - (perf_counter() - self.frame_start)
+            if sleep > 0:
+                await asyncio.sleep(sleep)
 
     def text_screen(self,
                     lines: list[str] | str,

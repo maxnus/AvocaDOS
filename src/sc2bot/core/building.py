@@ -5,7 +5,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 

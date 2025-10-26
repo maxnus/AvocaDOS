@@ -13,7 +13,7 @@ from sc2bot.core.tasks import AttackTask
 from sc2bot.core.util import UnitCost
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 @dataclass
@@ -32,7 +32,7 @@ class MicroScenarioResults:
 
 
 class MicroScenario:
-    bot: 'BotBase'
+    bot: 'AvocaDOS'
     id: int
     units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     location: Point2
@@ -47,7 +47,7 @@ class MicroScenario:
     # Class Variables
     _id_counter = itertools.count()
 
-    def __init__(self, bot: 'BotBase',
+    def __init__(self, bot: 'AvocaDOS',
                  units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
                  *,
                  location: Optional[Point2] = None,

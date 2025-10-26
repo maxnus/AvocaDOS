@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from loguru._logger import Logger
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
     from sc2bot.core.commander import Commander
 
 
@@ -18,7 +18,7 @@ class Manager(ABC):
         return self.__class__.__name__
 
     @property
-    def bot(self) -> 'BotBase':
+    def bot(self) -> 'AvocaDOS':
         return self.commander.bot
 
     @property

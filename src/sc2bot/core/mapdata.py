@@ -7,12 +7,12 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 @dataclass
 class MapData:
-    bot: 'BotBase'
+    bot: 'AvocaDOS'
     center: Point2
     base_townhall: Point2
     base_center: Point2
@@ -31,7 +31,7 @@ class MapData:
             return []
 
     @classmethod
-    async def analyze_map(cls, bot: 'BotBase') -> Self:
+    async def analyze_map(cls, bot: 'AvocaDOS') -> Self:
         # TODO: fix
 
         center = bot.game_info.map_center

@@ -37,7 +37,7 @@ class TaskManager(Manager):
         yield from sorted(self.current.values(), key=lambda task: task.priority, reverse=True)
 
     async def on_step(self, step: int) -> None:
-        for task in self.current.values():
+        for task in self:
             await self._dispatch_task(task)
 
         for task in self.current.copy().values():
@@ -71,7 +71,7 @@ class TaskManager(Manager):
             if isinstance(req_type, UnitTypeId):
                 value = self.commander.forces(req_type).ready.amount
             elif isinstance(req_type, UpgradeId):
-                value = req_type in self.commander.bot.state.upgrades
+                value = req_type in self.bot.state.upgrades
             elif req_type == TaskRequirementType.TIME:
                 value = self.bot.time
             elif req_type == TaskRequirementType.SUPPLY:

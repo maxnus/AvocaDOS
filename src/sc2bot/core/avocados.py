@@ -20,55 +20,47 @@ from sc2bot.core.history import History
 from sc2bot.core.mapdata import MapData
 from sc2bot.core.util import UnitCost
 from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
-from sc2bot.mapinfo import Sc2Map
 
 
-class BotBase(BotAI):
+class AvocaDOS(BotAI):
     name: str
-    sc2map: Optional[Sc2Map]
+    # Systems
     build: Optional[BuildOrder]
-    seed: int
-    logger: Logger
-    debug: DebugSystem
     commander: dict[str, Commander]
     history: History
     map: Optional[MapData]
-    debug_enabled: bool
-    slowdown_time: float
+    # Debug
+    debug: DebugSystem
     micro_scenario: Optional[MicroScenarioManager]
 
     def __init__(self, name: Optional[str] = None, *,
-                 sc2map: Optional[Sc2Map] = None,
                  build: Optional[str] = None,
                  seed: int = 0,
-                 debug_enabled: bool = True,
-                 slowdown_time: float = 0,
+                 slowdown: float = 0,
                  log_level: str = "DEBUG",
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
                  ) -> None:
         super().__init__()
         self.name = name or self.__class__.__name__
-        self.sc2map = sc2map
+        random.seed(seed)
+        # Systems
         if build:
             self.build = get_build_order(build)(self)
         else:
             self.build = None
-        self.seed = seed
-        random.seed(seed)
-        self.debug = DebugSystem(self, log_level=log_level)
         self.history = History(self)
         self.commander = {}
-        self.logger.debug("Initialized {}", self)
         self.map = None
-        self.debug_enabled = debug_enabled
-        self.slowdown_time = slowdown_time
+        # Debug
+        self.debug = DebugSystem(self, slowdown=slowdown, log_level=log_level)
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
         else:
             self.micro_scenario = None
+        self.logger.debug("Initialized {}", self)
 
     def __repr__(self) -> str:
-        return f"{self.name}(seed={self.seed})"
+        return self.name
 
     @property
     def logger(self) -> Logger:
@@ -90,10 +82,7 @@ class BotBase(BotAI):
             await self.micro_scenario.start()
 
     async def on_step(self, step: int):
-        t0 = perf_counter()
-
-        if self.debug_enabled:
-            await self.debug.on_step_start(step)
+        await self.debug.on_step_start(step)
 
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.step()
@@ -109,13 +98,7 @@ class BotBase(BotAI):
 
         await self.history.on_step(step)
 
-        if self.debug_enabled:
-            await self.debug.on_step_end(step)
-
-        if self.slowdown_time:
-            sleep = self.slowdown_time / 1000 - (perf_counter() - t0)
-            if sleep > 0:
-                await asyncio.sleep(sleep)
+        await self.debug.on_step_end(step)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         await self.debug.on_unit_took_damage(unit, amount_damage_taken)

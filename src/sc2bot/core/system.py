@@ -5,13 +5,13 @@ from loguru._logger import Logger
 from sc2.unit import Unit
 
 if TYPE_CHECKING:
-    from sc2bot.core.bot import BotBase
+    from sc2bot.core.avocados import AvocaDOS
 
 
 class System(ABC):
-    bot: 'BotBase'
+    bot: 'AvocaDOS'
 
-    def __init__(self, bot: 'BotBase') -> None:
+    def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__()
         self.bot = bot
 
