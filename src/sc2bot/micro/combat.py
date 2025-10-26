@@ -42,6 +42,8 @@ def lerp(distance, points: list[tuple[float, float]]) -> float:
     raise ValueError
 
 
+
+
 unit_type_attack_priority: dict[UnitTypeId, float] = {
     # Terran
     UnitTypeId.SCV: 0.1,
@@ -76,6 +78,16 @@ class MicroManager(Manager):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}'
+
+    def weapon_ready(self, unit: Unit) -> bool:
+        if unit.type_id == UnitTypeId.REAPER:
+            # Cooldown starts at first shot
+            prev_frame = self.bot.history.get_last_seen(unit)
+            #if prev_frame is not None:
+            #   self.logger.info("cooldowns {} {}", prev_frame.weapon_cooldown, unit.weapon_cooldown)
+            if prev_frame and prev_frame.weapon_cooldown < 1 <= unit.weapon_cooldown:
+                return True
+        return unit.weapon_cooldown < 1
 
     def get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
         """Attack priority is based on:
@@ -187,7 +199,9 @@ class MicroManager(Manager):
             group_target_prio = 0
 
         for unit in units:
-            if unit.weapon_cooldown == 0:
+            weapon_ready = self.weapon_ready(unit)
+
+            if weapon_ready:
                 attack_priorities_for_unit = {target: priority for target, priority in attack_priorities.items()
                                               if unit.target_in_range(target)}
             else:
@@ -219,13 +233,13 @@ class MicroManager(Manager):
             #elif defense_position:
             #    self.commander.order_move(unit, defense_position)
 
-            if defense_prio >= 0.5 or (defense_position and unit.shield_health_percentage < 0.2):
+            if defense_prio >= 0.5:# or (defense_position and unit.shield_health_percentage < 0.2):
                 self.commander.order_move(unit, defense_position)
-            elif target and unit.weapon_cooldown == 0:
+            elif target and weapon_ready:
                 self.commander.order_attack(unit, target)
-            elif group_target:# and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready - 0.25):
+            elif group_target and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready):
                 self.commander.order_attack(unit, group_target)
-            elif defense_position and unit.shield_health_percentage < 0.8:
+            elif defense_position and unit.shield_health_percentage < 1:
                 self.commander.order_move(unit, defense_position)
             elif group_target is not None:
                 self.commander.order_attack(unit, group_target)

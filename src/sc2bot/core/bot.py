@@ -87,10 +87,11 @@ class BotBase(BotAI):
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.step()
 
-        self.history.on_step(step)
         # Update commander
         for commander in self.commander.values():
             await commander.on_step(step)
+
+        await self.history.on_step(step)
 
         if self.debug_enabled:
             await self.debug.on_step_end(step)

@@ -1,3 +1,4 @@
+import math
 import sys
 from typing import TYPE_CHECKING, Optional, ClassVar
 
@@ -37,6 +38,7 @@ class DebugSystem(System):
         super().__init__(bot)
         self.debug_messages = []
         self.damage_taken = {}
+        self.shot_last_frame = set()
         self._logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
         self.map_revealed = False
         self.enemy_control = False
@@ -146,7 +148,10 @@ class DebugSystem(System):
             for commander in self.bot.commander.values():
                 for unit in commander.units:
                     if unit.weapon_cooldown != 0:
-                        self.text_world(f"{unit.weapon_cooldown:.3f}", unit.position3d - Point3((0, 0, -0.5)),
+                        #bar = f"{unit.weapon_cooldown:.3f}"
+                        #bar = ";".join([str(w) for w in unit._weapons])
+                        text = f'({math.ceil(unit.weapon_cooldown)})'
+                        self.text_world(text, unit.position3d + Point3((0, 0, -0.5)),
                                         size=12, color=CYAN)
 
                     if unit.orders:
@@ -160,7 +165,8 @@ class DebugSystem(System):
                         #self.text_world(str(order), unit, size=14)
             for unit, damage in self.damage_taken.items():
                 color = RED if damage > 0 else GREEN
-                self.text_world(f"-{damage:.2f}", unit.position3d + Point3((0, 0, 1.5)), size=12, color=color)
+                self.text_world(f"[{self.bot.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
+                                size=12, color=color)
 
         self.damage_taken.clear()
 

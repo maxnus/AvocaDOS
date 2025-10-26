@@ -45,10 +45,14 @@ if __name__ == "__main__":
     #micro_scenario = {UnitTypeId.MARINE: 8}
     #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4})
     micro_scenario = {UnitTypeId.REAPER: 8}
+    #micro_scenario = {UnitTypeId.REAPER: 1}
+
+    slowdown_time = 0
+    #slowdown_time = 1000
 
     runner = GameRunner(
         map_name,
-        bot=Bot(Race.Terran, BotBase(micro_scenario=micro_scenario)),
+        bot=Bot(Race.Terran, BotBase(slowdown_time=slowdown_time, micro_scenario=micro_scenario)),
         #opponent=Bot(Race.Protoss, AMoveBot())
         opponent = Computer(Race.Protoss, Difficulty.Hard),
     )
