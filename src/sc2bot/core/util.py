@@ -13,7 +13,7 @@ async def wait_until(predicate: Callable[..., Any], check_interval: float = 1) -
         await asyncio.sleep(check_interval)
 
 
-def get_squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
+def squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
     if isinstance(pos1, Unit):
         p1 = pos1.position
     else:

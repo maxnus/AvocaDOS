@@ -63,7 +63,7 @@ def micro():
 def macro():
     runner = GameRunner(
         'AcropolisLE',
-        bot=Bot(Race.Terran, AvocaDOS(build='proxyreaper')),
+        bot=Bot(Race.Terran, AvocaDOS(build='proxyreaper', log_level='TRACE')),
         opponent=Computer(Race.Protoss, Difficulty.Hard),
     )
     runner.run()

@@ -269,7 +269,7 @@ class TaskManager(Manager):
         return False
 
     def _on_handover_units_task(self, task: HandoverUnitsTask) -> bool:
-        commander = self.bot.commander.get(task.commander)
+        commander = self.bot.commanders.get(task.commander)
         if commander is None:
             return False
         units = self.commander.units(task.utype)

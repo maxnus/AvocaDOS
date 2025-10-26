@@ -13,7 +13,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 from sc2.ids.ability_id import AbilityId
 
-from sc2bot.build import BuildOrder, ProxyReaper, get_build_order
+from sc2bot.build import BuildOrder, get_build_order
 from sc2bot.core.commander import Commander
 from sc2bot.debug.debugsystem import DebugSystem
 from sc2bot.core.history import History
@@ -26,7 +26,7 @@ class AvocaDOS(BotAI):
     name: str
     # Systems
     build: Optional[BuildOrder]
-    commander: dict[str, Commander]
+    commanders: dict[str, Commander]
     history: History
     map: Optional[MapData]
     # Debug
@@ -49,7 +49,7 @@ class AvocaDOS(BotAI):
         else:
             self.build = None
         self.history = History(self)
-        self.commander = {}
+        self.commanders = {}
         self.map = None
         # Debug
         self.debug = DebugSystem(self, slowdown=slowdown, log_level=log_level)
@@ -74,30 +74,28 @@ class AvocaDOS(BotAI):
             self.logger.debug("Loading build order {}", self.build)
             self.build.load()
 
-        commander = self.commander.get('Main')
+        commander = self.commanders.get('Main')
         if commander:
             commander.add_units(self.units | self.structures)
+        else:
+            self.logger.warning("No main commander found")
 
         if self.micro_scenario is not None:
             await self.micro_scenario.start()
 
     async def on_step(self, step: int):
         await self.debug.on_step_start(step)
-
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.step()
-
         # Distribute resources
-        if self.commander:
-            commander = max(self.commander.values(), key=lambda cmd: cmd.resource_priority)
+        if self.commanders:
+            commander = max(self.commanders.values(), key=lambda cmd: cmd.resource_priority)
             commander.resources.reset(self.minerals, self.vespene)
-
         # Update commander
-        for commander in self.commander.values():
+        for commander in self.commanders.values():
             await commander.on_step(step)
-
+        # Update other systems
         await self.history.on_step(step)
-
         await self.debug.on_step_end(step)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
@@ -107,18 +105,18 @@ class AvocaDOS(BotAI):
 
     def add_commander(self, name, **kwargs) -> Commander:
         commander = Commander(self, name, **kwargs)
-        self.commander[name] = commander
         self.logger.debug("Adding {}", commander)
+        self.commanders[name] = commander
         return commander
 
     def remove_commander(self, name: str) -> Commander:
-        commander = self.commander.pop(name)
+        commander = self.commanders.pop(name)
         self.logger.debug("Removing {}", commander)
         return commander
 
-    def get_controlling_commander(self, unit: Unit | int) -> Optional[Commander]:
+    def get_commander_of(self, unit: Unit | int) -> Optional[Commander]:
         tag = unit.tag if isinstance(unit, Unit) else unit
-        for commander in self.commander.values():
+        for commander in self.commanders.values():
             if tag in commander.tags:
                 return commander
         return None
@@ -194,21 +192,22 @@ class AvocaDOS(BotAI):
         return Units(workers, self)
 
     async def on_unit_created(self, unit: Unit) -> None:
-        #self.logger.trace("Unit {} created", unit)
-        # TODO fix (add automatically to owner of producer?)
-        commander = self.commander.get('Main')
-        if commander:
-            commander.add_units(unit)
+        await self._assign_new_unit(unit)
+
+    async def on_building_construction_started(self, unit: Unit) -> None:
+        await self._assign_new_unit(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
-        #self.logger.trace("Unit {} destroyed (commander= {})", unit_tag, commander)
-        commander = self.get_controlling_commander(unit_tag)
+        commander = self.get_commander_of(unit_tag)
         if commander is not None:
             commander.remove_units(unit_tag)
 
-    async def on_building_construction_started(self, unit: Unit) -> None:
-        #self.logger.trace("Building {} construction started", unit)
-        # TODO fix (add automatically to owner of producer?)
-        commander = self.commander.get('Main')
-        if commander:
-            commander.add_units(unit)
+    async def _assign_new_unit(self, unit: Unit) -> None:
+        for commander in self.commanders.values():
+            if await commander.is_expected_unit(unit):
+                break
+        else:
+            self.logger.debug("Unexpected new unit: {} at {}", unit, unit.position)
+            commander = self.commanders.get('Main')
+            if commander:
+                commander.add_units(unit)

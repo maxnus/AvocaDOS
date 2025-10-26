@@ -1,6 +1,7 @@
+import itertools
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Optional, Any
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -14,14 +15,31 @@ if TYPE_CHECKING:
     from sc2bot.core.commander import Commander
 
 
+_order_id_counter = itertools.count()
+
+
+def _get_next_order_id() -> int:
+    return next(_order_id_counter)
+
+
+@dataclass(repr=False, frozen=True)
 class Order(ABC):
+    id: int = field(default_factory=_get_next_order_id, init=False, compare=False)
 
     @abstractmethod
     def __repr__(self) -> str:
         pass
 
+    # def __hash__(self) -> int:
+    #     return self.id
+    #
+    # def __eq__(self, other: Any) -> bool:
+    #     if isinstance(other, Order):
+    #         return self.id == other.id
+    #     return NotImplemented
 
-@dataclass
+
+@dataclass(frozen=True)
 class BuildOrder(Order):
     utype: UnitTypeId
     position: Point2 | Unit
@@ -30,7 +48,7 @@ class BuildOrder(Order):
         return f"{type(self).__name__}({self.utype.name}, {self.position})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class TrainOrder(Order):
     utype: UnitTypeId
 
@@ -38,7 +56,7 @@ class TrainOrder(Order):
         return f"{type(self).__name__}({self.utype.name})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class ResearchOrder(Order):
     upgrade: UpgradeId
 
@@ -46,7 +64,7 @@ class ResearchOrder(Order):
         return f"{type(self).__name__}({self.upgrade.name})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoveOrder(Order):
     target: Point2
 
@@ -54,7 +72,7 @@ class MoveOrder(Order):
         return f"{type(self).__name__}({self.target})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AttackOrder(Order):
     target: Point2 | Unit
 
@@ -62,7 +80,7 @@ class AttackOrder(Order):
         return f"{type(self).__name__}({self.target})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AbilityOrder(Order):
     ability: AbilityId
     target: Point2 | Unit
@@ -71,7 +89,7 @@ class AbilityOrder(Order):
         return f"{type(self).__name__}({self.target})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class GatherOrder(Order):
     target: Unit
 
@@ -150,6 +168,7 @@ class OrderManager(Manager):
         self.logger.trace("Order {} to {}", unit, order)
         if order != self.previous_orders.get(unit.tag):
             unit.build(utype, position=position)
+            self.commander.add_expected_unit(order, utype, position)
         self.orders[unit.tag] = order
         return True
 
@@ -163,6 +182,7 @@ class OrderManager(Manager):
         self.logger.trace("Order {} to {}", unit, order)
         if order != self.previous_orders.get(unit.tag):
             unit.train(utype)
+            self.commander.add_expected_unit(order, utype, unit.position)
         self.orders[unit.tag] = order
         return True
 

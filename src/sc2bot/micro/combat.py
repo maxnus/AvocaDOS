@@ -8,7 +8,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.manager import Manager
-from sc2bot.core.util import get_squared_distance
+from sc2bot.core.util import squared_distance
 from sc2bot.micro.weapons import Weapons
 
 
@@ -63,7 +63,7 @@ def get_closest_distance(units1: Units, units2: Units) -> float:
     closest = float('inf')
     for unit1 in units1:
         for unit2 in units2:
-            closest = min(closest, get_squared_distance(unit1, unit2))
+            closest = min(closest, squared_distance(unit1, unit2))
     return math.sqrt(closest)
 
 
@@ -192,7 +192,7 @@ class MicroManager(Manager):
         enemies = []
         for enemy in self.bot.enemy_units:
             for unit in units:
-                if get_squared_distance(unit, enemy) <= max_distance * max_distance:
+                if squared_distance(unit, enemy) <= max_distance * max_distance:
                     enemies.append(enemy)
                     break
         return Units(enemies, self.bot)
@@ -202,10 +202,6 @@ class MicroManager(Manager):
                           enemies: Optional[Units] = None) -> None:
         if units is None:
             units = self.commander.units
-        self.logger.trace("Microing units {}", units)
-        self.logger.trace("Current orders:")
-        for order in self.commander.order.orders:
-            self.logger.trace(f"   {order}")
         if enemies is None:
             enemies = self.get_enemies(units)
 
@@ -344,7 +340,7 @@ class MicroManager(Manager):
         scan_range = self.get_scan_range(unit)
         attack_priorities_scan_range = {target: priority for target, priority
                                         in group_attack_priorities.items()
-                                        if get_squared_distance(unit, target) <= scan_range ** 2}
+                                        if squared_distance(unit, target) <= scan_range ** 2}
         attack_priorities_attack_range = {target: priority for target, priority
                                           in attack_priorities_scan_range.items()
                                           if unit.target_in_range(target)}

@@ -14,6 +14,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.system import System
+from sc2bot.core.util import squared_distance
 from sc2bot.micro.combat import MicroManager
 from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
 from sc2bot.core.mapdata import MapData
@@ -67,6 +68,8 @@ class Commander(System):
     resources: ResourceManager
     tasks: TaskManager
     combat: MicroManager
+    # private
+    _expected_units: dict[Order, tuple[UnitTypeId, Point2]]
 
     def __init__(self, bot: 'AvocaDOS', name: str, *,
                  tags: Optional[set[int]] = None,
@@ -85,12 +88,43 @@ class Commander(System):
         self.resources = ResourceManager(self)
         self.tasks = TaskManager(self, tasks)
         self.combat = MicroManager(self)
+        # Private
+        self._expected_units = {}
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
             sorted(self.get_unit_type_counts().items(), key=lambda item: item[0].name),
             key=lambda item: item[1], reverse=True)]
         return f"{self.name}({', '.join(unit_info)})"
+
+    async def on_step(self, step: int):
+        # if (number_dead := self.remove_dead_tags()) != 0:
+        #     self.logger.debug("{} units died", number_dead)
+
+        await self.order.on_step(step)
+
+        if step % 4 == 0:
+            await self.tasks.on_step(step)
+
+        await self._micro(step)
+
+    # --- Expected units
+
+    def add_expected_unit(self, order: Order, utype: UnitTypeId, position: Point2) -> None:
+        self._expected_units[order] = (utype, position)
+
+    def remove_expected_unit(self, order: Order) -> None:
+        self._expected_units.pop(order)
+
+    async def is_expected_unit(self, unit: Unit) -> bool:
+        for utype, location in self._expected_units.values():
+            if unit.type_id == utype and squared_distance(unit, location) <= 0.01 if unit.is_structure else 9:
+                self.logger.trace("found expected unit {}", unit)
+                self.add_units(unit)
+                return True
+        return False
+
+    # --- Properties
 
     @property
     def time(self) -> float:
@@ -257,16 +291,6 @@ class Commander(System):
 
     # --- Callbacks
 
-    async def on_step(self, step: int):
-        # if (number_dead := self.remove_dead_tags()) != 0:
-        #     self.logger.debug("{} units died", number_dead)
-
-        await self.order.on_step(step)
-
-        if step % 4 == 0:
-            await self.tasks.on_step(step)
-
-        await self._micro(step)
 
     async def _micro(self, iteration: int) -> None:
 

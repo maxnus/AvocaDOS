@@ -119,7 +119,7 @@ class DebugSystem(System):
 
         if self.show_commanders:
             info = []
-            for commander in self.bot.commander.values():
+            for commander in self.bot.commanders.values():
                 info.append(repr(commander))
                 for task in commander.tasks:
                     info.append("   " + repr(task))
@@ -142,7 +142,7 @@ class DebugSystem(System):
                          f", max={max_step:.1f})", position=(0.73, 0.7), color=color)
 
         if self.show_orders:
-            for commander in self.bot.commander.values():
+            for commander in self.bot.commanders.values():
                 for tag, order in commander.orders.items():
                     unit = (self.bot.units + self.bot.structures).find_by_tag(tag)
                     if unit is None:
@@ -151,7 +151,7 @@ class DebugSystem(System):
                     self.box_with_text(unit, str(order))
 
         if self.show_combat:
-            for commander in self.bot.commander.values():
+            for commander in self.bot.commanders.values():
                 for unit in commander.units:
                     if unit.weapon_cooldown != 0:
                         #bar = f"{unit.weapon_cooldown:.3f}"
