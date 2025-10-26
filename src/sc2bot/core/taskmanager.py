@@ -112,8 +112,8 @@ class TaskManager(Manager):
         else:
             completed = False
             self.logger.warning("Not implemented: {}", task)
-        if (time_ms := 1000 * (perf_counter() - t0)) > 5:
-            self.logger.warning("{} took {:.3f} ms", task, time_ms)
+        #if (time_ms := 1000 * (perf_counter() - t0)) > 5:
+        #    self.logger.warning("{} took {:.3f} ms", task, time_ms)
         if completed:
             task.mark_complete()
         return completed

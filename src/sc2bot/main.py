@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from typing import Optional
 
 from sc2 import maps
@@ -63,8 +64,9 @@ def micro():
 def macro():
     runner = GameRunner(
         'AcropolisLE',
-        bot=Bot(Race.Terran, AvocaDOS(build='proxyreaper', log_level='TRACE')),
+        bot=Bot(Race.Terran, AvocaDOS(build='proxyreaper', log_level='DEBUG')),
         opponent=Computer(Race.Protoss, Difficulty.Hard),
+        realtime='--realtime' in sys.argv,
     )
     runner.run()
 

@@ -1,5 +1,6 @@
 import itertools
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional, Any
 
@@ -99,8 +100,11 @@ class GatherOrder(Order):
 
 class OrderManager(Manager):
     orders: dict[int, Order]
+    """Orders of the current step"""
     previous_orders: dict[int, Order]
+    """Orders of the previous step"""
     last_orders: dict[int, Order]
+    """Last order of any previous step"""
 
     def __init__(self, commander: 'Commander') -> None:
         super().__init__(commander)
@@ -109,9 +113,18 @@ class OrderManager(Manager):
         self.last_orders = {}
 
     async def on_step(self, step: int) -> None:
+        # Clean orders of dead units
+        alive_tags = self.commander.forces.tags
+        self.orders = {tag: order for tag, order in self.orders.items() if tag in alive_tags}
+        self.last_orders = {tag: order for tag, order in self.last_orders.items() if tag in alive_tags}
+
         self.last_orders.update(self.orders)
         self.previous_orders = self.orders
         self.orders = {}
+
+        for order in list(self.commander.expected_units.keys()):
+            if order not in self.last_orders.values():
+                self.commander.remove_expected_unit(order)
 
     def get_order(self, unit: Unit) -> Optional[Order]:
         return self.orders.get(unit.tag)

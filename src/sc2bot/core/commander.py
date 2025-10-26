@@ -59,17 +59,15 @@ class Commander(System):
     name: str
     #
     tags: set[int]
-    orders: dict[int, Optional[Order]]
     previous_orders: dict[int, Optional[Order]]
-    #assigned: dict[int, list[int]]
     # Systems
     order: OrderManager
     resource_priority: float
     resources: ResourceManager
     tasks: TaskManager
     combat: MicroManager
-    # private
-    _expected_units: dict[Order, tuple[UnitTypeId, Point2]]
+    # Other
+    expected_units: dict[Order, tuple[UnitTypeId, Point2]]
 
     def __init__(self, bot: 'AvocaDOS', name: str, *,
                  tags: Optional[set[int]] = None,
@@ -79,17 +77,14 @@ class Commander(System):
         super().__init__(bot)
         self.name = name
         self.tags = tags or set()
-        self.orders = {}
-        self.previous_orders = {}
-        #self.assigned = {}
         # Manager
         self.order = OrderManager(self)
         self.resource_priority = resource_priority
         self.resources = ResourceManager(self)
         self.tasks = TaskManager(self, tasks)
         self.combat = MicroManager(self)
-        # Private
-        self._expected_units = {}
+        # Other
+        self.expected_units = {}
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
@@ -111,13 +106,13 @@ class Commander(System):
     # --- Expected units
 
     def add_expected_unit(self, order: Order, utype: UnitTypeId, position: Point2) -> None:
-        self._expected_units[order] = (utype, position)
+        self.expected_units[order] = (utype, position)
 
     def remove_expected_unit(self, order: Order) -> None:
-        self._expected_units.pop(order)
+        self.expected_units.pop(order)
 
     async def is_expected_unit(self, unit: Unit) -> bool:
-        for utype, location in self._expected_units.values():
+        for utype, location in self.expected_units.values():
             if unit.type_id == utype and squared_distance(unit, location) <= 0.01 if unit.is_structure else 9:
                 self.logger.trace("found expected unit {}", unit)
                 self.add_units(unit)
