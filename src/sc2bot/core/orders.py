@@ -80,86 +80,110 @@ class GatherOrder(Order):
 
 
 class OrderManager(Manager):
-    previous_orders: dict[int, Order]
     orders: dict[int, Order]
+    previous_orders: dict[int, Order]
+    last_orders: dict[int, Order]
 
     def __init__(self, commander: 'Commander') -> None:
         super().__init__(commander)
-        self.previous_orders = {}
         self.orders = {}
+        self.previous_orders = {}
+        self.last_orders = {}
 
     async def on_step(self, step: int) -> None:
+        self.last_orders.update(self.orders)
         self.previous_orders = self.orders
         self.orders = {}
-
-    def move(self, unit: Unit, target: Point2) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        unit.move(target)
-        self.orders[unit.tag] = MoveOrder(target)
-        return True
-
-    def attack(self, unit: Unit, target: Point2 | Unit) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        unit.attack(target)
-        self.orders[unit.tag] = AttackOrder(target)
-        return True
-
-    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        unit(ability, target)
-        self.orders[unit.tag] = AbilityOrder(ability, target)
-        return True
-
-    def gather(self, unit: Unit, target: Unit) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        unit.gather(target)
-        self.orders[unit.tag] = GatherOrder(target)
-        return True
-
-    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        if self.commander.resources.spend(utype):
-            unit.build(utype, position=position)
-            self.orders[unit.tag] = BuildOrder(utype, position)
-            return True
-        else:
-            return False
-
-    def train(self, unit: Unit, utype: UnitTypeId) -> bool:
-        # TODO: do not train if already training
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        if self.commander.resources.spend(utype):
-            unit.train(utype)
-            self.orders[unit.tag] = TrainOrder(utype)
-            return True
-        else:
-            return False
-
-    def research(self, unit: Unit, upgrade: UpgradeId) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
-        if self.commander.resources.spend(upgrade):
-            unit.research(upgrade)
-            self.orders[unit.tag] = ResearchOrder(upgrade)
-            return True
-        else:
-            return False
 
     def get_order(self, unit: Unit) -> Optional[Order]:
         return self.orders.get(unit.tag)
 
     def has_order(self, unit: Unit) -> bool:
         return unit.tag in self.orders
+
+    def move(self, unit: Unit, target: Point2) -> bool:
+        if not self._check_unit(unit):
+            return False
+        order = MoveOrder(target)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.move(target)
+        self.orders[unit.tag] = order
+        return True
+
+    def attack(self, unit: Unit, target: Point2 | Unit) -> bool:
+        if not self._check_unit(unit):
+            return False
+        order = AttackOrder(target)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.attack(target)
+        self.orders[unit.tag] = order
+        return True
+
+    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit) -> bool:
+        if not self._check_unit(unit):
+            return False
+        order = AbilityOrder(ability, target)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit(ability, target)
+        self.orders[unit.tag] = order
+        return True
+
+    def gather(self, unit: Unit, target: Unit) -> bool:
+        if not self._check_unit(unit):
+            return False
+        order = GatherOrder(target)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.gather(target)
+        self.orders[unit.tag] = order
+        return True
+
+    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit) -> bool:
+        if not self._check_unit(unit):
+            return False
+        if not self.commander.resources.spend(utype):
+            return False
+        order = BuildOrder(utype, position)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.build(utype, position=position)
+        self.orders[unit.tag] = order
+        return True
+
+    def train(self, unit: Unit, utype: UnitTypeId) -> bool:
+        # TODO: do not train if already training
+        if not self._check_unit(unit):
+            return False
+        if not self.commander.resources.spend(utype):
+            return False
+        order = TrainOrder(utype)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.train(utype)
+        self.orders[unit.tag] = order
+        return True
+
+    def research(self, unit: Unit, upgrade: UpgradeId) -> bool:
+        if not self._check_unit(unit):
+            return False
+        if not self.commander.resources.spend(upgrade):
+            return False
+        order = ResearchOrder(upgrade)
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.research(upgrade)
+        self.orders[unit.tag] = order
+        return True
+
+    def _check_unit(self, unit: Unit) -> bool:
+        if not self.commander.has_units(unit):
+            self.logger.error("{} does not control {}", self, unit)
+            return False
+        if unit.tag in self.orders:
+            self.logger.error("unit {} already has order: {}", unit, self.orders.get(unit.tag))
+            raise ValueError
+            return False
+        return True

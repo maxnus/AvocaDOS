@@ -43,6 +43,7 @@ class BotBase(BotAI):
                  seed: int = 0,
                  debug_enabled: bool = True,
                  slowdown_time: float = 0,
+                 log_level: str = "DEBUG",
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
                  ) -> None:
         super().__init__()
@@ -54,7 +55,7 @@ class BotBase(BotAI):
             self.build = None
         self.seed = seed
         random.seed(seed)
-        self.debug = DebugSystem(self)
+        self.debug = DebugSystem(self, log_level=log_level)
         self.history = History(self)
         self.commander = {}
         self.logger.debug("Initialized {}", self)

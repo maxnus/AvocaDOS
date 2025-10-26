@@ -1,4 +1,5 @@
 import math
+import sys
 from typing import TYPE_CHECKING, Optional, ClassVar
 
 from loguru import logger as _logger
@@ -33,7 +34,7 @@ class DebugSystem(System):
     show_commanders: bool
     show_combat: bool
 
-    def __init__(self, bot: 'BotBase') -> None:
+    def __init__(self, bot: 'BotBase', *, log_level: str = "DEBUG") -> None:
         super().__init__(bot)
         self.debug_messages = []
         self.damage_taken = {}
@@ -52,12 +53,12 @@ class DebugSystem(System):
             formatted = message.record['extra'].get('formatted', message)
             self.debug_messages.append(formatted)
 
-        # self.logger.add(
-        #     sys.stdout,
-        #     level="TRACE",
-        #     filter=lambda record: record['extra'].get('bot') == bot.name,
-        #     format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
-        # )
+        self.logger.add(
+            sys.stdout,
+            level=log_level,
+            filter=lambda record: record['extra'].get('bot') == bot.name,
+            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
+        )
         self._logger.add(
             ingame_logging,
             level="DEBUG",
@@ -102,8 +103,7 @@ class DebugSystem(System):
         self.damage_taken[unit] = amount_damage_taken
 
     async def on_step_start(self, step: int) -> None:
-        #self.damage_taken.clear()
-        self._logger = self.logger.bind(step=step, time=self.bot.time)
+        self._logger = self.logger.bind(step=self.bot.state.game_loop, time=self.bot.time)
         await self._handle_chat()
 
     async def on_step_end(self, step: int) -> None:

@@ -261,8 +261,9 @@ class Commander(System):
         # if (number_dead := self.remove_dead_tags()) != 0:
         #     self.logger.debug("{} units died", number_dead)
 
+        await self.order.on_step(step)
+
         if step % 4 == 0:
-            await self.order.on_step(step)
             await self.tasks.on_step(step)
 
         await self._micro(step)

@@ -38,26 +38,7 @@ class TaskManager(Manager):
 
     async def on_step(self, step: int) -> None:
         for task in self.current.values():
-            t0 = perf_counter()
-            if isinstance(task, UnitCountTask):
-                completed = await self._on_unit_count_task(task)
-            elif isinstance(task, UnitPendingTask):
-                completed = await self._on_unit_pending_task(task)
-            elif isinstance(task, ResearchTask):
-                completed = self._on_research_task(task)
-            elif isinstance(task, MoveTask):
-                completed = self._on_move_task(task)
-            elif isinstance(task, AttackTask):
-                completed = self._on_attack_task(task)
-            elif isinstance(task, HandoverUnitsTask):
-                completed = self._on_handover_units_task(task)
-            else:
-                completed = False
-                self.logger.warning("Not implemented: {}", task)
-            if (time_ms := 1000 * (perf_counter() - t0))  > 5:
-                self.logger.warning("{} took {:.3f} ms", task, time_ms)
-            if completed:
-                task.mark_complete()
+            await self._dispatch_task(task)
 
         for task in self.current.copy().values():
             if task.status == TaskStatus.COMPLETED:
@@ -113,6 +94,29 @@ class TaskManager(Manager):
 
     def _task_ready(self, task: Task) -> bool:
         return self._dependencies_fulfilled(task.deps) and self._requirements_fulfilled(task.reqs)
+
+    async def _dispatch_task(self, task: Task) -> bool:
+        t0 = perf_counter()
+        if isinstance(task, UnitCountTask):
+            completed = await self._on_unit_count_task(task)
+        elif isinstance(task, UnitPendingTask):
+            completed = await self._on_unit_pending_task(task)
+        elif isinstance(task, ResearchTask):
+            completed = self._on_research_task(task)
+        elif isinstance(task, MoveTask):
+            completed = self._on_move_task(task)
+        elif isinstance(task, AttackTask):
+            completed = self._on_attack_task(task)
+        elif isinstance(task, HandoverUnitsTask):
+            completed = self._on_handover_units_task(task)
+        else:
+            completed = False
+            self.logger.warning("Not implemented: {}", task)
+        if (time_ms := 1000 * (perf_counter() - t0)) > 5:
+            self.logger.warning("{} took {:.3f} ms", task, time_ms)
+        if completed:
+            task.mark_complete()
+        return completed
 
     async def _on_build_task(self, task: BuildTask) -> bool:
         assigned = self.commander.units.tags_in(task.assigned)

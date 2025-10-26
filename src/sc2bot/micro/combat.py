@@ -202,6 +202,10 @@ class MicroManager(Manager):
                           enemies: Optional[Units] = None) -> None:
         if units is None:
             units = self.commander.units
+        self.logger.trace("Microing units {}", units)
+        self.logger.trace("Current orders:")
+        for order in self.commander.order.orders:
+            self.logger.trace(f"   {order}")
         if enemies is None:
             enemies = self.get_enemies(units)
 
