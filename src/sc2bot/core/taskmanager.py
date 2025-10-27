@@ -1,3 +1,4 @@
+import itertools
 from collections.abc import Iterator
 from time import perf_counter
 from typing import Optional, TYPE_CHECKING
@@ -8,8 +9,10 @@ from sc2.position import Point2
 
 from .constants import ALTERNATIVES, TRAINERS
 from .manager import Manager
-from .tasks import Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies, BuildTask, UnitCountTask, \
-    UnitPendingTask, ResearchTask, MoveTask, AttackTask, HandoverUnitsTask
+from .tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies, BuildingCountTask,
+                    UnitCountTask,
+                    ResearchTask, MoveTask, AttackTask, HandoverUnitsTask, MiningTask)
+from .util import LineSegment
 
 if TYPE_CHECKING:
     from .commander import Commander
@@ -99,14 +102,14 @@ class TaskManager(Manager):
         t0 = perf_counter()
         if isinstance(task, UnitCountTask):
             completed = await self._on_unit_count_task(task)
-        elif isinstance(task, UnitPendingTask):
-            completed = await self._on_unit_pending_task(task)
         elif isinstance(task, ResearchTask):
             completed = self._on_research_task(task)
         elif isinstance(task, MoveTask):
             completed = self._on_move_task(task)
         elif isinstance(task, AttackTask):
             completed = self._on_attack_task(task)
+        elif isinstance(task, MiningTask):
+            completed = await self._on_mining_task(task)
         elif isinstance(task, HandoverUnitsTask):
             completed = self._on_handover_units_task(task)
         else:
@@ -118,7 +121,7 @@ class TaskManager(Manager):
             task.mark_complete()
         return completed
 
-    async def _on_build_task(self, task: BuildTask) -> bool:
+    async def _on_build_task(self, task: BuildingCountTask) -> bool:
         assigned = self.commander.units.tags_in(task.assigned)
         if assigned:
             return False
@@ -201,34 +204,6 @@ class TaskManager(Manager):
                     self.commander.resources.reserve(task.utype)
         return False
 
-    async def _on_unit_pending_task(self, task: UnitPendingTask) -> bool:
-        pending = int(self.bot.already_pending(task.utype))
-        if pending:
-            #self.logger.trace('already pending {}', task)
-            return False
-        if not self.commander.resources.can_afford(task.utype):
-            #self.logger.trace('cannot afford {}', task)
-            return False
-
-        if self.bot.is_structure(task.utype):
-            position = task.position or await self.bot.map.get_building_location(task.utype)
-            worker, travel_time = await self.commander.pick_worker(position)
-            if worker is None:
-                #self.logger.trace('No worker for {}', task)
-                return False
-            else:
-                self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                self.commander.order.build(worker, task.utype, position)
-                return True
-        else:
-            trainer = self.commander.pick_trainer(task.utype)
-            if trainer is None:
-                #self.logger.trace('No trainer for {}', task)
-                return False
-            else:
-                self.commander.order.train(trainer, task.utype)
-                return True
-
     def _on_research_task(self, task: ResearchTask) -> bool:
         if task.upgrade in self.bot.state.upgrades:
             self.logger.trace("Upgrade {} complete", task.upgrade)
@@ -265,7 +240,8 @@ class TaskManager(Manager):
     def _on_attack_task(self, task: AttackTask) -> bool:
         #self.combat.marine_micro(task)
         for unit in self.commander.units.idle:
-            unit.attack(task.target)
+            #unit.attack(task.target)
+            self.commander.order.attack(unit, task.target)
         return False
 
     def _on_handover_units_task(self, task: HandoverUnitsTask) -> bool:
@@ -276,3 +252,45 @@ class TaskManager(Manager):
         self.commander.remove_units(units)
         commander.add_units(units)
         return True
+
+    async def _on_mining_task(self, task: MiningTask) -> bool:
+        # TODO: default location beyond base
+        location = task.location or self.bot.map.base_townhall
+
+        if task.max_workers is not None:
+            raise NotImplementedError
+
+        # We accept all townhalls, not just the commanders
+        townhall = self.bot.townhalls.closest_to(location)
+        if townhall is None:
+            return False
+
+        # TODO: long distance mining?
+        minerals = self.bot.mineral_field.closer_than(8, townhall)
+        if minerals is None:
+            self.logger.info("No minerals at {}", location)
+            return True
+
+        minerals.sort(key=lambda m: m.distance_to(townhall))
+        for mineral in minerals:
+            #mid = (townhall.position + mineral.position) / 2
+            line = LineSegment(townhall, mineral)
+            workers = await self.commander.pick_workers(line, number=2, include_constructing=False)
+            if not workers:
+                # No more workers available
+                break
+            for worker, _ in workers:
+                if worker.is_carrying_resource:
+                    self.commander.order.return_resource(worker)
+                    #if worker.distance_to(townhall) < townhall.radius + 0.5:
+                    #    self.commander.order.return_resource(worker)
+                    #else:
+                    #    self.commander.order.move(worker, townhall.position.towards(mineral, townhall.radius + 0.3))
+                else:
+                    self.commander.order.gather(worker, mineral)
+                    #if worker.distance_to(mineral) < 1.5:
+                    #    self.commander.order.gather(worker, mineral)
+                    #else:
+                    #    self.commander.order.move(worker, mineral.position.towards(townhall, 1.2))
+
+        return False

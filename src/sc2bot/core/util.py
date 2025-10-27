@@ -3,6 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Self
 
+import numpy as np
 from sc2.position import Point2
 from sc2.unit import Unit
 
@@ -25,6 +26,31 @@ def squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
     dx = p1.x - p2.x
     dy = p1.y - p2.y
     return dx * dx + dy * dy
+
+
+class LineSegment:
+    start: Point2
+    end: Point2
+
+    def __init__(self, start: Point2 | Unit, end: Point2 | Unit) -> None:
+        if isinstance(start, Unit):
+            start = start.position
+        if isinstance(end, Unit):
+            end = end.position
+        self.start = start
+        self.end = end
+
+    def distance_to(self, point: Point2 | Unit) -> float:
+        """Shortest distance from any point on the line segment to a given point."""
+        if isinstance(point, Unit):
+            point = point.position
+        segment = self.end - self.start
+        v = point - self.start
+        t = np.dot(v, segment) / np.dot(segment, segment)
+        t = np.clip(t, 0, 1)
+        q = self.start + t * segment
+        distance = point.distance_to(q)
+        return distance
 
 
 @dataclass

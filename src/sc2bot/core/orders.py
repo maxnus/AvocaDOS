@@ -98,6 +98,13 @@ class GatherOrder(Order):
         return f"{type(self).__name__}({self.target})"
 
 
+@dataclass(frozen=True)
+class ReturnResourceOrder(Order):
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}"
+
+
 class OrderManager(Manager):
     orders: dict[int, Order]
     """Orders of the current step"""
@@ -169,6 +176,16 @@ class OrderManager(Manager):
         self.logger.trace("Order {} to {}", unit, order)
         if order != self.previous_orders.get(unit.tag):
             unit.gather(target)
+        self.orders[unit.tag] = order
+        return True
+
+    def return_resource(self, unit: Unit) -> bool:
+        if not self._check_unit(unit):
+            return False
+        order = ReturnResourceOrder()
+        self.logger.trace("Order {} to {}", unit, order)
+        if order != self.previous_orders.get(unit.tag):
+            unit.return_resource()
         self.orders[unit.tag] = order
         return True
 

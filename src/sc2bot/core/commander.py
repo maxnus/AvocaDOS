@@ -1,11 +1,12 @@
+import heapq
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
-from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
-from loguru._logger import Logger
 import numpy
+from loguru._logger import Logger
+from sc2.constants import CREATION_ABILITY_FIX
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -13,17 +14,15 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.system import System
-from sc2bot.core.util import squared_distance
-from sc2bot.micro.combat import MicroManager
-from sc2bot.core.constants import TRAINERS, ALTERNATIVES, RESEARCHERS
+from sc2bot.core.constants import TRAINERS, RESEARCHERS
 from sc2bot.core.mapdata import MapData
-from sc2bot.core.orders import Order, MoveOrder, AttackOrder, BuildOrder, TrainOrder, GatherOrder, ResearchOrder, \
-    AbilityOrder, OrderManager
+from sc2bot.core.orders import Order, OrderManager
 from sc2bot.core.resourcemanager import ResourceManager
-from sc2bot.core.tasks import Task, UnitCountTask, UnitPendingTask, AttackTask, MoveTask, \
-    ResearchTask, HandoverUnitsTask, BuildTask
+from sc2bot.core.system import System
 from sc2bot.core.taskmanager import TaskManager
+from sc2bot.core.tasks import Task
+from sc2bot.core.util import squared_distance, LineSegment
+from sc2bot.micro.combat import MicroManager
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -98,8 +97,8 @@ class Commander(System):
 
         await self.order.on_step(step)
 
-        if step % 4 == 0:
-            await self.tasks.on_step(step)
+        #if step % 4 == 0:
+        await self.tasks.on_step(step)
 
         await self._micro(step)
 
@@ -161,6 +160,33 @@ class Commander(System):
             counter[unit.type_id] += 1
         return counter
 
+    def _get_creation_ability(self, utype: UnitTypeId) -> AbilityId:
+        try:
+            return self.bot.game_data.units[utype.value].creation_ability.exact_id
+        except AttributeError:
+            return CREATION_ABILITY_FIX.get(utype.value, 0)
+
+    # TODO: FIX
+    # def get_pending(self, utype: UnitTypeId) -> list[float]:
+    #     # replicate: self.bot.already_pending(utype)
+    #
+    #     # tuple[Counter[AbilityId], dict[AbilityId, float]]
+    #     abilities_amount: Counter[AbilityId] = Counter()
+    #     build_progress: dict[AbilityId, list[float]] = defaultdict(list)
+    #     unit: Unit
+    #     for unit in self.units + self.structures:
+    #         for order in unit.orders:
+    #             abilities_amount[order.ability.exact_id] += 1
+    #         if not unit.is_ready and (self.bot.race != Race.Terran or not unit.is_structure):
+    #             # If an SCV is constructing a building, already_pending would count this structure twice
+    #             # (once from the SCV order, and once from "not structure.is_ready")
+    #             creation_ability = CREATION_ABILITY_FIX.get(
+    #                 unit.type_id, self.bot.game_data.units[unit.type_id.value].creation_ability.exact_id)
+    #             abilities_amount[creation_ability] += 2 if unit.type_id == UnitTypeId.ARCHON else 1
+    #             build_progress[creation_ability].append(unit.build_progress)
+    #
+    #     return abilities_amount, max_build_progress
+
     # --- Control
 
     # def remove_dead_tags(self) -> int:
@@ -211,26 +237,61 @@ class Commander(System):
 
     # --- Pick unit
 
-    async def pick_worker(self, position: Point2, *,
-                          target_distance: float = 0.0,
-                          include_constructing: bool = True,
-                          construction_time_discount: float = 0.7) -> tuple[Optional[Unit], Optional[float]]:
+    async def pick_workers(self, location: Point2 | LineSegment, *,
+                           number: int,
+                           target_distance: float = 0.0,
+                           include_constructing: bool = True,
+                           construction_time_discount: float = 0.7) -> list[tuple[Unit, float]]:
         #workers = self.workers.idle + self.workers.collecting
         workers = self.workers.idle + self.workers.collecting + self.workers.filter(lambda x: x.is_moving)
         if include_constructing:
             workers += self.workers.filter(lambda unit: unit.is_constructing_scv)
         workers = workers.filter(lambda w: not self.order.has_order(w))
         if not workers:
-            return None, None
+            return []
         # Prefilter for performance
-        if len(workers) > 10:
-            workers = workers.closest_n_units(position=position, n=10)
-        travel_times = await self.map.get_travel_times(workers, position, target_distance=target_distance)
-        total_times = {unit: travel_time + construction_time_discount * self.bot.get_remaining_construction_time(unit)
-                       for unit, travel_time in zip(workers, travel_times)}
-        #self.logger.trace("worker travel times: {}", list(total_times.values())[:8])
-        best = min(total_times, key=total_times.get)
-        return best, total_times[best]
+        if isinstance(location, Point2):
+            if len(workers) > number + 10:
+                workers = workers.closest_n_units(position=location, n=number + 10)
+            travel_times = await self.map.get_travel_times(workers, location, target_distance=target_distance)
+            workers_and_dist = {unit: travel_time + construction_time_discount
+                                      * self.bot.get_remaining_construction_time(unit)
+                                for unit, travel_time in zip(workers, travel_times)}
+        elif isinstance(location, LineSegment):
+            workers_and_dist = {unit: location.distance_to(unit) for unit in workers}
+        else:
+            raise TypeError(f"unknown location type: {type(location)}")
+
+        result = heapq.nsmallest(number, workers_and_dist.items(), key=lambda item: item[1])
+        return result
+
+    async def pick_worker(self, position: Point2, *,
+                          target_distance: float = 0.0,
+                          include_constructing: bool = True,
+                          construction_time_discount: float = 0.7) -> tuple[Optional[Unit], Optional[float]]:
+        workers = await self.pick_workers(location=position, number=1, target_distance=target_distance,
+                                          include_constructing=include_constructing,
+                                          construction_time_discount=construction_time_discount)
+        if not workers:
+            return None, None
+        return workers[0]
+
+        #workers = self.workers.idle + self.workers.collecting
+        #workers = self.workers.idle + self.workers.collecting + self.workers.filter(lambda x: x.is_moving)
+        #if include_constructing:
+        #    workers += self.workers.filter(lambda unit: unit.is_constructing_scv)
+        #workers = workers.filter(lambda w: not self.order.has_order(w))
+        #if not workers:
+        #    return None, None
+        ## Prefilter for performance
+        #if len(workers) > 10:
+        #    workers = workers.closest_n_units(position=position, n=10)
+        #travel_times = await self.map.get_travel_times(workers, position, target_distance=target_distance)
+        #total_times = {unit: travel_time + construction_time_discount * self.bot.get_remaining_construction_time(unit)
+        #               for unit, travel_time in zip(workers, travel_times)}
+        ##self.logger.trace("worker travel times: {}", list(total_times.values())[:8])
+        #best = min(total_times, key=total_times.get)
+        #return best, total_times[best]
 
     def pick_trainer(self, utype: UnitTypeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
         trainer_utype = TRAINERS[utype]
@@ -286,7 +347,6 @@ class Commander(System):
 
     # --- Callbacks
 
-
     async def _micro(self, iteration: int) -> None:
 
         units = self.units - self.workers
@@ -304,10 +364,10 @@ class Commander(System):
                     if mineral_field:
                         orbital(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field.random)
 
-        if iteration % 8 == 0:
-            minerals = self.bot.mineral_field.filter(
-                lambda x:  any(x.distance_to(base) <= 8 for base in self.townhalls.ready))
-            if minerals:
-                workers = self.workers.filter(lambda w: (w.is_idle or w.is_moving) and not self.order.has_order(w))
-                for worker in workers:
-                    self.order.gather(worker, minerals.closest_to(worker))
+        # if iteration % 8 == 0:
+        #     minerals = self.bot.mineral_field.filter(
+        #         lambda x:  any(x.distance_to(base) <= 8 for base in self.townhalls.ready))
+        #     if minerals:
+        #         workers = self.workers.filter(lambda w: (w.is_idle or w.is_moving) and not self.order.has_order(w))
+        #         for worker in workers:
+        #             self.order.gather(worker, minerals.closest_to(worker))

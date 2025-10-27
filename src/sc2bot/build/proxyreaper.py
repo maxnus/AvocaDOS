@@ -1,6 +1,6 @@
 from sc2.ids.unit_typeid import UnitTypeId
 
-from sc2bot.core.tasks import UnitCountTask, HandoverUnitsTask, AttackTask
+from sc2bot.core.tasks import UnitCountTask, HandoverUnitsTask, AttackTask, MiningTask
 
 from .buildorder import BuildOrder
 
@@ -10,6 +10,8 @@ class ProxyReaper(BuildOrder):
     def load(self) -> None:
         main = self.bot.add_commander('Main')
         reapers = self.bot.add_commander('Reapers')
+
+        main.add_task(MiningTask(priority=10))
 
         # Always produce SCV until 16 + 3 + 2 = 21
         main.add_task(UnitCountTask(UnitTypeId.SCV, 21))

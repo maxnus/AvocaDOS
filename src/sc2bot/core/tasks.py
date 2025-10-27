@@ -95,46 +95,16 @@ class Task(ABC):
         copied_task.status = status or self.status
         return copied_task
 
-    # def add_deps(self, *, started: Optional[list[int]] = None, completed: Optional[list[int]]) -> None:
-    #     if started:
-    #         for x in started:
-    #             self.deps[x] = TaskStatus.STARTED
-    #     if completed:
-    #         for x in completed:
-    #             self.deps[x] = TaskStatus.COMPLETED
 
-
-class HandoverUnitsTask(Task):
+class BuildingCountTask(Task):
     utype: UnitTypeId
-    commander: str
-    number: Optional[int]
-
-    def __init__(self,
-                 utype: UnitTypeId,
-                 commander: str,
-                 number: Optional[int] = None,
-                 *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
-                 repeat: bool = False,
-                 ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-        self.utype = utype
-        self.commander = commander
-        self.number = number
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(utype={self.utype.name}, commander={self.commander}, priority={self.priority})"
-
-
-class BuildTask(Task):
-    utype: UnitTypeId
+    number: int
     position: Point2
     max_distance: float
 
     def __init__(self,
                  utype: UnitTypeId,
+                 number: int = 1,
                  *,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[TaskDependencies | TaskStatus | int] =  None,
@@ -149,31 +119,7 @@ class BuildTask(Task):
         self.max_distance = max_distance
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(utype={self.utype.name}, position={self.position}, priority={self.priority})"
-
-
-class ResearchTask(Task):
-    upgrade: UpgradeId
-    position: Point2
-    max_distance: float
-
-    def __init__(self,
-                 upgrade: UpgradeId,
-                 *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
-                 repeat: bool = False,
-                 position: Optional[Point2] = None,
-                 max_distance: Optional[float] = 10,
-                 ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-        self.upgrade = upgrade
-        self.position = position
-        self.max_distance = max_distance
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(utype={self.upgrade.name}, position={self.position}, priority={self.priority})"
+        return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
 
 
 class UnitCountTask(Task):
@@ -203,28 +149,29 @@ class UnitCountTask(Task):
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
 
 
-class UnitPendingTask(Task):
-    utype: UnitTypeId
-    position: Optional[Point2 | Unit]
-    distance: float
+class ResearchTask(Task):
+    upgrade: UpgradeId
+    position: Point2
+    max_distance: float
 
     def __init__(self,
-                 utype: UnitTypeId,
+                 upgrade: UpgradeId,
                  *,
                  reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
-                 distance: Optional[float] = 3.0,
+                 max_distance: Optional[float] = 10,
                  ) -> None:
         super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-        self.utype = utype
+        self.upgrade = upgrade
         self.position = position
-        self.distance = distance
+        self.max_distance = max_distance
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(utype={self.utype.name}, position={self.position}, priority={self.priority}"
+        return f"{self.__class__.__name__}(utype={self.upgrade.name}, position={self.position}, priority={self.priority})"
+
 
 
 class OrderTask(Task):
@@ -256,3 +203,49 @@ class MoveTask(OrderTask):
 
 class AttackTask(OrderTask):
     pass
+
+
+class HandoverUnitsTask(Task):
+    utype: UnitTypeId
+    commander: str
+    number: Optional[int]
+
+    def __init__(self,
+                 utype: UnitTypeId,
+                 commander: str,
+                 number: Optional[int] = None,
+                 *,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
+                 priority: int = 50,
+                 repeat: bool = False,
+                 ) -> None:
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        self.utype = utype
+        self.commander = commander
+        self.number = number
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(utype={self.utype.name}, commander={self.commander}, priority={self.priority})"
+
+
+class MiningTask(Task):
+    location: Optional[Point2]
+    max_workers: Optional[int]
+
+    def __init__(self,
+                 location: Optional[Point2] = None,
+                 max_workers: Optional[int] = None,
+                 *,
+                 reqs: Optional[TaskRequirements] = None,
+                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
+                 priority: int = 50,
+                 repeat: bool = False,
+                 ) -> None:
+        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        self.location = location
+        self.max_workers = max_workers
+
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}(commander={self.location}, max_workers={self.max_workers},"
+                f" priority={self.priority})")
