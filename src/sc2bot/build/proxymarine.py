@@ -44,4 +44,4 @@ class ProxyReaper(BuildOrder):
         cmd.add_task(UnitCountTask(UnitTypeId.MARINE, 100, reqs=UnitTypeId.BARRACKS))
         cmd.add_task(HandoverUnitsTask(UnitTypeId.MARINE, 'ATK', reqs=(UnitTypeId.MARINE, 6), repeat=True))
 
-        atk.add_task(AttackTask(target=self.bot.map.enemy_base))
+        atk.add_task(AttackTask(target=self.bot.map.enemy_start_locations[0].center))

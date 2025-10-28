@@ -20,7 +20,7 @@ class ProxyReaper(BuildOrder):
         main.add_task(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 1, reqs=(UnitTypeId.SCV, 13)))
         rax_base = main.add_task(UnitCountTask(UnitTypeId.BARRACKS))
 
-        proxy_location = self.bot.map.enemy_expansions[4][0]
+        proxy_location = self.bot.map.get_proxy_location()
         rax = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 2,
                                          reqs=(UnitTypeId.SCV, 14),
                                          position=proxy_location, distance=10))
@@ -43,4 +43,4 @@ class ProxyReaper(BuildOrder):
         main.add_task(UnitCountTask(UnitTypeId.REAPER, 100, reqs=UnitTypeId.BARRACKS))
         main.add_task(HandoverUnitsTask(UnitTypeId.REAPER, 'Reapers', reqs=(UnitTypeId.REAPER, 4), repeat=True))
 
-        reapers.add_task(AttackTask(target=self.bot.map.enemy_base))
+        reapers.add_task(AttackTask(target=self.bot.map.enemy_start_locations[0].center))

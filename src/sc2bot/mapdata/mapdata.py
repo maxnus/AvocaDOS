@@ -6,56 +6,51 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from sc2bot.core.system import System
+from sc2bot.mapdata.expansion import ExpansionLocation
+
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-@dataclass
-class MapData:
-    bot: 'AvocaDOS'
+class MapData(System):
     center: Point2
-    base_townhall: Point2
-    base_center: Point2
-    enemy_base: Point2
-    expansions: list[tuple[Point2, float]]
-    enemy_expansions: list[tuple[Point2, float]]
+    start_base: ExpansionLocation
+    expansions: list[ExpansionLocation]
+    expansion_order: list[tuple[int, float]]
+    enemy_start_locations: list[ExpansionLocation]
+    enemy_expansion_order: list[list[tuple[int, float]]]
+
+    def __init__(self, bot: 'AvocaDOS') -> None:
+        super().__init__(bot)
+
+        self.center = bot.game_info.map_center
+        self.start_base = ExpansionLocation(self.bot, self.bot.start_location)
+
+        self.expansions = [ExpansionLocation(self.bot, location) for location in self._get_expansion_list()]
+        self.expansion_order = sorted(
+            [(idx, self.start_base.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
+            key=lambda x: x[1]
+        )
+
+        # Enemy
+        self.enemy_start_locations = [ExpansionLocation(self.bot, loc) for loc in self.bot.enemy_start_locations]
+        self.enemy_expansion_order = []
+        for enemy_start_location in self.enemy_start_locations:
+            self.enemy_expansion_order.append(sorted(
+                [(idx, enemy_start_location.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
+                key=lambda x: x[1]
+            ))
 
     def get_proxy_location(self) -> Point2:
-        return self.enemy_expansions[2][0]
+        idx = self.enemy_expansion_order[0][2][0]
+        return self.expansions[idx].center
 
-    @staticmethod
-    def get_expansion_list(bot: 'BaseBot') -> list[Point2]:
+    def _get_expansion_list(self) -> list[Point2]:
         try:
-            return bot.expansion_locations_list
+            return self.bot.expansion_locations_list
         except AssertionError:
             return []
-
-    @classmethod
-    async def analyze_map(cls, bot: 'AvocaDOS') -> Self:
-        # TODO: fix
-
-        center = bot.game_info.map_center
-        base_townhall = bot.start_location
-        base_center = base_townhall.towards(center, 8)
-        #distances = await bot.get_travel_distances(bot.expansion_locations_list[:4], base)
-        expansion_list = cls.get_expansion_list(bot)
-        distances = [base_townhall.distance_to(exp) for exp in expansion_list]
-        expansions = [(exp, dist) for dist, exp in sorted(zip(distances, expansion_list))]
-
-        enemy_base = bot.enemy_start_locations[0]
-        #distances = await bot.get_travel_distances(bot.expansion_locations_list, enemy_base)
-        distances = [enemy_base.distance_to(exp) for exp in expansion_list]
-        enemy_expansions = [(exp, dist) for dist, exp in sorted(zip(distances, expansion_list))]
-
-        return MapData(
-            bot,
-            center=center,
-            base_townhall=base_townhall,
-            base_center=base_center,
-            enemy_base=enemy_base,
-            expansions=expansions,
-            enemy_expansions=enemy_expansions
-        )
 
     async def get_building_location(self, utype: UnitTypeId, *,
                                     near: Optional[Point2] = None,
@@ -63,7 +58,7 @@ class MapData:
         match utype:
             case UnitTypeId.REFINERY:
                 if near is None:
-                    near = self.bot.map.base_townhall
+                    near = self.bot.map.start_base.center
                 geysers = self.bot.vespene_geyser.closer_than(10.0, near)
                 if geysers:
                     return geysers.random
@@ -71,17 +66,17 @@ class MapData:
             case UnitTypeId.SUPPLYDEPOT:
                 positions = [p for p in self.bot.main_base_ramp.corner_depots if await self.bot.can_place_single(utype, p)]
                 if positions:
-                    return self.bot.map.base_center.closest(positions)
+                    return self.bot.map.start_base.center.closest(positions)
                 if await self.bot.can_place_single(utype, self.bot.main_base_ramp.depot_in_middle):
                     return self.bot.main_base_ramp.depot_in_middle
-                return await self.bot.find_placement(utype, near=self.bot.map.base_center)
+                return await self.bot.find_placement(utype, near=self.bot.map.start_base.center)
 
             case UnitTypeId.BARRACKS:
                 if near is None:
                     position = self.bot.main_base_ramp.barracks_correct_placement
                     if await self.bot.can_place_single(utype, position):
                         return position
-                    return await self.bot.find_placement(utype, near=self.bot.map.base_center, addon_place=True)
+                    return await self.bot.find_placement(utype, near=self.bot.map.start_base.center, addon_place=True)
                 else:
                     return await self.bot.find_placement(utype, near=near, max_distance=max_distance,
                                                     random_alternative=False, addon_place=True)

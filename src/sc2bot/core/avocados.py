@@ -17,7 +17,7 @@ from sc2bot.build import BuildOrder, get_build_order
 from sc2bot.core.commander import Commander
 from sc2bot.debug.debugsystem import DebugSystem
 from sc2bot.core.history import History
-from sc2bot.core.mapdata import MapData
+from sc2bot.mapdata.mapdata import MapData
 from sc2bot.core.util import UnitCost
 from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
 
@@ -68,7 +68,7 @@ class AvocaDOS(BotAI):
 
     async def on_start(self) -> None:
         self.client.game_step = 1
-        self.map = await MapData.analyze_map(self)
+        self.map = MapData(self)
 
         if self.build is not None:
             self.logger.debug("Loading build order {}", self.build)
@@ -76,7 +76,9 @@ class AvocaDOS(BotAI):
 
         commander = self.commanders.get('Main')
         if commander:
-            commander.add_units(self.units | self.structures)
+            #commander.add_units(self.units | self.structures)
+            commander.add_units(self.structures)
+            commander.add_units(self.workers.random)
         else:
             self.logger.warning("No main commander found")
 

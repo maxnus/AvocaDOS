@@ -35,14 +35,6 @@ class Order(ABC):
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         pass
 
-    # def __hash__(self) -> int:
-    #     return self.id
-    #
-    # def __eq__(self, other: Any) -> bool:
-    #     if isinstance(other, Order):
-    #         return self.id == other.id
-    #     return NotImplemented
-
 
 @dataclass(frozen=True)
 class BuildOrder(Order):
@@ -136,32 +128,33 @@ class ReturnResourceOrder(Order):
 class OrderManager(Manager):
     orders: dict[int, list[Order]]
     """Orders of the current step"""
-    previous_orders: dict[int, list[Order]]
+    orders_prev: dict[int, list[Order]]
     """Orders of the previous step"""
-    last_orders: dict[int, list[Order]]
+    orders_last: dict[int, list[Order]]
     """Last order of any previous step"""
 
     def __init__(self, commander: 'Commander') -> None:
         super().__init__(commander)
         self.orders = {}
-        self.previous_orders = {}
-        self.last_orders = {}
+        self.orders_prev = {}
+        self.orders_last = {}
 
     async def on_step(self, step: int) -> None:
-        # Clean orders of dead units
-        alive_tags = self.commander.forces.tags
-        self.orders = {tag: orders for tag, orders in self.orders.items() if tag in alive_tags}
-        self.last_orders = {tag: orders for tag, orders in self.last_orders.items() if tag in alive_tags}
+        # Clean orders of dead units (TODO is this really necessary? why not just keep them)
+        # alive_tags = self.commander.forces.tags
+        # self.orders = {tag: orders for tag, orders in self.orders.items() if tag in alive_tags}
+        # self.last_orders = {tag: orders for tag, orders in self.last_orders.items() if tag in alive_tags}
 
-        self.last_orders.update(self.orders)
-        self.previous_orders = self.orders
+        self.orders_last.update(self.orders)
+        self.orders_prev = self.orders
         self.orders = {}
 
+        all_orders = [order for orders in self.orders_last.values() for order in orders]
         for order in list(self.commander.expected_units.keys()):
-            if order not in self.last_orders.values():
+            if order not in all_orders:
                 self.commander.remove_expected_unit(order)
 
-    def get_order(self, unit: Unit) -> Optional[Order]:
+    def get_orders(self, unit: Unit) -> Optional[list[Order]]:
         return self.orders.get(unit.tag)
 
     def has_order(self, unit: Unit) -> bool:
@@ -197,13 +190,13 @@ class OrderManager(Manager):
             self.logger.error("{} does not control {}", self, unit)
             return False
         if not queue and unit.tag in self.orders:
-            self.logger.error("unit {} already has orders: {}", unit, self.orders.get(unit.tag))
+            self.logger.error("Unit {} already has orders: {}", unit, self.orders.get(unit.tag))
             return False
         return True
 
     def _is_new_order(self, unit: Unit, order: Order, *, queue: bool) -> bool:
         """Check if the order is new or just repeated (and doesn't need to be sent to the API)."""
-        prev_orders = self.previous_orders.get(unit.tag)
+        prev_orders = self.orders_prev.get(unit.tag)
         if not prev_orders:
             return True
 
@@ -217,14 +210,27 @@ class OrderManager(Manager):
         order = order_cls(*order_args)
         self.logger.trace("Order {} to {}", unit, order)
         if self._is_new_order(unit, order, queue=queue):
+            self.logger.info("New order to unit {}: {}", unit, order)
             order.issue(unit, queue=queue)
-        self._add_order(unit, order, queue=queue)
+            if isinstance(order, TrainOrder):
+                self.commander.add_expected_unit(order, *order_args, unit.position)
+            elif isinstance(order, BuildOrder):
+                # TODO: add-on position
+                self.commander.add_expected_unit(order, *order_args)
+        else:
+            self.logger.info("Unit {} already has order {} in orders {}", unit, order, self.orders.get(unit.tag))
+
+        if queue:
+            self._queue_order(unit, order)
+        else:
+            self._set_order(unit, order)
         return True
 
-    def _add_order(self, unit: Unit, order: Order, *, queue: bool) -> None:
-        if queue:
-            if not self.has_order(unit):
-                self.orders[unit.tag] = []
+    def _set_order(self, unit: Unit, order: Order) -> None:
+        self.orders[unit.tag] = [order]
+
+    def _queue_order(self, unit: Unit, order: Order) -> None:
+        if self.has_order(unit):
             self.orders[unit.tag].append(order)
         else:
-            self.orders[unit.tag] = [order]
+            self._set_order(unit, order)

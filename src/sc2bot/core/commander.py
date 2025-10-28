@@ -15,7 +15,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.constants import TRAINERS, RESEARCHERS
-from sc2bot.core.mapdata import MapData
+from sc2bot.mapdata.mapdata import MapData
 from sc2bot.core.orders import Order, OrderManager
 from sc2bot.core.resourcemanager import ResourceManager
 from sc2bot.core.system import System
@@ -111,9 +111,16 @@ class Commander(System):
         self.expected_units.pop(order)
 
     async def is_expected_unit(self, unit: Unit) -> bool:
-        for utype, location in self.expected_units.values():
-            if unit.type_id == utype and squared_distance(unit, location) <= 0.01 if unit.is_structure else 9:
+        # TODO improve
+        if unit.is_structure and unit.type_id not in {UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKSTECHLAB}:
+            expected_sq_distance = 0.01
+        else:
+            # TODO: [min, max] interval based on unit_range-eps, unit_range+eps
+            expected_sq_distance = 12
+        for order, (utype, location) in self.expected_units.items():
+            if unit.type_id == utype and squared_distance(unit, location) <= expected_sq_distance:
                 self.logger.trace("found expected unit {}", unit)
+                self.remove_expected_unit(order)
                 self.add_units(unit)
                 return True
         return False
