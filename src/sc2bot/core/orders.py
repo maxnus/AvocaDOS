@@ -105,6 +105,17 @@ class AbilityOrder(Order):
 
 
 @dataclass(frozen=True)
+class SmartOrder(Order):
+    target: Point2 | Unit
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.target})"
+
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.smart(target=self.target, queue=queue)
+
+
+@dataclass(frozen=True)
 class GatherOrder(Order):
     target: Unit
 
@@ -185,6 +196,9 @@ class OrderManager(Manager):
     def research(self, unit: Unit, upgrade: UpgradeId, *, queue: bool = False) -> bool:
         return self._order(unit, ResearchOrder, upgrade, queue=queue)
 
+    def smart(self, unit: Unit, target: Point2 | Unit, *, queue: bool = False) -> bool:
+        return self._order(unit, SmartOrder, target, queue=queue)
+
     def _check_unit(self, unit: Unit, *, queue: bool) -> bool:
         if not self.commander.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
@@ -196,7 +210,8 @@ class OrderManager(Manager):
 
     def _is_new_order(self, unit: Unit, order: Order, *, queue: bool) -> bool:
         """Check if the order is new or just repeated (and doesn't need to be sent to the API)."""
-        prev_orders = self.orders_prev.get(unit.tag)
+        #prev_orders = self.orders_prev.get(unit.tag)
+        prev_orders = self.orders_last.get(unit.tag)
         if not prev_orders:
             return True
 
@@ -208,17 +223,17 @@ class OrderManager(Manager):
         if not self._check_unit(unit, queue=queue):
             return False
         order = order_cls(*order_args)
-        self.logger.trace("Order {} to {}", unit, order)
+        #self.logger.trace("Order {} to {}", unit, order)
         if self._is_new_order(unit, order, queue=queue):
-            self.logger.info("New order to unit {}: {}", unit, order)
+            #self.logger.info("New order to unit {}: {}", unit, order)
             order.issue(unit, queue=queue)
             if isinstance(order, TrainOrder):
                 self.commander.add_expected_unit(order, *order_args, unit.position)
             elif isinstance(order, BuildOrder):
                 # TODO: add-on position
                 self.commander.add_expected_unit(order, *order_args)
-        else:
-            self.logger.info("Unit {} already has order {} in orders {}", unit, order, self.orders.get(unit.tag))
+        # else:
+        #     self.logger.info("Unit {} already has order {} in orders {}", unit, order, self.orders.get(unit.tag))
 
         if queue:
             self._queue_order(unit, order)

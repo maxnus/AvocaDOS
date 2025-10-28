@@ -109,8 +109,8 @@ class TaskManager(Manager):
             completed = self._on_move_task(task)
         elif isinstance(task, AttackTask):
             completed = self._on_attack_task(task)
-        elif isinstance(task, MiningTask):
-            completed = await self._on_mining_task(task)
+        # elif isinstance(task, MiningTask):
+        #     completed = await self._on_mining_task(task)
         elif isinstance(task, HandoverUnitsTask):
             completed = self._on_handover_units_task(task)
         else:

@@ -74,13 +74,15 @@ class AvocaDOS(BotAI):
             self.logger.debug("Loading build order {}", self.build)
             self.build.load()
 
-        commander = self.commanders.get('Main')
-        if commander:
-            #commander.add_units(self.units | self.structures)
-            commander.add_units(self.structures)
-            commander.add_units(self.workers.random)
+        if 'Main' not in self.commanders:
+            main = self.add_commander('Main')
+            self.logger.warning("Adding main commander")
         else:
-            self.logger.warning("No main commander found")
+            main = self.commanders['Main']
+        main.add_units(self.units | self.structures)
+        #commander.add_units(self.structures)
+        #commander.add_units(self.workers.random)
+        await main.mining.add_expansion(self.map.start_base)
 
         if self.micro_scenario is not None:
             await self.micro_scenario.start()
@@ -96,6 +98,11 @@ class AvocaDOS(BotAI):
         # Update commander
         for commander in self.commanders.values():
             await commander.on_step(step)
+
+        if self.time >= 180:
+            self.logger.info("Minerals at 3 min = {}", self.minerals)
+            1/0
+
         # Update other systems
         await self.history.on_step(step)
         await self.debug.on_step_end(step)

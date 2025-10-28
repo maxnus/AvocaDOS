@@ -9,9 +9,12 @@ class ProxyReaper(BuildOrder):
 
     def load(self) -> None:
         main = self.bot.add_commander('Main')
+
+        return
+
         reapers = self.bot.add_commander('Reapers')
 
-        main.add_task(MiningTask(priority=10))
+        #main.add_task(MiningTask(priority=10))
 
         # Always produce SCV until 16 + 3 + 2 = 21
         main.add_task(UnitCountTask(UnitTypeId.SCV, 21))

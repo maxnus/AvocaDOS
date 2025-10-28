@@ -1,4 +1,5 @@
 import asyncio
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Self
@@ -26,6 +27,54 @@ def squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
     dx = p1.x - p2.x
     dy = p1.y - p2.y
     return dx * dx + dy * dy
+
+
+@dataclass
+class Circle:
+    center: Point2
+    radius: float
+
+    @property
+    def x(self) -> float:
+        return self.center.x
+
+    @property
+    def y(self) -> float:
+        return self.center.y
+
+    @property
+    def r(self) -> float:
+        return self.radius
+
+
+def get_circle_intersections(circle1: Circle, circle2: Circle) -> list[Point2]:
+    dx = circle2.x - circle1.x
+    dy = circle2.y - circle1.y
+    dsq = dx*dx + dy*dy
+    d = math.sqrt(dsq)
+
+    # non intersecting
+    if dsq > (circle1.r + circle2.r)**2:
+        return []
+
+    # One circle within the other
+    if dsq < (circle1.r - circle2.r)**2:
+        return []
+
+    # coincident circles
+    if dsq == 0 and circle1.r == circle2.r:
+        return []
+
+    a = (circle1.r**2 - circle2.r**2 + dsq) / (2 * d)
+    h = math.sqrt(circle1.r**2 - a**2)
+    x2 = circle1.x + a * dx / d
+    y2 = circle1.y + a * dy / d
+    x3 = x2 + h * dy / d
+    y3 = y2 - h * dx / d
+    x4 = x2 - h * dy / d
+    y4 = y2 + h * dx / d
+
+    return [Point2((x3, y3)), Point2((x4, y4))]
 
 
 class LineSegment:

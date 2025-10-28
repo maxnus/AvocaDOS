@@ -15,6 +15,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.constants import TRAINERS, RESEARCHERS
+from sc2bot.core.miningmanager import MiningManager
 from sc2bot.mapdata.mapdata import MapData
 from sc2bot.core.orders import Order, OrderManager
 from sc2bot.core.resourcemanager import ResourceManager
@@ -65,6 +66,7 @@ class Commander(System):
     resources: ResourceManager
     tasks: TaskManager
     combat: MicroManager
+    mining: MiningManager
     # Other
     expected_units: dict[Order, tuple[UnitTypeId, Point2]]
 
@@ -82,6 +84,7 @@ class Commander(System):
         self.resources = ResourceManager(self)
         self.tasks = TaskManager(self, tasks)
         self.combat = MicroManager(self)
+        self.mining = MiningManager(self)
         # Other
         self.expected_units = {}
 
@@ -99,6 +102,8 @@ class Commander(System):
 
         #if step % 4 == 0:
         await self.tasks.on_step(step)
+
+        await self.mining.on_step(step)
 
         await self._micro(step)
 

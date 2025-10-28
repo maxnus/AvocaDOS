@@ -4,6 +4,7 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from sc2bot.core.system import System
+from sc2bot.core.util import get_circle_intersections, Circle
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -17,6 +18,7 @@ class ExpansionLocation(System):
     center: Point2
     mineral_fields: Units
     vespene_geyser: Units
+    mineral_field_center: Point2
     mining_gather_targets: dict[int, Point2]
     mining_return_targets: dict[int, Point2]
 
@@ -28,8 +30,21 @@ class ExpansionLocation(System):
         self.mining_gather_targets = {}
         self.mining_return_targets = {}
         for mineral_field in self.mineral_fields:
-            self.mining_gather_targets[mineral_field.tag] = mineral_field.position.towards(self.center, GATHER_RADIUS)
-            self.mining_return_targets[mineral_field.tag] = self.center.position.towards(mineral_field, RETURN_RADIUS)
+            # Gather
+            gather_target = mineral_field.position.towards(self.center, GATHER_RADIUS)
+            close_fields = self.mineral_fields.closer_than(GATHER_RADIUS, gather_target).tags_not_in({mineral_field.tag})
+            for close_field in close_fields:
+                points = get_circle_intersections(
+                    Circle(mineral_field.position, GATHER_RADIUS),
+                    Circle(close_field.position, GATHER_RADIUS)
+                )
+                if points:
+                    gather_target = self.center.closest(points)
+            self.mining_gather_targets[mineral_field.tag] = gather_target
+            # Return
+            self.mining_return_targets[mineral_field.tag] = self.center.towards(gather_target, RETURN_RADIUS)
+        self.mineral_field_center = (sum((mf.position for mf in self.mineral_fields), start=Point2((0, 0)))
+                                     / len(self.mineral_fields))
 
     def minerals(self) -> int:
         return sum(mf.mineral_contents for mf in self.mineral_fields)
@@ -44,3 +59,9 @@ class ExpansionLocation(System):
         if isinstance(other, ExpansionLocation):
             return self.center == other.center
         return NotImplemented
+
+    def debug_show(self):
+        for point in self.mining_gather_targets.values():
+            self.bot.debug.box(point, size=0.25, color=(255, 0, 0))
+        for point in self.mining_return_targets.values():
+            self.bot.debug.box(point, size=0.25, color=(0, 0, 255))

@@ -65,7 +65,8 @@ def macro():
     runner = GameRunner(
         'AcropolisLE',
         bot=Bot(Race.Terran, AvocaDOS(build='proxyreaper', log_level='DEBUG')),
-        opponent=Computer(Race.Protoss, Difficulty.Hard),
+        #opponent=Computer(Race.Protoss, Difficulty.Hard),
+        opponent=Computer(Race.Protoss, Difficulty.Easy),
         realtime='--realtime' in sys.argv,
     )
     runner.run()
