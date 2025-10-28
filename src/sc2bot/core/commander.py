@@ -240,13 +240,25 @@ class Commander(System):
     async def pick_workers(self, location: Point2 | LineSegment, *,
                            number: int,
                            target_distance: float = 0.0,
+                           include_moving: bool = True,
+                           include_collecting: bool = True,
                            include_constructing: bool = True,
                            construction_time_discount: float = 0.7) -> list[tuple[Unit, float]]:
-        #workers = self.workers.idle + self.workers.collecting
-        workers = self.workers.idle + self.workers.collecting + self.workers.filter(lambda x: x.is_moving)
-        if include_constructing:
-            workers += self.workers.filter(lambda unit: unit.is_constructing_scv)
-        workers = workers.filter(lambda w: not self.order.has_order(w))
+
+        def worker_filter(worker: Unit) -> bool:
+            if self.order.has_order(worker):
+                return False
+            if worker.is_idle:
+                return True
+            if include_moving and worker.is_moving:
+                return True
+            if include_collecting and worker.is_collecting:
+                return True
+            if include_constructing and worker.is_constructing_scv:
+                return True
+            return False
+
+        workers = self.workers.filter(worker_filter)
         if not workers:
             return []
         # Prefilter for performance
@@ -267,31 +279,19 @@ class Commander(System):
 
     async def pick_worker(self, position: Point2, *,
                           target_distance: float = 0.0,
+                          include_moving: bool = True,
+                          include_collecting: bool = True,
                           include_constructing: bool = True,
                           construction_time_discount: float = 0.7) -> tuple[Optional[Unit], Optional[float]]:
-        workers = await self.pick_workers(location=position, number=1, target_distance=target_distance,
+        workers = await self.pick_workers(location=position, number=1,
+                                          target_distance=target_distance,
+                                          include_moving=include_moving,
+                                          include_collecting=include_collecting,
                                           include_constructing=include_constructing,
                                           construction_time_discount=construction_time_discount)
         if not workers:
             return None, None
         return workers[0]
-
-        #workers = self.workers.idle + self.workers.collecting
-        #workers = self.workers.idle + self.workers.collecting + self.workers.filter(lambda x: x.is_moving)
-        #if include_constructing:
-        #    workers += self.workers.filter(lambda unit: unit.is_constructing_scv)
-        #workers = workers.filter(lambda w: not self.order.has_order(w))
-        #if not workers:
-        #    return None, None
-        ## Prefilter for performance
-        #if len(workers) > 10:
-        #    workers = workers.closest_n_units(position=position, n=10)
-        #travel_times = await self.map.get_travel_times(workers, position, target_distance=target_distance)
-        #total_times = {unit: travel_time + construction_time_discount * self.bot.get_remaining_construction_time(unit)
-        #               for unit, travel_time in zip(workers, travel_times)}
-        ##self.logger.trace("worker travel times: {}", list(total_times.values())[:8])
-        #best = min(total_times, key=total_times.get)
-        #return best, total_times[best]
 
     def pick_trainer(self, utype: UnitTypeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
         trainer_utype = TRAINERS[utype]

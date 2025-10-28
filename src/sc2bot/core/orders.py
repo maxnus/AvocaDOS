@@ -31,6 +31,10 @@ class Order(ABC):
     def __repr__(self) -> str:
         pass
 
+    @abstractmethod
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        pass
+
     # def __hash__(self) -> int:
     #     return self.id
     #
@@ -48,6 +52,9 @@ class BuildOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name}, {self.position})"
 
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.build(self.utype, position=self.position, queue=queue)
+
 
 @dataclass(frozen=True)
 class TrainOrder(Order):
@@ -55,6 +62,9 @@ class TrainOrder(Order):
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name})"
+
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.train(self.utype, queue=queue)
 
 
 @dataclass(frozen=True)
@@ -64,6 +74,9 @@ class ResearchOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.upgrade.name})"
 
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.research(self.upgrade, queue=queue)
+
 
 @dataclass(frozen=True)
 class MoveOrder(Order):
@@ -72,6 +85,9 @@ class MoveOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
 
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.move(self.target, queue=queue)
+
 
 @dataclass(frozen=True)
 class AttackOrder(Order):
@@ -79,6 +95,9 @@ class AttackOrder(Order):
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
+
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.attack(self.target, queue=queue)
 
 
 @dataclass(frozen=True)
@@ -89,6 +108,9 @@ class AbilityOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
 
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit(self.ability, target=self.target, queue=queue)
+
 
 @dataclass(frozen=True)
 class GatherOrder(Order):
@@ -97,6 +119,9 @@ class GatherOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
 
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.gather(target=self.target, queue=queue)
+
 
 @dataclass(frozen=True)
 class ReturnResourceOrder(Order):
@@ -104,13 +129,16 @@ class ReturnResourceOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}"
 
+    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+        unit.return_resource(queue=queue)
+
 
 class OrderManager(Manager):
-    orders: dict[int, Order]
+    orders: dict[int, list[Order]]
     """Orders of the current step"""
-    previous_orders: dict[int, Order]
+    previous_orders: dict[int, list[Order]]
     """Orders of the previous step"""
-    last_orders: dict[int, Order]
+    last_orders: dict[int, list[Order]]
     """Last order of any previous step"""
 
     def __init__(self, commander: 'Commander') -> None:
@@ -122,8 +150,8 @@ class OrderManager(Manager):
     async def on_step(self, step: int) -> None:
         # Clean orders of dead units
         alive_tags = self.commander.forces.tags
-        self.orders = {tag: order for tag, order in self.orders.items() if tag in alive_tags}
-        self.last_orders = {tag: order for tag, order in self.last_orders.items() if tag in alive_tags}
+        self.orders = {tag: orders for tag, orders in self.orders.items() if tag in alive_tags}
+        self.last_orders = {tag: orders for tag, orders in self.last_orders.items() if tag in alive_tags}
 
         self.last_orders.update(self.orders)
         self.previous_orders = self.orders
@@ -139,101 +167,64 @@ class OrderManager(Manager):
     def has_order(self, unit: Unit) -> bool:
         return unit.tag in self.orders
 
-    def move(self, unit: Unit, target: Point2) -> bool:
-        if not self._check_unit(unit):
-            return False
-        order = MoveOrder(target)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.move(target)
-        self.orders[unit.tag] = order
-        return True
+    def move(self, unit: Unit, target: Point2, *, queue: bool = False) -> bool:
+        return self._order(unit, MoveOrder, target, queue=queue)
 
-    def attack(self, unit: Unit, target: Point2 | Unit) -> bool:
-        if not self._check_unit(unit):
-            return False
-        order = AttackOrder(target)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.attack(target)
-        self.orders[unit.tag] = order
-        return True
+    def attack(self, unit: Unit, target: Point2 | Unit, *, queue: bool = False) -> bool:
+        return self._order(unit, AttackOrder, target, queue=queue)
 
-    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit) -> bool:
-        if not self._check_unit(unit):
-            return False
-        order = AbilityOrder(ability, target)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit(ability, target)
-        self.orders[unit.tag] = order
-        return True
+    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit, *, queue: bool = False) -> bool:
+        return self._order(unit, AbilityOrder, ability, target, queue=queue)
 
-    def gather(self, unit: Unit, target: Unit) -> bool:
-        if not self._check_unit(unit):
-            return False
-        order = GatherOrder(target)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.gather(target)
-        self.orders[unit.tag] = order
-        return True
+    def gather(self, unit: Unit, target: Unit, *, queue: bool = False) -> bool:
+        return self._order(unit, GatherOrder, target, queue=queue)
 
-    def return_resource(self, unit: Unit) -> bool:
-        if not self._check_unit(unit):
-            return False
-        order = ReturnResourceOrder()
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.return_resource()
-        self.orders[unit.tag] = order
-        return True
+    def return_resource(self, unit: Unit, *, queue: bool = False) -> bool:
+        return self._order(unit, ReturnResourceOrder, queue=queue)
 
-    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit) -> bool:
-        if not self._check_unit(unit):
-            return False
-        if not self.commander.resources.spend(utype):
-            return False
-        order = BuildOrder(utype, position)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.build(utype, position=position)
-            self.commander.add_expected_unit(order, utype, position)
-        self.orders[unit.tag] = order
-        return True
+    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit, *, queue: bool = False) -> bool:
+        return self._order(unit, BuildOrder, utype, position, queue=queue)
 
-    def train(self, unit: Unit, utype: UnitTypeId) -> bool:
+    def train(self, unit: Unit, utype: UnitTypeId, *, queue: bool = False) -> bool:
         # TODO: do not train if already training
-        if not self._check_unit(unit):
-            return False
-        if not self.commander.resources.spend(utype):
-            return False
-        order = TrainOrder(utype)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.train(utype)
-            self.commander.add_expected_unit(order, utype, unit.position)
-        self.orders[unit.tag] = order
-        return True
+        return self._order(unit, TrainOrder, utype, queue=queue)
 
-    def research(self, unit: Unit, upgrade: UpgradeId) -> bool:
-        if not self._check_unit(unit):
-            return False
-        if not self.commander.resources.spend(upgrade):
-            return False
-        order = ResearchOrder(upgrade)
-        self.logger.trace("Order {} to {}", unit, order)
-        if order != self.previous_orders.get(unit.tag):
-            unit.research(upgrade)
-        self.orders[unit.tag] = order
-        return True
+    def research(self, unit: Unit, upgrade: UpgradeId, *, queue: bool = False) -> bool:
+        return self._order(unit, ResearchOrder, upgrade, queue=queue)
 
-    def _check_unit(self, unit: Unit) -> bool:
+    def _check_unit(self, unit: Unit, *, queue: bool) -> bool:
         if not self.commander.has_units(unit):
             self.logger.error("{} does not control {}", self, unit)
             return False
-        if unit.tag in self.orders:
-            self.logger.error("unit {} already has order: {}", unit, self.orders.get(unit.tag))
-            raise ValueError
+        if not queue and unit.tag in self.orders:
+            self.logger.error("unit {} already has orders: {}", unit, self.orders.get(unit.tag))
             return False
         return True
+
+    def _is_new_order(self, unit: Unit, order: Order, *, queue: bool) -> bool:
+        """Check if the order is new or just repeated (and doesn't need to be sent to the API)."""
+        prev_orders = self.previous_orders.get(unit.tag)
+        if not prev_orders:
+            return True
+
+        idx = 0 if not queue else -1
+        return order != prev_orders[idx]
+
+    def _order(self, unit: Unit, order_cls: type[Order],
+               *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId, queue: bool) -> bool:
+        if not self._check_unit(unit, queue=queue):
+            return False
+        order = order_cls(*order_args)
+        self.logger.trace("Order {} to {}", unit, order)
+        if self._is_new_order(unit, order, queue=queue):
+            order.issue(unit, queue=queue)
+        self._add_order(unit, order, queue=queue)
+        return True
+
+    def _add_order(self, unit: Unit, order: Order, *, queue: bool) -> None:
+        if queue:
+            if not self.has_order(unit):
+                self.orders[unit.tag] = []
+            self.orders[unit.tag].append(order)
+        else:
+            self.orders[unit.tag] = [order]

@@ -240,6 +240,9 @@ class DebugSystem(System):
         self.client.debug_line_out(start, end, color=color)
 
     async def _handle_chat(self):
+        cheats = {'!control_enemy', '!food', '!free', '!all_resources', '!god', '!minerals', '!gas',
+                  '!cooldown', '!tech_tree', '!upgrade', '!fast_build'}
+
         for chat_message in self.bot.state.chat:
             self.logger.debug("Chat message: {}", chat_message.message)
             if chat_message.message.startswith('!'):
@@ -248,18 +251,17 @@ class DebugSystem(System):
                 if cmd == '!log' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_log = bool(int(args[0]))
 
-                if cmd == '!cmd' and len(args) == 1 and args[0] in {'0', '1'}:
+                elif cmd == '!cmd' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_commanders = bool(int(args[0]))
 
-                if cmd == '!orders' and len(args) == 1 and args[0] in {'0', '1'}:
+                elif cmd == '!orders' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_orders = bool(int(args[0]))
 
-                valid_args = {'control_enemy', 'food', 'free', 'all_resources', 'god', 'minerals', 'gas',
-                              'cooldown', 'tech_tree', 'upgrade', 'fast_build'}
-                if cmd == '!debug' and len(args) == 1 and args[0] in {'0', '1'}:
+                elif cmd == '!debug' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.bot.debug_enabled = bool(int(args[0]))
-                elif cmd == '!debug' and len(args) == 1 and args[0] in valid_args:
-                    func = getattr(self.client, f'debug_{args[0]}', None)
+
+                elif cmd in cheats:
+                    func = getattr(self.client, f'debug_{cmd[1:]}', None)
                     if func is not None:
                         await func()
 

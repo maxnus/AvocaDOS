@@ -247,5 +247,5 @@ class MiningTask(Task):
         self.max_workers = max_workers
 
     def __repr__(self) -> str:
-        return (f"{self.__class__.__name__}(commander={self.location}, max_workers={self.max_workers},"
+        return (f"{self.__class__.__name__}(location={self.location}, max_workers={self.max_workers},"
                 f" priority={self.priority})")
