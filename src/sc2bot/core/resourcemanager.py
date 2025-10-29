@@ -52,7 +52,7 @@ class ResourceManager(Manager):
             cost = item
         else:
             cost = self.calculate_cost(item)
-        return self.minerals >= cost.minerals and self.vespene >= cost.vespene
+        return max(self.minerals, 0) >= cost.minerals and max(self.vespene, 0) >= cost.vespene
 
     def can_afford_in(self, item: UnitTypeId | UpgradeId | AbilityId | Cost, *,
                       excluded_workers: Optional[Unit | Units] = None) -> float:

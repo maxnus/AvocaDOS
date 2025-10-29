@@ -171,33 +171,42 @@ class OrderManager(Manager):
     def has_order(self, unit: Unit) -> bool:
         return unit.tag in self.orders
 
-    def move(self, unit: Unit, target: Point2, *, queue: bool = False) -> bool:
-        return self._order(unit, MoveOrder, target, queue=queue)
+    def move(self, unit: Unit, target: Point2, *,
+             queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, MoveOrder, target, queue=queue, force=force)
 
-    def attack(self, unit: Unit, target: Point2 | Unit, *, queue: bool = False) -> bool:
-        return self._order(unit, AttackOrder, target, queue=queue)
+    def attack(self, unit: Unit, target: Point2 | Unit, *,
+               queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, AttackOrder, target, queue=queue, force=force)
 
-    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit, *, queue: bool = False) -> bool:
-        return self._order(unit, AbilityOrder, ability, target, queue=queue)
+    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit, *,
+                queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, AbilityOrder, ability, target, queue=queue, force=force)
 
-    def gather(self, unit: Unit, target: Unit, *, queue: bool = False) -> bool:
-        return self._order(unit, GatherOrder, target, queue=queue)
+    def gather(self, unit: Unit, target: Unit, *,
+               queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, GatherOrder, target, queue=queue, force=force)
 
-    def return_resource(self, unit: Unit, *, queue: bool = False) -> bool:
-        return self._order(unit, ReturnResourceOrder, queue=queue)
+    def return_resource(self, unit: Unit, *,
+                        queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, ReturnResourceOrder, queue=queue, force=force)
 
-    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit, *, queue: bool = False) -> bool:
-        return self._order(unit, BuildOrder, utype, position, queue=queue)
+    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit, *,
+              queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, BuildOrder, utype, position, queue=queue, force=force)
 
-    def train(self, unit: Unit, utype: UnitTypeId, *, queue: bool = False) -> bool:
+    def train(self, unit: Unit, utype: UnitTypeId, *,
+              queue: bool = False, force: bool = False) -> bool:
         # TODO: do not train if already training
-        return self._order(unit, TrainOrder, utype, queue=queue)
+        return self._order(unit, TrainOrder, utype, queue=queue, force=force)
 
-    def research(self, unit: Unit, upgrade: UpgradeId, *, queue: bool = False) -> bool:
-        return self._order(unit, ResearchOrder, upgrade, queue=queue)
+    def research(self, unit: Unit, upgrade: UpgradeId, *,
+                 queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, ResearchOrder, upgrade, queue=queue, force=force)
 
-    def smart(self, unit: Unit, target: Point2 | Unit, *, queue: bool = False) -> bool:
-        return self._order(unit, SmartOrder, target, queue=queue)
+    def smart(self, unit: Unit, target: Point2 | Unit, *,
+              queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, SmartOrder, target, queue=queue, force=force)
 
     def _check_unit(self, unit: Unit, *, queue: bool) -> bool:
         if not self.commander.has_units(unit):
@@ -219,12 +228,13 @@ class OrderManager(Manager):
         return order != prev_orders[idx]
 
     def _order(self, unit: Unit, order_cls: type[Order],
-               *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId, queue: bool) -> bool:
+               *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId,
+               queue: bool, force: bool) -> bool:
         if not self._check_unit(unit, queue=queue):
             return False
         order = order_cls(*order_args)
         #self.logger.trace("Order {} to {}", unit, order)
-        if self._is_new_order(unit, order, queue=queue):
+        if force or self._is_new_order(unit, order, queue=queue):
             #self.logger.info("New order to unit {}: {}", unit, order)
             order.issue(unit, queue=queue)
             if isinstance(order, TrainOrder):

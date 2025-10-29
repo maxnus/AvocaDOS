@@ -10,7 +10,7 @@ class ProxyReaper(BuildOrder):
     def load(self) -> None:
         main = self.bot.add_commander('Main')
 
-        return
+        #return
 
         reapers = self.bot.add_commander('Reapers')
 

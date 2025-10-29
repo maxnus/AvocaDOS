@@ -143,12 +143,13 @@ class DebugSystem(System):
 
         if self.show_orders:
             for commander in self.bot.commanders.values():
-                for tag, order in commander.orders.items():
+                for tag, orders in commander.order.orders.items():
+                    if not orders:
+                        continue
                     unit = (self.bot.units + self.bot.structures).find_by_tag(tag)
                     if unit is None:
                         continue
-                    #self.text_world(str(order), unit)
-                    self.box_with_text(unit, str(order))
+                    self.box_with_text(unit, str(orders[0]))
 
         if self.show_combat:
             for commander in self.bot.commanders.values():

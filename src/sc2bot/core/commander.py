@@ -265,9 +265,11 @@ class Commander(System):
             if include_moving and worker.is_moving:
                 return True
             if include_collecting and worker.is_collecting:
-                return True
+               return True
             if include_constructing and worker.is_constructing_scv:
                 return True
+            #if self.mining.has_worker(worker):
+            #    return include_collecting
             return False
 
         workers = self.workers.filter(worker_filter)

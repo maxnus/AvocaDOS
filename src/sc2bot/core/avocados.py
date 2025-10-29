@@ -99,9 +99,8 @@ class AvocaDOS(BotAI):
         for commander in self.commanders.values():
             await commander.on_step(step)
 
-        if self.time >= 180:
-            self.logger.info("Minerals at 3 min = {}", self.minerals)
-            1/0
+        #if self.time >= 180:
+        #    self.logger.info("Minerals at 3 min = {}", self.minerals)
 
         # Update other systems
         await self.history.on_step(step)

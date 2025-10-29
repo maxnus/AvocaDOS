@@ -109,8 +109,6 @@ class TaskManager(Manager):
             completed = self._on_move_task(task)
         elif isinstance(task, AttackTask):
             completed = self._on_attack_task(task)
-        # elif isinstance(task, MiningTask):
-        #     completed = await self._on_mining_task(task)
         elif isinstance(task, HandoverUnitsTask):
             completed = self._on_handover_units_task(task)
         else:
@@ -140,10 +138,12 @@ class TaskManager(Manager):
 
         if self.commander.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
             self.commander.order.build(worker, task.utype, target)
+            self.commander.mining.remove_worker(worker)  # TODO
         else:
             resource_time = self.commander.resources.can_afford_in(task.utype, excluded_workers=worker)
             if resource_time <= travel_time:
                 self.commander.order.move(worker, position)
+                self.commander.mining.remove_worker(worker)  # TODO
                 self.commander.resources.reserve(task.utype)
         task.assigned.add(worker.tag)
         return False
@@ -170,6 +170,10 @@ class TaskManager(Manager):
             self.commander.logger.error("No trainer for {}", task.utype)
 
         if trainer_utype == UnitTypeId.SCV:
+            if self.bot.tech_requirement_progress(task.utype) < 1:
+                #self.logger.debug("Tech requirements for {} not fulfilled", task.utype)
+                return False
+
             for _ in range(to_build):
                 target = await self.bot.map.get_building_location(task.utype, near=task.position,
                                                                   max_distance=task.max_distance)
@@ -186,12 +190,14 @@ class TaskManager(Manager):
                 if self.commander.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
                     self.commander.order.build(worker, task.utype, target)
+                    self.commander.mining.remove_worker(worker)     # TODO
                 else:
                     resource_time = self.commander.resources.can_afford_in(task.utype, excluded_workers=worker)
                     #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
                         self.commander.order.move(worker, position)
+                        self.commander.mining.remove_worker(worker)  # TODO
                         self.commander.resources.reserve(task.utype)
 
         else:
@@ -253,83 +259,3 @@ class TaskManager(Manager):
         self.commander.remove_units(units)
         commander.add_units(units)
         return True
-
-    async def _on_mining_task(self, task: MiningTask) -> bool:
-        # TODO: default location beyond base
-        location = task.location or self.bot.map.start_base.center
-
-        if task.max_workers is not None:
-            raise NotImplementedError
-
-        # We accept all townhalls, not just the commanders
-        townhall = self.bot.townhalls.closest_to(location)
-        if townhall is None:
-            return False
-
-        # TODO: long distance mining?
-        minerals = self.bot.mineral_field.closer_than(8, townhall)
-        if minerals is None:
-            self.logger.info("No minerals at {}", location)
-            return True
-
-        MINING_RADIUS = 1.325
-
-        minerals.sort(key=lambda m: m.distance_to(townhall))
-        for mineral in minerals:
-            #mid = (townhall.position + mineral.position) / 2
-            line = LineSegment(townhall, mineral)
-            workers = await self.commander.pick_workers(line, number=2, include_constructing=False)
-            if not workers:
-                # No more workers available
-                break
-            min_distance = 0.75
-            max_distance = 2
-
-
-            for worker, _ in workers:
-
-                # target_drop = townhall.position.towards(worker.position, townhall.radius + worker.radius)
-                # target_mine = mineral.position.towards(townhall.position, MINING_RADIUS)
-                # #for _ in range(20):
-                # self.commander.order.move(worker, target_mine, queue=True)
-                # self.commander.order.ability(worker, AbilityId.SMART, mineral, queue=True)
-                # self.commander.order.move(worker, target_drop, queue=True)
-                # self.commander.order.ability(worker, AbilityId.SMART, townhall, queue=True)
-                #continue
-
-                # if len(worker.orders) == 2:
-                #     continue
-
-                if worker.is_carrying_resource:
-                    target = townhall.position.towards(mineral.position, townhall.radius + worker.radius)
-                    distance = worker.distance_to(target)
-                    if distance <= min_distance:
-                        self.commander.order.ability(worker, AbilityId.SMART, townhall)
-                    # elif distance >= max_distance:
-                    #     self.commander.order.move(worker, target)
-                    else:
-                        self.commander.order.move(worker, target)
-                        self.commander.order.ability(worker, AbilityId.SMART, townhall, queue=True)
-
-                    #self.commander.order.return_resource(worker)
-                    #if worker.distance_to(townhall) < townhall.radius + 0.5:
-                    #    self.commander.order.return_resource(worker)
-                    #else:
-                    #    self.commander.order.move(worker, townhall.position.towards(mineral, townhall.radius + 0.3))
-                else:
-                    target = mineral.position.towards(townhall.position, MINING_RADIUS)
-                    distance = worker.distance_to(target)
-                    if distance <= min_distance:
-                        self.commander.order.ability(worker, AbilityId.SMART, mineral)
-                    # elif distance >= max_distance:
-                    #     self.commander.order.move(worker, target)
-                    else:
-                        self.commander.order.move(worker, target)
-                        self.commander.order.ability(worker, AbilityId.SMART, mineral, queue=True)
-
-                    #if worker.distance_to(mineral) < 1.5:
-                    #    self.commander.order.gather(worker, mineral)
-                    #else:
-                    #    self.commander.order.move(worker, mineral.position.towards(townhall, 1.2))
-
-        return False
