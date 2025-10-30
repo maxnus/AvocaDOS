@@ -1,6 +1,7 @@
 import asyncio
 import math
 import sys
+from dataclasses import dataclass
 from time import perf_counter
 from typing import TYPE_CHECKING, Optional, ClassVar
 
@@ -22,6 +23,27 @@ YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 
 
+# class DebugDisplayItem:
+#     color: tuple[int, int, int]
+#     created: float
+#     duration: float
+#
+#     def __init__(self, color: tuple[int, int, int], created: float, duration: float) -> None:
+#         self.color = color
+#         self.created = created
+#         self.duration = duration
+
+
+@dataclass
+class DebugWorldText:
+    position: Point3 | Unit
+    text: str
+    size: int
+    color: tuple[int, int, int]
+    created: float
+    duration: float
+
+
 class DebugSystem(System):
     text_size: ClassVar[int] = 16
     # State
@@ -37,6 +59,8 @@ class DebugSystem(System):
     show_orders: bool
     show_commanders: bool
     show_combat: bool
+    # Temporary displays
+    debug_items: list[DebugWorldText]
 
     def __init__(self, bot: 'AvocaDOS', *, slowdown: float = 0.0, log_level: str = "DEBUG") -> None:
         super().__init__(bot)
@@ -52,6 +76,7 @@ class DebugSystem(System):
         self.show_orders = False
         self.show_commanders = True
         self.show_combat = True
+        self.debug_items = []
 
         def ingame_logging(message):
             if not hasattr(self, 'client'):
@@ -177,6 +202,11 @@ class DebugSystem(System):
 
         self.damage_taken.clear()
 
+        for item in reversed(self.debug_items):
+            self.client.debug_text_world(item.text, item.position, size=item.size, color=item.color)
+            if self.bot.time > item.created + item.duration:
+                self.debug_items.remove(item)
+
         #if self.bot.map is not None:
         #    #for idx, expansion in enumerate(self.bot.map.enemy_expansions):
         #    #    self.box_with_text(expansion, f"Enemy expansion {idx}")
@@ -202,19 +232,16 @@ class DebugSystem(System):
             y += size / 1000
 
     def text_world(self,
-                   lines: list[str] | str,
+                   text: str,
                    position: Unit | Point3 | Point2,
                    *,
                    size: int = 16, color: tuple[int, int, int] = YELLOW,
-                   max_lines: int = 10):
+                   max_lines: int = 10,
+                   duration: float = 0):
         position = self._normalize_point3(position)
-        offset = 0.0
-        if isinstance(lines, str):
-            lines = [lines]
-        for line in lines[-max_lines:]:
-            line_position = position + Point3((0, offset, 0))
-            self.client.debug_text_world(line, line_position, size=size, color=color)
-            offset += size / 1000
+        item = DebugWorldText(position, text, size=size, color=color, created=self.bot.time, duration=duration)
+        self.debug_items.append(item)
+
 
     def box(self, center: Unit | Point3 | Point2, size: Optional[float] = None, *,
             color: tuple[int, int, int] = YELLOW) -> None:

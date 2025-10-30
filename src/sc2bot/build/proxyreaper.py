@@ -10,6 +10,9 @@ class ProxyReaper(BuildOrder):
     def load(self) -> None:
         main = self.bot.add_commander('Main')
 
+        #main.add_task(UnitCountTask(UnitTypeId.REFINERY, 1))
+        #return
+
         #return
 
         reapers = self.bot.add_commander('Reapers')
@@ -31,7 +34,7 @@ class ProxyReaper(BuildOrder):
                                           reqs=UnitTypeId.BARRACKS,
                                           position=proxy_location, distance=10))
 
-        main.add_task(UnitCountTask(UnitTypeId.REFINERY, 1, reqs=('S', 17)))
+        #main.add_task(UnitCountTask(UnitTypeId.REFINERY, 2, reqs=('S', 16)))
         main.add_task(UnitCountTask(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS))
 
         # --- Supply
@@ -40,9 +43,12 @@ class ProxyReaper(BuildOrder):
         main.add_task(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 4, reqs=('S', 35)))
 
         # --- Upgrades
-        main.add_task(UnitCountTask(UnitTypeId.BARRACKSREACTOR, deps=rax_base, priority=100))
+        #main.add_task(UnitCountTask(UnitTypeId.BARRACKSREACTOR, deps=rax_base, priority=100))
 
         # Units
+        #main.add_task(UnitCountTask(UnitTypeId.REAPER, 100, reqs=UnitTypeId.BARRACKS))
+        #main.add_task(HandoverUnitsTask(UnitTypeId.REAPER, 'Reapers', reqs=(UnitTypeId.REAPER, 4), repeat=True))
+
         main.add_task(UnitCountTask(UnitTypeId.REAPER, 100, reqs=UnitTypeId.BARRACKS))
         main.add_task(HandoverUnitsTask(UnitTypeId.REAPER, 'Reapers', reqs=(UnitTypeId.REAPER, 4), repeat=True))
 

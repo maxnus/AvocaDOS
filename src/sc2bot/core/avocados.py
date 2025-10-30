@@ -15,6 +15,7 @@ from sc2.ids.ability_id import AbilityId
 
 from sc2bot.build import BuildOrder, get_build_order
 from sc2bot.core.commander import Commander
+from sc2bot.core.constants import TRAINERS
 from sc2bot.debug.debugsystem import DebugSystem
 from sc2bot.core.history import History
 from sc2bot.mapdata.mapdata import MapData
@@ -101,6 +102,7 @@ class AvocaDOS(BotAI):
 
         #if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
+
 
         # Update other systems
         await self.history.on_step(step)
@@ -211,11 +213,33 @@ class AvocaDOS(BotAI):
             commander.remove_units(unit_tag)
 
     async def _assign_new_unit(self, unit: Unit) -> None:
-        for commander in self.commanders.values():
-            if await commander.is_expected_unit(unit):
-                break
-        else:
-            self.logger.debug("Unexpected new unit: {} at {}", unit, unit.position)
-            commander = self.commanders.get('Main')
-            if commander:
-                commander.add_units(unit)
+        trainer_type = TRAINERS.get(unit.type_id)
+        commander = None
+        if trainer_type:
+            trainers = (self.units + self.structures).of_type(trainer_type).closer_than(8, unit)
+            if trainers:
+                trainer = trainers.closest_to(unit)
+                commander = self.get_commander_of(trainer)
+                #self.logger.debug("Trainer of {} at {} is {} at {}", unit, unit.position, trainer, trainer.position)
+
+        if commander is None:
+            self.logger.warning("Cannot identify trainer of {} at {}", unit, unit.position)
+            commander = self.commanders['Main']
+
+        commander.add_units(unit)
+
+        # for commander in self.commanders.values():
+        #     if await commander.is_expected_unit(unit):
+        #         break
+        # else:
+        #     self.logger.error("Unexpected new unit: {} at {}", unit, unit.position)
+        #     self.logger.error("Expected are:")
+        #     for commander in self.commanders.values():
+        #         for order, (utype, position) in commander.expected_units.items():
+        #             self.logger.error("{}: {} at {} from {}", commander, utype, position, order)
+        #
+        #     self.debug.text_world(f"UnexpUnit {unit.tag}", unit, size=16, color=(255, 0, 0), duration=20)
+        #
+        #     commander = self.commanders.get('Main')
+        #     if commander:
+        #         commander.add_units(unit)

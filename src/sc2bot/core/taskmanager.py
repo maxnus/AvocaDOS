@@ -245,9 +245,7 @@ class TaskManager(Manager):
         return True
 
     def _on_attack_task(self, task: AttackTask) -> bool:
-        #self.combat.marine_micro(task)
-        for unit in self.commander.units.idle:
-            #unit.attack(task.target)
+        for unit in self.commander.army.idle:
             self.commander.order.attack(unit, task.target)
         return False
 
@@ -256,6 +254,8 @@ class TaskManager(Manager):
         if commander is None:
             return False
         units = self.commander.units(task.utype)
+        if not units:
+            return False
         self.commander.remove_units(units)
         commander.add_units(units)
         return True

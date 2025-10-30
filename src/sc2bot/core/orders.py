@@ -160,11 +160,6 @@ class OrderManager(Manager):
         self.orders_prev = self.orders
         self.orders = {}
 
-        all_orders = [order for orders in self.orders_last.values() for order in orders]
-        for order in list(self.commander.expected_units.keys()):
-            if order not in all_orders:
-                self.commander.remove_expected_unit(order)
-
     def get_orders(self, unit: Unit) -> Optional[list[Order]]:
         return self.orders.get(unit.tag)
 
@@ -220,6 +215,11 @@ class OrderManager(Manager):
     def _is_new_order(self, unit: Unit, order: Order, *, queue: bool) -> bool:
         """Check if the order is new or just repeated (and doesn't need to be sent to the API)."""
         #prev_orders = self.orders_prev.get(unit.tag)
+
+        # These orders should always be considered new:
+        if isinstance(order, TrainOrder):
+            return True
+
         prev_orders = self.orders_last.get(unit.tag)
         if not prev_orders:
             return True
@@ -237,11 +237,6 @@ class OrderManager(Manager):
         if force or self._is_new_order(unit, order, queue=queue):
             #self.logger.info("New order to unit {}: {}", unit, order)
             order.issue(unit, queue=queue)
-            if isinstance(order, TrainOrder):
-                self.commander.add_expected_unit(order, *order_args, unit.position)
-            elif isinstance(order, BuildOrder):
-                # TODO: add-on position
-                self.commander.add_expected_unit(order, *order_args)
         # else:
         #     self.logger.info("Unit {} already has order {} in orders {}", unit, order, self.orders.get(unit.tag))
 

@@ -151,6 +151,11 @@ class MiningManager(Manager):
 
     async def on_step(self, step: int) -> None:
         # TODO: check dead tags
+
+        # Assign idle workers
+        for worker in self.commander.workers.idle:
+            self.add_worker(worker)
+
         for expansion, exp_assignment in self.assignments.items():
             expansion.debug_show()
             townhall = self.get_townhall(expansion)

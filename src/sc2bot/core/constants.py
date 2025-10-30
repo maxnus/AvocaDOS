@@ -36,6 +36,9 @@ TRAINERS: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
     UnitTypeId.BARRACKS: UnitTypeId.SCV,
     UnitTypeId.COMMANDCENTER: UnitTypeId.SCV,
     UnitTypeId.REFINERY: UnitTypeId.SCV,
+
+    # -- By ability
+    UnitTypeId.MULE: UnitTypeId.ORBITALCOMMAND,
 }
 
 

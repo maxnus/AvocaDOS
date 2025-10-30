@@ -68,7 +68,6 @@ class Commander(System):
     combat: MicroManager
     mining: MiningManager
     # Other
-    expected_units: dict[Order, tuple[UnitTypeId, Point2]]
 
     def __init__(self, bot: 'AvocaDOS', name: str, *,
                  tags: Optional[set[int]] = None,
@@ -100,35 +99,12 @@ class Commander(System):
 
         await self.order.on_step(step)
 
+        await self.micro(step)
+
         #if step % 4 == 0:
         await self.tasks.on_step(step)
 
         await self.mining.on_step(step)
-
-        await self._micro(step)
-
-    # --- Expected units
-
-    def add_expected_unit(self, order: Order, utype: UnitTypeId, position: Point2) -> None:
-        self.expected_units[order] = (utype, position)
-
-    def remove_expected_unit(self, order: Order) -> None:
-        self.expected_units.pop(order)
-
-    async def is_expected_unit(self, unit: Unit) -> bool:
-        # TODO improve
-        if unit.is_structure and unit.type_id not in {UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKSTECHLAB}:
-            expected_sq_distance = 0.01
-        else:
-            # TODO: [min, max] interval based on unit_range-eps, unit_range+eps
-            expected_sq_distance = 12
-        for order, (utype, location) in self.expected_units.items():
-            if unit.type_id == utype and squared_distance(unit, location) <= expected_sq_distance:
-                self.logger.trace("found expected unit {}", unit)
-                self.remove_expected_unit(order)
-                self.add_units(unit)
-                return True
-        return False
 
     # --- Properties
 
@@ -153,6 +129,10 @@ class Commander(System):
     @property
     def workers(self) -> Units:
         return self.bot.workers.tags_in(self.tags)
+
+    @property
+    def army(self) -> Units:
+        return self.units - self.workers
 
     @property
     def structures(self) -> Units:
@@ -361,7 +341,7 @@ class Commander(System):
 
     # --- Callbacks
 
-    async def _micro(self, iteration: int) -> None:
+    async def micro(self, iteration: int) -> None:
 
         units = self.units - self.workers
         await self.combat.micro_units(units)
@@ -374,14 +354,7 @@ class Commander(System):
         if iteration % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
                 if orbital.energy >= 50:
-                    mineral_field = self.bot.mineral_field.in_distance_between(orbital.position, 0, 8)
-                    if mineral_field:
-                        orbital(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field.random)
-
-        # if iteration % 8 == 0:
-        #     minerals = self.bot.mineral_field.filter(
-        #         lambda x:  any(x.distance_to(base) <= 8 for base in self.townhalls.ready))
-        #     if minerals:
-        #         workers = self.workers.filter(lambda w: (w.is_idle or w.is_moving) and not self.order.has_order(w))
-        #         for worker in workers:
-        #             self.order.gather(worker, minerals.closest_to(worker))
+                    mineral_fields = self.bot.mineral_field.in_distance_between(orbital.position, 0, 8)
+                    if mineral_fields:
+                        mineral_field = mineral_fields.closest_to(orbital.position)
+                        self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field)
