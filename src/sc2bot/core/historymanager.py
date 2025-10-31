@@ -1,6 +1,5 @@
 from typing import Optional, TYPE_CHECKING
 
-from sc2.game_data import Cost
 from sc2.unit import Unit
 
 from sc2bot.core.manager import Manager
@@ -10,23 +9,23 @@ if TYPE_CHECKING:
 
 
 class HistoryManager(Manager):
-    resources: list[tuple[int, int]]
+    resource_history: list[tuple[int, int]]
     units_last_seen: dict[int, tuple[int, Unit]]
     #enemy_units: dict[int, tuple[int, Unit]]
     max_length: int
 
     def __init__(self, bot: 'AvocaDOS', *, max_length: int = 1000) -> None:
         super().__init__(bot)
-        self.resources = []
+        self.resource_history = []
         self.max_length = max_length
         self.units_last_seen = {}
         #self.enemy_units = {}
 
     async def on_step(self, iteration: int) -> None:
         # Resources
-        self.resources.append((self.api.minerals, self.api.vespene))
-        if len(self.resources) > self.max_length:
-            self.resources.pop(0)
+        self.resource_history.append((self.api.minerals, self.api.vespene))
+        if len(self.resource_history) > self.max_length:
+            self.resource_history.pop(0)
 
         # Own
         for unit in self.api.units:
@@ -46,27 +45,3 @@ class HistoryManager(Manager):
         tag = unit.tag if isinstance(unit, Unit) else unit
         last_seen = self.units_last_seen.get(tag)
         return last_seen[1] if last_seen is not None else None
-
-    def get_resource_rates(self, steps: int = 20) -> tuple[float, float]:
-        """Per ingame second (22.4 frames)"""
-        if len(self.resources) < steps + 1:
-            return 0, 0
-        factor = 22.4 / (steps * self.api.client.game_step)
-        mineral_rate = factor * (self.resources[-1][0] - self.resources[-steps - 1][0])
-        vespene_rate = factor * (self.resources[-1][1] - self.resources[-steps - 1][1])
-        return mineral_rate, vespene_rate
-
-    def time_for_cost(self, cost: Cost) -> float:
-        if self.api.minerals >= cost.minerals and self.api.vespene >= cost.vespene:
-            return 0
-        mineral_rate, vespene_rate = self.get_resource_rates()
-        time = 0
-        if cost.minerals > 0:
-            if mineral_rate == 0:
-                return float('inf')
-            time = max((cost.minerals - self.api.minerals) / mineral_rate, time)
-        if cost.vespene > 0:
-            if vespene_rate == 0:
-                return float('inf')
-            time = max((cost.vespene - self.api.vespene) / vespene_rate, time)
-        return time

@@ -53,13 +53,13 @@ class MicroScenarioManager(Manager):
         self.free_locations = self.locations.copy()
 
         self.running = True
-        await self.bot.debug.reveal_map()
-        await self.bot.debug.control_enemy()
+        await self.debug.reveal_map()
+        await self.debug.control_enemy()
 
         self.number_scenarios = number_scenarios
         for idx in range(min(self.number_scenarios, len(self.locations))):
             location = self.free_locations.pop(0)
-            scenario = MicroScenario(self.bot, units=self.units, location=location)
+            scenario = MicroScenario(self.bot, unit_types=self.units, location=location)
             self.scenarios[scenario.id] = scenario
             await scenario.start()
 
@@ -67,8 +67,8 @@ class MicroScenarioManager(Manager):
         if not self.running:
             raise RuntimeError
 
-        await self.bot.debug.control_enemy_off()
-        await self.bot.debug.control_enemy()
+        await self.debug.control_enemy_off()
+        await self.debug.control_enemy()
 
         finished_ids: set[int] = set()
         for scenario in self.scenarios.values():
@@ -81,13 +81,13 @@ class MicroScenarioManager(Manager):
             finished_scenario = self.scenarios.pop(scenario_id)
             # Restart
             if len(self.results) + len(self.scenarios) < self.number_scenarios:
-                scenario = MicroScenario(self.bot, units=self.units, location=finished_scenario.location)
+                scenario = MicroScenario(self.bot, unit_types=self.units, location=finished_scenario.location)
                 self.scenarios[scenario.id] = scenario
                 await scenario.start()
 
         if finished_ids and not self.scenarios:
-            await self.bot.debug.hide_map()
-            await self.bot.debug.control_enemy_off()
+            await self.debug.hide_map()
+            await self.debug.control_enemy_off()
             self.running = False
             return self.analyse()
         else:
@@ -105,10 +105,10 @@ class MicroScenarioManager(Manager):
         std_loss_p1 = (mean_squared_loss_p1 - mean_loss_p1 ** 2)**0.5
         std_loss_p2 = (mean_squared_loss_p2 - mean_loss_p2 ** 2)**0.5
 
-        self.bot.logger.info("[Player 1] minerals= {:4.0f} +/- {:4.0f}  vespene= {:4.0f} +/- {:4.0f}",
-                             mean_loss_p1.minerals, std_loss_p1.minerals, mean_loss_p1.vespene, std_loss_p1.vespene)
-        self.bot.logger.info("[Player 2] minerals= {:4.0f} +/- {:4.0f}  vespene= {:4.0f} +/- {:4.0f}",
-                             mean_loss_p2.minerals, std_loss_p2.minerals, mean_loss_p2.vespene, std_loss_p2.vespene)
+        self.logger.info("[Player 1] minerals= {:4.0f} +/- {:4.0f}  vespene= {:4.0f} +/- {:4.0f}",
+                         mean_loss_p1.minerals, std_loss_p1.minerals, mean_loss_p1.vespene, std_loss_p1.vespene)
+        self.logger.info("[Player 2] minerals= {:4.0f} +/- {:4.0f}  vespene= {:4.0f} +/- {:4.0f}",
+                         mean_loss_p2.minerals, std_loss_p2.minerals, mean_loss_p2.vespene, std_loss_p2.vespene)
 
         resource_lost_p1 = mean_loss_p1.minerals + vespene_mineral_value[0] * mean_loss_p1.vespene
         resource_lost_p2 = mean_loss_p2.minerals + vespene_mineral_value[1] * mean_loss_p2.vespene
@@ -119,13 +119,13 @@ class MicroScenarioManager(Manager):
         wins_p2 = sum(1 for result in self.results if result.winner == 2)
         win_rate_p1 = wins_p1 / len(self.results)
         win_rate_p2 = wins_p2 / len(self.results)
-        self.bot.logger.info("Win rates: P1={:.1%} P2={:.1%}", win_rate_p1, win_rate_p2)
+        self.logger.info("Win rates: P1={:.1%} P2={:.1%}", win_rate_p1, win_rate_p2)
 
         total_resources_lost = resource_lost_p1 + resource_lost_p2
         if total_resources_lost == 0:
             return 0.5
         rating_p1 = resource_lost_p2 / total_resources_lost
         rating_p2 = resource_lost_p1 / total_resources_lost
-        self.bot.logger.info("rating: P1 = {:.1%} P2 = {:.1%}", rating_p1, rating_p2)
+        self.logger.info("rating: P1 = {:.1%} P2 = {:.1%}", rating_p1, rating_p2)
 
         return rating_p1

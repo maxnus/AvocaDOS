@@ -62,7 +62,8 @@ class ResourceManager(Manager):
             cost = self.calculate_cost(item)
         if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
             return 0
-        mineral_rate, vespene_rate = self.api.estimate_resource_collection_rates(excluded_workers=excluded_workers)
+        mineral_rate = self.api.state.score.collection_rate_minerals
+        vespene_rate = self.api.state.score.collection_rate_vespene
         time = 0
         if cost.minerals > 0:
             if mineral_rate == 0:

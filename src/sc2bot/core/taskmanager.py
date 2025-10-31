@@ -131,14 +131,14 @@ class TaskManager(Manager):
             return False
 
         if self.bot.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
-            self.bot.order.build(worker, task.utype, target)
-            self.bot.mining.remove_worker(worker)  # TODO
+            self.order.build(worker, task.utype, target)
+            self.mining.remove_worker(worker)  # TODO
         else:
             resource_time = self.bot.resources.can_afford_in(task.utype, excluded_workers=worker)
             if resource_time <= travel_time:
-                self.bot.order.move(worker, position)
-                self.bot.mining.remove_worker(worker)  # TODO
-                self.bot.resources.reserve(task.utype)
+                self.order.move(worker, position)
+                self.mining.remove_worker(worker)  # TODO
+                self.resources.reserve(task.utype)
         task.assigned.add(worker.tag)
         return False
 
@@ -161,7 +161,7 @@ class TaskManager(Manager):
 
         trainer_utype = TRAINERS.get(task.utype)
         if trainer_utype is None:
-            self.bot.logger.error("No trainer for {}", task.utype)
+            self.logger.error("No trainer for {}", task.utype)
 
         if trainer_utype == UnitTypeId.SCV:
             if self.api.tech_requirement_progress(task.utype) < 1:
@@ -181,28 +181,28 @@ class TaskManager(Manager):
                     break
                 #worker = self.commander.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.bot.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
+                if self.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                    self.bot.order.build(worker, task.utype, target)
-                    self.bot.mining.remove_worker(worker)     # TODO
+                    self.order.build(worker, task.utype, target)
+                    self.mining.remove_worker(worker)     # TODO
                 else:
-                    resource_time = self.bot.resources.can_afford_in(task.utype, excluded_workers=worker)
+                    resource_time = self.resources.can_afford_in(task.utype, excluded_workers=worker)
                     #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
-                        self.bot.order.move(worker, position)
-                        self.bot.mining.remove_worker(worker)  # TODO
-                        self.bot.resources.reserve(task.utype)
+                        self.order.move(worker, position)
+                        self.mining.remove_worker(worker)  # TODO
+                        self.resources.reserve(task.utype)
 
         else:
             for _ in range(to_build):
                 trainer = self.bot.pick_trainer(task.utype)
                 if trainer is None:
                     break
-                if self.bot.resources.can_afford(task.utype):
-                    self.bot.order.train(trainer, task.utype)
+                if self.resources.can_afford(task.utype):
+                    self.order.train(trainer, task.utype)
                 else:
-                    self.bot.resources.reserve(task.utype)
+                    self.resources.reserve(task.utype)
         return False
 
     def _on_research_task(self, task: ResearchTask) -> bool:
@@ -215,12 +215,12 @@ class TaskManager(Manager):
                 return False
         except Exception as exc:
             self.logger.error("EXCEPTION {}", str(exc))
-        if not self.bot.resources.can_afford(task.upgrade):
+        if not self.resources.can_afford(task.upgrade):
             #self.logger.trace("Cannot afford {}", task.upgrade)
             return False
         researcher = self.bot.pick_researcher(task.upgrade)
         if researcher is not None:
-            self.bot.order.research(researcher, task.upgrade)
+            self.order.research(researcher, task.upgrade)
             self.logger.info("Starting {} at {}", task.upgrade.name, researcher)
         #else:
         #    self.logger.trace("No researcher for {}", task.upgrade)
@@ -235,10 +235,10 @@ class TaskManager(Manager):
             units = sum((self.bot.units(utype).closest_n_units(task.target, number) for utype, number in task.units.items()),
                         start=[])
         for unit in units:
-            self.bot.order.move(unit, task.target)
+            self.order.move(unit, task.target)
         return True
 
     def _on_attack_task(self, task: AttackTask) -> bool:
         for unit in self.bot.army.idle:
-            self.bot.order.attack(unit, task.target)
+            self.order.attack(unit, task.target)
         return False

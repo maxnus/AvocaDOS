@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 
 from loguru._logger import Logger
 
-
 if TYPE_CHECKING:
     from sc2bot.core.botapi import BotApi
     from sc2bot.core.avocados import AvocaDOS
@@ -11,6 +10,9 @@ if TYPE_CHECKING:
     from sc2bot.debug.debugmanager import DebugManager
     from sc2bot.core.historymanager import HistoryManager
     from sc2bot.core.orders import OrderManager
+    from sc2bot.core.miningmanager import MiningManager
+    from sc2bot.core.resourcemanager import ResourceManager
+    from sc2bot.core.taskmanager import TaskManager
 
 
 class Manager(ABC):
@@ -25,6 +27,10 @@ class Manager(ABC):
     @property
     def api(self) -> 'BotApi':
         return self.bot.api
+
+    @property
+    def time(self) -> float:
+        return self.bot.time
 
     @property
     def logger(self) -> Logger:
@@ -47,3 +53,15 @@ class Manager(ABC):
     @property
     def order(self) -> 'OrderManager':
         return self.bot.order
+
+    @property
+    def resources(self) -> 'ResourceManager':
+        return self.bot.resources
+
+    @property
+    def task(self) -> 'TaskManager':
+        return self.bot.tasks
+
+    @property
+    def mining(self) -> 'MiningManager':
+        return self.bot.mining

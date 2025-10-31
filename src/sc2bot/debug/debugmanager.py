@@ -142,11 +142,9 @@ class DebugManager(Manager):
                 info.append("   " + repr(task))
             self.text_screen(info, position=(0.005, 0.4))
 
-        mineral_rate, vespene_rate = self.history.get_resource_rates()
-        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.05))
-
-        mineral_rate, vespene_rate = self.api.estimate_resource_collection_rates()
-        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.08))
+        mineral_rate = self.api.state.score.collection_rate_minerals / 60
+        vespene_rate = self.api.state.score.collection_rate_vespene / 60
+        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.80, 0.05))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

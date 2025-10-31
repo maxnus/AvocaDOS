@@ -32,9 +32,8 @@ class MicroScenarioResults:
 
 
 class MicroScenario(Manager):
-    bot: 'AvocaDOS'
     id: int
-    units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
+    units_types: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     location: Point2
     spawns: tuple[Point2, Point2]
     arena_size: tuple[float, float]
@@ -48,16 +47,16 @@ class MicroScenario(Manager):
     _id_counter = itertools.count()
 
     def __init__(self, bot: 'AvocaDOS', *,
-                 units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
+                 unit_types: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
                  location: Optional[Point2] = None,
                  spawns: Optional[tuple[Point2, Point2]] = None,
                  max_duration: float = 60,
                  ) -> None:
         super().__init__(bot)
         self.id = next(MicroScenario._id_counter)
-        if isinstance(units, dict):
-            units = (units, units)
-        self.units = units
+        if isinstance(unit_types, dict):
+            unit_types = (unit_types, unit_types)
+        self.units_types = unit_types
         if location is None:
             location = self.bot.map.center
         self.location = location
@@ -72,14 +71,6 @@ class MicroScenario(Manager):
         self.tags_p2 = None
 
     @property
-    def client(self) -> Client:
-        return self.api.client
-
-    @property
-    def logger(self):
-        return self.bot.logger
-
-    @property
     def in_progress(self) -> bool:
         return self.started is not None and self.finished is None
 
@@ -90,9 +81,9 @@ class MicroScenario(Manager):
         #     await self.client.debug_kill_unit(units_in_arena)
 
         for player in self.api.game_info.players:
-            await self.client.debug_create_unit(
+            await self.api.client.debug_create_unit(
                 [[utype, number, self.spawns[player.id - 1], player.id]
-                 for utype, number in self.units[player.id - 1].items()]
+                 for utype, number in self.units_types[player.id - 1].items()]
             )
         self.started = self.bot.time
 
@@ -111,19 +102,19 @@ class MicroScenario(Manager):
 
     async def finish(self) -> Optional[MicroScenarioResults]:
         results = self._get_results()
-        self.bot.remove_commander(f'MicroScenario{self.id}')
-        await self.client.debug_kill_unit(self.tags_p1 | self.tags_p2)
+        #self.bot.remove_commander(f'MicroScenario{self.id}')
+        await self.api.client.debug_kill_unit(self.tags_p1 | self.tags_p2)
         return results
 
     async def _check_finished(self):
         units_p1, units_p2 = self._get_units()
 
         # idle enemies should attack
-        enemies = units_p2 if self.bot.player_id == 1 else units_p1
+        enemies = units_p2 if self.api.player_id == 1 else units_p1
         for unit in enemies.idle:
             unit.attack(self.location)
 
-        timeout = self.bot.time >= self.started + self.max_duration
+        timeout = self.time >= self.started + self.max_duration
         has_finished = not units_p1 or not units_p2 or timeout
         if has_finished:
             self.finished = self.bot.time
@@ -135,7 +126,7 @@ class MicroScenario(Manager):
                 and -self.arena_size[1] <= 2*(point.y - self.location.y) <= self.arena_size[1])
 
     def _get_all_units_in_arena(self) -> Units:
-        return self.bot.all_units.filter(lambda u: self._in_arena(u))
+        return self.api.all_units.filter(lambda u: self._in_arena(u))
 
     def _get_units_in_arena(self) -> tuple[Units, Units]:
         units_in_arena = self._get_all_units_in_arena()
@@ -144,8 +135,8 @@ class MicroScenario(Manager):
         return units_p1, units_p2
 
     def _get_units(self) -> tuple[Units, Units]:
-        units_p1 = self.bot.all_units.filter(lambda u: u.tag in self.tags_p1)
-        units_p2 = self.bot.all_units.filter(lambda u: u.tag in self.tags_p2)
+        units_p1 = self.api.all_units.filter(lambda u: u.tag in self.tags_p1)
+        units_p2 = self.api.all_units.filter(lambda u: u.tag in self.tags_p2)
         return units_p1, units_p2
 
     def _check_spawn(self):
@@ -154,9 +145,9 @@ class MicroScenario(Manager):
         if units_p1 and units_p2:
             self.tags_p1 = units_p1.tags
             self.tags_p2 = units_p2.tags
-            cmd = self.bot.add_commander(f'MicroScenario{self.id}')
-            cmd.add_units(units_p1 if self.bot.player_id == 1 else units_p2)
-            cmd.add_task(AttackTask(self.location))
+            #cmd = self.bot.add_commander(f'MicroScenario{self.id}')
+            #cmd.add_units(units_p1 if self.api.player_id == 1 else units_p2)
+            self.task.add(AttackTask(self.location))
             # for unit in units_p1:
             #     unit.attack(self.location)
             # for unit in units_p2:
@@ -167,10 +158,10 @@ class MicroScenario(Manager):
     def _get_results(self) -> MicroScenarioResults:
         if not self.finished:
             raise RuntimeError
-        value_start_p1 = sum((number * self.bot.get_unit_value(utype)
-                              for utype, number in self.units[0].items()), start=UnitCost(0, 0, 0))
-        value_start_p2 = sum((number * self.bot.get_unit_value(utype)
-                              for utype, number in self.units[1].items()), start=UnitCost(0, 0, 0))
+        value_start_p1 = sum((number * self.api.get_unit_value(utype)
+                              for utype, number in self.units_types[0].items()), start=UnitCost(0, 0, 0))
+        value_start_p2 = sum((number * self.api.get_unit_value(utype)
+                              for utype, number in self.units_types[1].items()), start=UnitCost(0, 0, 0))
 
         units_p1, units_p2 = self._get_units()
         if units_p1 and not units_p2:
@@ -179,8 +170,8 @@ class MicroScenario(Manager):
             winner = 2
         else:
             winner = 0
-        value_end_p1 = self.bot.get_unit_value(units_p1)
-        value_end_p2 = self.bot.get_unit_value(units_p2)
+        value_end_p1 = self.api.get_unit_value(units_p1)
+        value_end_p2 = self.api.get_unit_value(units_p2)
 
         results = MicroScenarioResults(
             duration=self.finished - self.started,
