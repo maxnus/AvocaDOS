@@ -69,14 +69,15 @@ class MapData(System):
                     return self.bot.map.start_base.center.closest(positions)
                 if await self.bot.can_place_single(utype, self.bot.main_base_ramp.depot_in_middle):
                     return self.bot.main_base_ramp.depot_in_middle
-                return await self.bot.find_placement(utype, near=self.bot.map.start_base.center)
+                return await self.bot.find_placement(utype, near=self.bot.map.start_base.base_center)
 
             case UnitTypeId.BARRACKS:
                 if near is None:
                     position = self.bot.main_base_ramp.barracks_correct_placement
                     if await self.bot.can_place_single(utype, position):
                         return position
-                    return await self.bot.find_placement(utype, near=self.bot.map.start_base.center, addon_place=True)
+                    return await self.bot.find_placement(utype, near=self.bot.map.start_base.base_center,
+                                                         addon_place=True)
                 else:
                     return await self.bot.find_placement(utype, near=near, max_distance=max_distance,
                                                     random_alternative=False, addon_place=True)

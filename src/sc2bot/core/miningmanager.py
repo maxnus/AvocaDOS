@@ -48,7 +48,8 @@ class MiningManager(Manager):
 
     def add_worker(self, worker: Unit) -> bool:
         if self.has_worker(worker):
-            self.logger.error("Worker {} already assigned to {}", worker, self)
+            self.logger.warning("Worker {} already assigned to {}", worker, self)
+            self.bot.debug.text_world("Worker already assigned", worker, size=16, color=(255, 0, 0), duration=10)
             return False
 
         for expansion, assignment in self.assignments.items():

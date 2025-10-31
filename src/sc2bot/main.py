@@ -64,7 +64,7 @@ def micro():
 def macro():
     runner = GameRunner(
         'AcropolisLE',
-        bot=Bot(Race.Terran, AvocaDOS(build='proxymarine', log_level='DEBUG')),
+        bot=Bot(Race.Terran, AvocaDOS(build='massmarine', log_level='DEBUG')),
         opponent=Computer(Race.Protoss, Difficulty.Hard),
         #opponent=Computer(Race.Protoss, Difficulty.Easy),
         realtime='--realtime' in sys.argv,

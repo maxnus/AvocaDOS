@@ -18,6 +18,7 @@ MINERAL_LINE_CENTER_DISTANCE = 4.5
 
 class ExpansionLocation(System):
     center: Point2
+    base_center: Point2
     mineral_fields: Units
     vespene_geyser: Units
     mineral_field_center: Point2
@@ -49,6 +50,7 @@ class ExpansionLocation(System):
         self.mineral_field_center = (sum((mf.position for mf in self.mineral_fields), start=Point2((0, 0)))
                                      / len(self.mineral_fields))
         self.mineral_line_center = self.center.towards(self.mineral_field_center, MINERAL_LINE_CENTER_DISTANCE)
+        self.base_center = self.center.towards(self.mineral_field_center, -10)
 
     def minerals(self) -> int:
         return sum(mf.mineral_contents for mf in self.mineral_fields)

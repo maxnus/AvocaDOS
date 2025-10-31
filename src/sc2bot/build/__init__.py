@@ -1,12 +1,13 @@
 from typing import Optional
 
 from .buildorder import BuildOrder
+from .massmarine import MassMarine
 from .proxymarine import ProxyMarine
-
 from .proxyreaper import ProxyReaper
 
 
 build_orders: dict[str, type[BuildOrder]] = {
+    'massmarine': MassMarine,
     'proxyreaper': ProxyReaper,
     'proxymarine': ProxyMarine,
 }

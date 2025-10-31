@@ -228,18 +228,3 @@ class AvocaDOS(BotAI):
 
         commander.add_units(unit)
 
-        # for commander in self.commanders.values():
-        #     if await commander.is_expected_unit(unit):
-        #         break
-        # else:
-        #     self.logger.error("Unexpected new unit: {} at {}", unit, unit.position)
-        #     self.logger.error("Expected are:")
-        #     for commander in self.commanders.values():
-        #         for order, (utype, position) in commander.expected_units.items():
-        #             self.logger.error("{}: {} at {} from {}", commander, utype, position, order)
-        #
-        #     self.debug.text_world(f"UnexpUnit {unit.tag}", unit, size=16, color=(255, 0, 0), duration=20)
-        #
-        #     commander = self.commanders.get('Main')
-        #     if commander:
-        #         commander.add_units(unit)
