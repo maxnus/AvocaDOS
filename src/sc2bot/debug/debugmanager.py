@@ -9,7 +9,7 @@ from sc2.client import Client
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
 
-from sc2bot.core.manager import Manager
+from sc2bot.core.botobject import BotObject
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -42,7 +42,7 @@ class DebugWorldText:
     duration: float
 
 
-class DebugManager(Manager):
+class DebugManager(BotObject):
     text_size: ClassVar[int] = 16
     # State
     map_revealed: bool

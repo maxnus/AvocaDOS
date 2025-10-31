@@ -2,14 +2,14 @@ from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 
-from sc2bot.core.manager import Manager
+from sc2bot.core.botobject import BotObject
 from sc2bot.core.tasks import UnitCountTask, AttackTask
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-class BuildOrderManager(Manager):
+class BuildOrderManager(BotObject):
     build: Optional[str]
 
     def __init__(self, bot: 'AvocaDOS', build: Optional[str] = None) -> None:

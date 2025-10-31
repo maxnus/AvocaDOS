@@ -9,22 +9,16 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
-from sc2bot.core.manager import Manager
+from sc2bot.core.botobject import BotObject
+from sc2bot.core.util import unique_id
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-_order_id_counter = itertools.count()
-
-
-def _get_next_order_id() -> int:
-    return next(_order_id_counter)
-
-
 @dataclass(repr=False, frozen=True)
 class Order(ABC):
-    id: int = field(default_factory=_get_next_order_id, init=False, compare=False)
+    id: int = field(default_factory=unique_id, init=False, compare=False)
 
     @abstractmethod
     def __repr__(self) -> str:
@@ -135,7 +129,7 @@ class ReturnResourceOrder(Order):
         unit.return_resource(queue=queue)
 
 
-class OrderManager(Manager):
+class OrderManager(BotObject):
     orders: dict[int, list[Order]]
     """Orders of the current step"""
     orders_prev: dict[int, list[Order]]

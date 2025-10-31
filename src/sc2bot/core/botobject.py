@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 
 from loguru._logger import Logger
 
+from sc2bot.core.util import unique_id
+
 if TYPE_CHECKING:
     from sc2bot.core.botapi import BotApi
     from sc2bot.core.avocados import AvocaDOS
@@ -15,14 +17,17 @@ if TYPE_CHECKING:
     from sc2bot.core.taskmanager import TaskManager
 
 
-class Manager(ABC):
+class BotObject(ABC):
+    id: int
     bot: 'AvocaDOS'
 
     def __init__(self, bot: 'AvocaDOS') -> None:
+        super().__init__()
+        self.id = unique_id()
         self.bot = bot
 
     def __repr__(self) -> str:
-        return self.__class__.__name__
+        return f"{type(self).__name__}(id={self.id})"
 
     @property
     def api(self) -> 'BotApi':

@@ -1,4 +1,3 @@
-import math
 from typing import Optional
 
 from sc2.ids.ability_id import AbilityId
@@ -7,8 +6,8 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.manager import Manager
-from sc2bot.core.util import squared_distance
+from sc2bot.core.botobject import BotObject
+from sc2bot.core.util import squared_distance, get_closest_distance, lerp
 from sc2bot.micro.weapons import Weapons
 
 
@@ -30,20 +29,6 @@ def piecewise(distance, points: list[tuple[float, float]]) -> float:
     return 0
 
 
-def lerp(distance, points: list[tuple[float, float]]) -> float:
-    # Flat extrapolation
-    if distance <= points[0][0]:
-        return points[0][1]
-    if distance > points[-1][0]:
-        return points[-1][1]
-    # LERP
-    for (d1, t1), (d2, t2) in zip(points, points[1:]):
-        if distance <= d2:
-            p = (d2 - distance) / (d2 - d1)
-            return p * t1 + (1 - p) * t2
-    raise ValueError
-
-
 unit_type_attack_priority: dict[UnitTypeId, float] = {
     # Terran
     UnitTypeId.SCV: 0.1,
@@ -58,16 +43,7 @@ unit_type_attack_priority: dict[UnitTypeId, float] = {
 }
 
 
-
-def get_closest_distance(units1: Units, units2: Units) -> float:
-    closest = float('inf')
-    for unit1 in units1:
-        for unit2 in units2:
-            closest = min(closest, squared_distance(unit1, unit2))
-    return math.sqrt(closest)
-
-
-class MicroManager(Manager):
+class MicroManager(BotObject):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}'
@@ -225,62 +201,6 @@ class MicroManager(Manager):
                 group_attack_priorities=group_attack_priorities,
                 group_target=group_target
             )
-
-            # weapon_ready = self.weapon_ready(unit)
-            # scan_range = self.get_scan_range(unit)
-            # threat_range = self.get_threat_range(unit)
-            #
-            # if weapon_ready:
-            #     attack_priorities_scan_range = {target: priority for target, priority
-            #                                     in group_attack_priorities.items()
-            #                                     if get_squared_distance(unit, target) <= scan_range**2}
-            #     attack_priorities_attack_range = {target: priority for target, priority
-            #                                       in attack_priorities_scan_range.items()
-            #                                       if unit.target_in_range(target)}
-            # else:
-            #     attack_priorities_scan_range = {}
-            #     attack_priorities_attack_range = {}
-            #
-            # if attack_priorities_attack_range:
-            #     target, attack_prio = max(attack_priorities_attack_range.items(), key=lambda kv: kv[1])
-            # else:
-            #     target = None
-            #     attack_prio = 0
-            #
-            # threats = enemies.closer_than(threat_range, unit)
-            # defense_priorities = self.commander.combat.get_defense_priorities(unit, threats)
-            # if defense_priorities:
-            #     threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])
-            #     # TODO
-            #     defense_position = unit.position.towards(threat, distance=-3*unit.distance_per_step)
-            #     #if not self.bot.game_info.pathing_grid[(int(defense_position.x), int(defense_position.y))]:
-            #     #    defense_position = marine.position.towards_with_random_angle(threat.position, distance=-2)
-            # else:
-            #     defense_prio = 0
-            #     defense_position = None
-            #
-            # # if target and unit.weapon_cooldown == 0:
-            # #     self.commander.order_attack(unit, target)
-            # # elif group_target:
-            # #      self.commander.order_attack(unit, group_target)
-            #
-            # #elif defense_position:
-            # #    self.commander.order_move(unit, defense_position)
-            #
-            # if defense_prio >= 0.5:# or (defense_position and unit.shield_health_percentage < 0.2):
-            #     self.commander.order_move(unit, defense_position)
-            #
-            # elif target and weapon_ready:
-            #     self.commander.order_attack(unit, target)
-            #
-            # elif group_target and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready):
-            #     self.commander.order_attack(unit, group_target)
-            #
-            # elif defense_position and unit.shield_health_percentage < 1:
-            #     self.commander.order_move(unit, defense_position)
-            #
-            # elif group_target is not None:
-            #     self.commander.order_attack(unit, group_target)
 
     def _micro_unit(self, unit: Unit, *,
                     enemies: Units,

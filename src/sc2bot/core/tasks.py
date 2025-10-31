@@ -10,6 +10,8 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from sc2bot.core.util import unique_id
+
 
 class TaskStatus(Enum):
     NOT_STARTED = 0
@@ -22,13 +24,6 @@ class TaskRequirementType(StrEnum):
     SUPPLY = "S"
     MINERALS = "M"
     VESPENE = "G"
-
-
-_task_id_counter = itertools.count()
-
-
-def _get_next_id() -> int:
-    return next(_task_id_counter)
 
 
 TaskDependencies = dict[int, TaskStatus]
@@ -51,7 +46,7 @@ class Task(ABC):
                  repeat: bool = False,
                  status: TaskStatus = TaskStatus.NOT_STARTED,
                  ) -> None:
-        self.id = _get_next_id()
+        self.id = unique_id()
         self.reqs = self._normalize_reqs(reqs)
         if deps is None:
             deps = {}

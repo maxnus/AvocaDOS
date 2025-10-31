@@ -8,7 +8,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.manager import Manager
+from sc2bot.core.botobject import BotObject
 from sc2bot.core.tasks import AttackTask
 from sc2bot.core.util import UnitCost
 
@@ -31,7 +31,7 @@ class MicroScenarioResults:
         return loss_p1, loss_p2
 
 
-class MicroScenario(Manager):
+class MicroScenario(BotObject):
     id: int
     units_types: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     location: Point2

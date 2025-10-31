@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -7,6 +8,14 @@ from typing import Any, Self
 import numpy as np
 from sc2.position import Point2
 from sc2.unit import Unit
+from sc2.units import Units
+
+
+_id_counter = itertools.count()
+
+
+def unique_id() -> int:
+    return next(_id_counter)
 
 
 async def wait_until(predicate: Callable[..., Any], check_interval: float = 1) -> None:
@@ -100,6 +109,28 @@ class LineSegment:
         q = self.start + t * segment
         distance = point.distance_to(q)
         return distance
+
+
+def get_closest_distance(units1: Units, units2: Units) -> float:
+    closest = float('inf')
+    for unit1 in units1:
+        for unit2 in units2:
+            closest = min(closest, squared_distance(unit1, unit2))
+    return math.sqrt(closest)
+
+
+def lerp(distance, points: list[tuple[float, float]]) -> float:
+    # Flat extrapolation
+    if distance <= points[0][0]:
+        return points[0][1]
+    if distance > points[-1][0]:
+        return points[-1][1]
+    # LERP
+    for (d1, t1), (d2, t2) in zip(points, points[1:]):
+        if distance <= d2:
+            p = (d2 - distance) / (d2 - d1)
+            return p * t1 + (1 - p) * t2
+    raise ValueError
 
 
 @dataclass

@@ -3,7 +3,7 @@ from typing import Any, TYPE_CHECKING, Optional
 from sc2.position import Point2
 from sc2.units import Units
 
-from sc2bot.core.manager import Manager
+from sc2bot.core.botobject import BotObject
 from sc2bot.core.util import get_circle_intersections, Circle
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ RETURN_RADIUS = 3.125 # CC = 2.75, SCV = 0.375 (TODO: are other races the same?)
 MINERAL_LINE_CENTER_DISTANCE = 4.5
 
 
-class ExpansionLocation(Manager):
+class ExpansionLocation(BotObject):
     center: Point2
     base_center: Point2
     mineral_fields_tags: set[int]

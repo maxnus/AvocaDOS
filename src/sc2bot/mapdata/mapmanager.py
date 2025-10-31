@@ -5,14 +5,14 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.manager import Manager
+from sc2bot.core.botobject import BotObject
 from sc2bot.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-class MapManager(Manager):
+class MapManager(BotObject):
     center: Point2
     start_base: ExpansionLocation
     expansions: list[ExpansionLocation]

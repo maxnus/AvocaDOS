@@ -7,7 +7,7 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 
 from .constants import ALTERNATIVES, TRAINERS
-from .manager import Manager
+from .botobject import BotObject
 from .tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies, BuildingCountTask,
                     UnitCountTask, ResearchTask, MoveTask, AttackTask)
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from .avocados import AvocaDOS
 
 
-class TaskManager(Manager):
+class TaskManager(BotObject):
     completed: dict[int, Task]
     current: dict[int, Task]
     future: dict[int, Task]
