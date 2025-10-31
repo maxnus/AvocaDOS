@@ -3,13 +3,13 @@ from typing import Optional, TYPE_CHECKING
 from sc2.game_data import Cost
 from sc2.unit import Unit
 
-from sc2bot.core.system import System
+from sc2bot.core.manager import Manager
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-class History(System):
+class HistoryManager(Manager):
     resources: list[tuple[int, int]]
     units_last_seen: dict[int, tuple[int, Unit]]
     #enemy_units: dict[int, tuple[int, Unit]]
@@ -24,23 +24,23 @@ class History(System):
 
     async def on_step(self, iteration: int) -> None:
         # Resources
-        self.resources.append((self.bot.minerals, self.bot.vespene))
+        self.resources.append((self.api.minerals, self.api.vespene))
         if len(self.resources) > self.max_length:
             self.resources.pop(0)
 
         # Own
-        for unit in self.bot.units:
-            self.units_last_seen[unit.tag] = (self.bot.state.game_loop, unit)
+        for unit in self.api.units:
+            self.units_last_seen[unit.tag] = (self.api.state.game_loop, unit)
 
         # Enemies
-        for unit in self.bot.enemy_units:
+        for unit in self.api.enemy_units:
             prev_entry = self.units_last_seen.get(unit.tag)
-            self.units_last_seen[unit.tag] = (self.bot.state.game_loop, unit)
+            self.units_last_seen[unit.tag] = (self.api.state.game_loop, unit)
             if prev_entry is not None:
-                assert prev_entry[0] < self.bot.state.game_loop
+                assert prev_entry[0] < self.api.state.game_loop
                 change = unit.health + unit.shield - prev_entry[1].health - prev_entry[1].shield
                 if change < 0:
-                    await self.bot.on_unit_took_damage(unit, -change)
+                    await self.api.on_unit_took_damage(unit, -change)
 
     def get_last_seen(self, unit: int | Unit) -> Optional[Unit]:
         tag = unit.tag if isinstance(unit, Unit) else unit
@@ -51,22 +51,22 @@ class History(System):
         """Per ingame second (22.4 frames)"""
         if len(self.resources) < steps + 1:
             return 0, 0
-        factor = 22.4 / (steps * self.bot.client.game_step)
+        factor = 22.4 / (steps * self.api.client.game_step)
         mineral_rate = factor * (self.resources[-1][0] - self.resources[-steps - 1][0])
         vespene_rate = factor * (self.resources[-1][1] - self.resources[-steps - 1][1])
         return mineral_rate, vespene_rate
 
     def time_for_cost(self, cost: Cost) -> float:
-        if self.bot.minerals >= cost.minerals and self.bot.vespene >= cost.vespene:
+        if self.api.minerals >= cost.minerals and self.api.vespene >= cost.vespene:
             return 0
         mineral_rate, vespene_rate = self.get_resource_rates()
         time = 0
         if cost.minerals > 0:
             if mineral_rate == 0:
                 return float('inf')
-            time = max((cost.minerals - self.bot.minerals) / mineral_rate, time)
+            time = max((cost.minerals - self.api.minerals) / mineral_rate, time)
         if cost.vespene > 0:
             if vespene_rate == 0:
                 return float('inf')
-            time = max((cost.vespene - self.bot.vespene) / vespene_rate, time)
+            time = max((cost.vespene - self.api.vespene) / vespene_rate, time)
         return time

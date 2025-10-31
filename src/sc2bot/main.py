@@ -10,7 +10,7 @@ from sc2.player import Bot, Computer
 from sc2.main import run_game
 from sc2.data import Race, Difficulty
 
-from sc2bot.core.avocados import AvocaDOS
+from sc2bot.core.botapi import BotApi
 
 
 class GameRunner:
@@ -54,7 +54,7 @@ def micro():
 
     runner = GameRunner(
         map_name,
-        bot=Bot(Race.Terran, AvocaDOS(slowdown=slowdown_time, micro_scenario=micro_scenario)),
+        bot=Bot(Race.Terran, BotApi(slowdown=slowdown_time, micro_scenario=micro_scenario)),
         #opponent=Bot(Race.Protoss, AMoveBot())
         opponent = Computer(Race.Protoss, Difficulty.Hard),
     )
@@ -64,7 +64,7 @@ def micro():
 def macro():
     runner = GameRunner(
         'AcropolisLE',
-        bot=Bot(Race.Terran, AvocaDOS(build='massmarine', log_level='DEBUG')),
+        bot=Bot(Race.Terran, BotApi(build='mass_marine', log_level='DEBUG')),
         opponent=Computer(Race.Protoss, Difficulty.Hard),
         #opponent=Computer(Race.Protoss, Difficulty.Easy),
         realtime='--realtime' in sys.argv,

@@ -75,7 +75,7 @@ class MicroManager(Manager):
     def weapon_ready(self, unit: Unit) -> bool:
         if unit.type_id == UnitTypeId.REAPER:
             # Cooldown starts at first shot
-            prev_frame = self.bot.history.get_last_seen(unit)
+            prev_frame = self.history.get_last_seen(unit)
             #if prev_frame is not None:
             #   self.logger.info("cooldowns {} {}", prev_frame.weapon_cooldown, unit.weapon_cooldown)
             if prev_frame and prev_frame.weapon_cooldown < 1 <= unit.weapon_cooldown:
@@ -84,7 +84,7 @@ class MicroManager(Manager):
 
     async def get_abilities(self, units: Units) -> list[list[AbilityId]]:
         if units:
-            ability_list = await self.bot.get_available_abilities(units)
+            ability_list = await self.api.get_available_abilities(units)
         else:
             ability_list = []
         # Filter down to relevant
@@ -190,22 +190,22 @@ class MicroManager(Manager):
 
     def get_enemies(self, units: Units, *, max_distance: float = 12) -> Units:
         enemies = []
-        for enemy in self.bot.enemy_units:
+        for enemy in self.api.enemy_units:
             for unit in units:
                 if squared_distance(unit, enemy) <= max_distance * max_distance:
                     enemies.append(enemy)
                     break
-        return Units(enemies, self.bot)
+        return Units(enemies, self.api)
 
     async def micro_units(self,
                           units: Optional[Units] = None, *,
                           enemies: Optional[Units] = None) -> None:
         if units is None:
-            units = self.commander.units
+            units = self.bot.units
         if enemies is None:
             enemies = self.get_enemies(units)
 
-        group_attack_priorities = self.commander.combat.get_attack_priorities(units, enemies)
+        group_attack_priorities = self.bot.combat.get_attack_priorities(units, enemies)
         if group_attack_priorities:
             group_target, group_target_prio = max(group_attack_priorities.items(), key=lambda kv: kv[1])
         else:
@@ -292,36 +292,36 @@ class MicroManager(Manager):
         defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
 
         if defense_prio >= 0.5:  # or (defense_position and unit.shield_health_percentage < 0.2):
-            return self.commander.order.move(unit, defense_position)
+            return self.order.move(unit, defense_position)
 
         # --- Offense
         attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=group_attack_priorities)
 
         if target:
-            return self.commander.order.attack(unit, target)
+            return self.order.attack(unit, target)
 
         # --- Ability
         if abilities and group_attack_priorities:
             ability_prio, ability_id, ability_target = self._evaluate_ability(
                 unit, abilities=abilities, group_attack_priorities=group_attack_priorities)
             if ability_prio > 0.5:
-                return self.commander.order.ability(unit, ability_id, ability_target)
+                return self.order.ability(unit, ability_id, ability_target)
 
         if group_target and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready):
-            return self.commander.order.attack(unit, group_target)
+            return self.order.attack(unit, group_target)
 
         if defense_position and unit.shield_health_percentage < 0.8:
-            return self.commander.order.move(unit, defense_position)
+            return self.order.move(unit, defense_position)
 
         if group_target is not None:
-            return self.commander.order.attack(unit, group_target)
+            return self.order.attack(unit, group_target)
 
         return False
 
     def _evaluate_defense(self, unit: Unit, *, enemies: Units) -> tuple[float, Point2]:
         threat_range = self.get_threat_range(unit)
         threats = enemies.closer_than(threat_range, unit)
-        defense_priorities = self.commander.combat.get_defense_priorities(unit, threats)
+        defense_priorities = self.bot.combat.get_defense_priorities(unit, threats)
         if not defense_priorities:
             return 0, unit.position
         threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])

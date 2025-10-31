@@ -12,7 +12,7 @@ from sc2.unit import Unit
 from sc2bot.core.manager import Manager
 
 if TYPE_CHECKING:
-    from sc2bot.core.commander import Commander
+    from sc2bot.core.avocados import AvocaDOS
 
 
 _order_id_counter = itertools.count()
@@ -143,8 +143,8 @@ class OrderManager(Manager):
     orders_last: dict[int, list[Order]]
     """Last order of any previous step"""
 
-    def __init__(self, commander: 'Commander') -> None:
-        super().__init__(commander)
+    def __init__(self, bot: 'AvocaDOS') -> None:
+        super().__init__(bot)
         self.orders = {}
         self.orders_prev = {}
         self.orders_last = {}

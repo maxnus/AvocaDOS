@@ -12,7 +12,7 @@ from .tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, Tas
                     UnitCountTask, ResearchTask, MoveTask, AttackTask)
 
 if TYPE_CHECKING:
-    from .commander import Commander
+    from .avocados import AvocaDOS
 
 
 class TaskManager(Manager):
@@ -20,8 +20,8 @@ class TaskManager(Manager):
     current: dict[int, Task]
     future: dict[int, Task]
 
-    def __init__(self, commander: 'Commander', tasks: Optional[dict[int, Task]]) -> None:
-        super().__init__(commander)
+    def __init__(self, bot: 'AvocaDOS', tasks: Optional[dict[int, Task]] = None) -> None:
+        super().__init__(bot)
         self.completed = {}
         self.current = {}
         self.future = tasks or {}
@@ -69,17 +69,17 @@ class TaskManager(Manager):
         fulfilled = True
         for req_type, req_value in requirements:
             if isinstance(req_type, UnitTypeId):
-                value = self.commander.forces(req_type).ready.amount
+                value = self.bot.forces(req_type).ready.amount
             elif isinstance(req_type, UpgradeId):
-                value = req_type in self.bot.state.upgrades
+                value = req_type in self.api.state.upgrades
             elif req_type == TaskRequirementType.TIME:
-                value = self.bot.time
+                value = self.api.time
             elif req_type == TaskRequirementType.SUPPLY:
-                value = self.bot.supply_used
+                value = self.api.supply_used
             elif req_type == TaskRequirementType.MINERALS:
-                value = self.bot.minerals
+                value = self.api.minerals
             elif req_type == TaskRequirementType.VESPENE:
-                value = self.bot.vespene
+                value = self.api.vespene
             else:
                 self.logger.warning(f"Unknown requirement: {req_type}")
                 continue
@@ -115,36 +115,36 @@ class TaskManager(Manager):
         return completed
 
     async def _on_build_task(self, task: BuildingCountTask) -> bool:
-        assigned = self.commander.units.tags_in(task.assigned)
+        assigned = self.bot.units.tags_in(task.assigned)
         if assigned:
             return False
 
-        target = await self.bot.map.get_building_location(task.utype, near=task.position,
-                                                          max_distance=int(task.max_distance))
+        target = await self.map.get_building_location(task.utype, near=task.position,
+                                                      max_distance=int(task.max_distance))
         if target is None:
             return False
         position = target if isinstance(target, Point2) else target.position
 
         # SCV can start constructing from a distance of 2.5 away
-        worker, travel_time = await self.commander.pick_worker(position, target_distance=2.5)
+        worker, travel_time = await self.bot.pick_worker(position, target_distance=2.5)
         if not worker:
             return False
 
-        if self.commander.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
-            self.commander.order.build(worker, task.utype, target)
-            self.commander.mining.remove_worker(worker)  # TODO
+        if self.bot.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
+            self.bot.order.build(worker, task.utype, target)
+            self.bot.mining.remove_worker(worker)  # TODO
         else:
-            resource_time = self.commander.resources.can_afford_in(task.utype, excluded_workers=worker)
+            resource_time = self.bot.resources.can_afford_in(task.utype, excluded_workers=worker)
             if resource_time <= travel_time:
-                self.commander.order.move(worker, position)
-                self.commander.mining.remove_worker(worker)  # TODO
-                self.commander.resources.reserve(task.utype)
+                self.bot.order.move(worker, position)
+                self.bot.mining.remove_worker(worker)  # TODO
+                self.bot.resources.reserve(task.utype)
         task.assigned.add(worker.tag)
         return False
 
     async def _on_unit_count_task(self, task: UnitCountTask) -> bool:
         utype = ALTERNATIVES.get(task.utype, task.utype)
-        units = self.commander.forces(utype).ready
+        units = self.bot.forces(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
         #self.logger.trace("units for {}: {}", task, units)
         if task.position is not None:
@@ -156,71 +156,71 @@ class TaskManager(Manager):
             return True
 
         # TODO: only pending for commander
-        pending = int(self.bot.already_pending(task.utype))
+        pending = int(self.api.already_pending(task.utype))
         to_build = task.number - units.amount - pending
 
         trainer_utype = TRAINERS.get(task.utype)
         if trainer_utype is None:
-            self.commander.logger.error("No trainer for {}", task.utype)
+            self.bot.logger.error("No trainer for {}", task.utype)
 
         if trainer_utype == UnitTypeId.SCV:
-            if self.bot.tech_requirement_progress(task.utype) < 1:
+            if self.api.tech_requirement_progress(task.utype) < 1:
                 #self.logger.debug("Tech requirements for {} not fulfilled", task.utype)
                 return False
 
             for _ in range(to_build):
-                target = await self.bot.map.get_building_location(task.utype, near=task.position,
-                                                                  max_distance=task.max_distance)
+                target = await self.map.get_building_location(task.utype, near=task.position,
+                                                              max_distance=task.max_distance)
                 #position = task.position
                 if target is None:
                     break
                 position = target if isinstance(target, Point2) else target.position
                 # SCV can start constructing from a distance of 2.5 away
-                worker, travel_time = await self.commander.pick_worker(position, target_distance=2.5)
+                worker, travel_time = await self.bot.pick_worker(position, target_distance=2.5)
                 if not worker:
                     break
                 #worker = self.commander.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.commander.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
+                if self.bot.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                    self.commander.order.build(worker, task.utype, target)
-                    self.commander.mining.remove_worker(worker)     # TODO
+                    self.bot.order.build(worker, task.utype, target)
+                    self.bot.mining.remove_worker(worker)     # TODO
                 else:
-                    resource_time = self.commander.resources.can_afford_in(task.utype, excluded_workers=worker)
+                    resource_time = self.bot.resources.can_afford_in(task.utype, excluded_workers=worker)
                     #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
-                        self.commander.order.move(worker, position)
-                        self.commander.mining.remove_worker(worker)  # TODO
-                        self.commander.resources.reserve(task.utype)
+                        self.bot.order.move(worker, position)
+                        self.bot.mining.remove_worker(worker)  # TODO
+                        self.bot.resources.reserve(task.utype)
 
         else:
             for _ in range(to_build):
-                trainer = self.commander.pick_trainer(task.utype)
+                trainer = self.bot.pick_trainer(task.utype)
                 if trainer is None:
                     break
-                if self.commander.resources.can_afford(task.utype):
-                    self.commander.order.train(trainer, task.utype)
+                if self.bot.resources.can_afford(task.utype):
+                    self.bot.order.train(trainer, task.utype)
                 else:
-                    self.commander.resources.reserve(task.utype)
+                    self.bot.resources.reserve(task.utype)
         return False
 
     def _on_research_task(self, task: ResearchTask) -> bool:
-        if task.upgrade in self.bot.state.upgrades:
+        if task.upgrade in self.api.state.upgrades:
             self.logger.trace("Upgrade {} complete", task.upgrade)
             return True
         try:
-            if self.bot.already_pending_upgrade(task.upgrade) > 0:
+            if self.api.already_pending_upgrade(task.upgrade) > 0:
                 #self.logger.trace("Upgrade {} already pending", task.upgrade)
                 return False
         except Exception as exc:
             self.logger.error("EXCEPTION {}", str(exc))
-        if not self.commander.resources.can_afford(task.upgrade):
+        if not self.bot.resources.can_afford(task.upgrade):
             #self.logger.trace("Cannot afford {}", task.upgrade)
             return False
-        researcher = self.commander.pick_researcher(task.upgrade)
+        researcher = self.bot.pick_researcher(task.upgrade)
         if researcher is not None:
-            self.commander.order.research(researcher, task.upgrade)
+            self.bot.order.research(researcher, task.upgrade)
             self.logger.info("Starting {} at {}", task.upgrade.name, researcher)
         #else:
         #    self.logger.trace("No researcher for {}", task.upgrade)
@@ -228,17 +228,17 @@ class TaskManager(Manager):
 
     def _on_move_task(self, task: MoveTask) -> bool:
         if task.units is None:
-            units = self.commander.units
+            units = self.bot.units
         else:
             #units = []
             #for utype, number in task.units.items():
-            units = sum((self.commander.units(utype).closest_n_units(task.target, number) for utype, number in task.units.items()),
+            units = sum((self.bot.units(utype).closest_n_units(task.target, number) for utype, number in task.units.items()),
                         start=[])
         for unit in units:
-            self.commander.order.move(unit, task.target)
+            self.bot.order.move(unit, task.target)
         return True
 
     def _on_attack_task(self, task: AttackTask) -> bool:
-        for unit in self.commander.army.idle:
-            self.commander.order.attack(unit, task.target)
+        for unit in self.bot.army.idle:
+            self.bot.order.attack(unit, task.target)
         return False

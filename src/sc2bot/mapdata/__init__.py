@@ -1,1 +1,1 @@
-from .mapdata import MapData
+from .mapmanager import MapManager

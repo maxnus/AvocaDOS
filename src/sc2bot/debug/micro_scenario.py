@@ -1,4 +1,3 @@
-import asyncio
 import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
@@ -9,6 +8,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from sc2bot.core.manager import Manager
 from sc2bot.core.tasks import AttackTask
 from sc2bot.core.util import UnitCost
 
@@ -31,7 +31,7 @@ class MicroScenarioResults:
         return loss_p1, loss_p2
 
 
-class MicroScenario:
+class MicroScenario(Manager):
     bot: 'AvocaDOS'
     id: int
     units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
@@ -47,15 +47,13 @@ class MicroScenario:
     # Class Variables
     _id_counter = itertools.count()
 
-    def __init__(self, bot: 'AvocaDOS',
+    def __init__(self, bot: 'AvocaDOS', *,
                  units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
-                 *,
                  location: Optional[Point2] = None,
                  spawns: Optional[tuple[Point2, Point2]] = None,
                  max_duration: float = 60,
                  ) -> None:
-        super().__init__()
-        self.bot = bot
+        super().__init__(bot)
         self.id = next(MicroScenario._id_counter)
         if isinstance(units, dict):
             units = (units, units)
@@ -75,7 +73,7 @@ class MicroScenario:
 
     @property
     def client(self) -> Client:
-        return self.bot.client
+        return self.api.client
 
     @property
     def logger(self):
@@ -91,7 +89,7 @@ class MicroScenario:
         # if units_in_arena:
         #     await self.client.debug_kill_unit(units_in_arena)
 
-        for player in self.bot.game_info.players:
+        for player in self.api.game_info.players:
             await self.client.debug_create_unit(
                 [[utype, number, self.spawns[player.id - 1], player.id]
                  for utype, number in self.units[player.id - 1].items()]

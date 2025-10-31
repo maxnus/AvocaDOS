@@ -1,19 +1,18 @@
-from dataclasses import dataclass
-from typing import Self, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.system import System
+from sc2bot.core.manager import Manager
 from sc2bot.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-class MapData(System):
+class MapManager(Manager):
     center: Point2
     start_base: ExpansionLocation
     expansions: list[ExpansionLocation]
@@ -24,8 +23,9 @@ class MapData(System):
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
 
-        self.center = bot.game_info.map_center
-        self.start_base = ExpansionLocation(self.bot, self.bot.start_location)
+    async def on_start(self) -> None:
+        self.center = self.api.game_info.map_center
+        self.start_base = ExpansionLocation(self.bot, self.api.start_location)
 
         self.expansions = [ExpansionLocation(self.bot, location) for location in self._get_expansion_list()]
         self.expansion_order = sorted(
@@ -34,7 +34,7 @@ class MapData(System):
         )
 
         # Enemy
-        self.enemy_start_locations = [ExpansionLocation(self.bot, loc) for loc in self.bot.enemy_start_locations]
+        self.enemy_start_locations = [ExpansionLocation(self.bot, loc) for loc in self.api.enemy_start_locations]
         self.enemy_expansion_order = []
         for enemy_start_location in self.enemy_start_locations:
             self.enemy_expansion_order.append(sorted(
@@ -48,7 +48,7 @@ class MapData(System):
 
     def _get_expansion_list(self) -> list[Point2]:
         try:
-            return self.bot.expansion_locations_list
+            return self.api.expansion_locations_list
         except AssertionError:
             return []
 
@@ -58,36 +58,36 @@ class MapData(System):
         match utype:
             case UnitTypeId.REFINERY:
                 if near is None:
-                    near = self.bot.map.start_base.center
-                geysers = self.bot.vespene_geyser.closer_than(10.0, near)
+                    near = self.map.start_base.center
+                geysers = self.api.vespene_geyser.closer_than(10.0, near)
                 if geysers:
                     return geysers.random
 
             case UnitTypeId.SUPPLYDEPOT:
-                positions = [p for p in self.bot.main_base_ramp.corner_depots if await self.bot.can_place_single(utype, p)]
+                positions = [p for p in self.api.main_base_ramp.corner_depots if await self.api.can_place_single(utype, p)]
                 if positions:
                     return self.bot.map.start_base.center.closest(positions)
-                if await self.bot.can_place_single(utype, self.bot.main_base_ramp.depot_in_middle):
-                    return self.bot.main_base_ramp.depot_in_middle
-                return await self.bot.find_placement(utype, near=self.bot.map.start_base.base_center)
+                if await self.api.can_place_single(utype, self.api.main_base_ramp.depot_in_middle):
+                    return self.api.main_base_ramp.depot_in_middle
+                return await self.api.find_placement(utype, near=self.map.start_base.base_center)
 
             case UnitTypeId.BARRACKS:
                 if near is None:
-                    position = self.bot.main_base_ramp.barracks_correct_placement
-                    if await self.bot.can_place_single(utype, position):
+                    position = self.api.main_base_ramp.barracks_correct_placement
+                    if await self.api.can_place_single(utype, position):
                         return position
-                    return await self.bot.find_placement(utype, near=self.bot.map.start_base.base_center,
+                    return await self.api.find_placement(utype, near=self.map.start_base.base_center,
                                                          addon_place=True)
                 else:
-                    return await self.bot.find_placement(utype, near=near, max_distance=max_distance,
-                                                    random_alternative=False, addon_place=True)
+                    return await self.api.find_placement(utype, near=near, max_distance=max_distance,
+                                                         random_alternative=False, addon_place=True)
             case UnitTypeId.COMMANDCENTER:
                 if near is None:
-                    self.bot.logger.error("NotImplemented")
+                    self.logger.error("NotImplemented")
                 else:
-                    return await self.bot.find_placement(utype, near=near)
+                    return await self.api.find_placement(utype, near=near)
             case _:
-                self.bot.logger.error("Not implemented: {}", utype)
+                self.logger.error("Not implemented: {}", utype)
         return None
 
     async def get_travel_times(self, units: Units, destination: Point2, *,
@@ -109,7 +109,7 @@ class MapData(System):
         else:
             query = [[position, destination] for position in start]
         #self.logger.warning("query={}", query)
-        distances = await self.bot.client.query_pathings(query)
+        distances = await self.api.client.query_pathings(query)
         #self.logger.warning("distances={}", distances)
 
         #distances = [d if d >= 0 else None for d in distances]
@@ -120,7 +120,7 @@ class MapData(System):
         if unit.is_flying:
             distance = unit.distance_to(destination)
         else:
-            distance = await self.bot.client.query_pathing(unit.position, destination)
+            distance = await self.api.client.query_pathing(unit.position, destination)
             if distance is None:
                 # unreachable
                 return float('inf')

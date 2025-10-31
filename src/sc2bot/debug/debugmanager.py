@@ -1,8 +1,6 @@
-import asyncio
 import math
 import sys
 from dataclasses import dataclass
-from time import perf_counter
 from typing import TYPE_CHECKING, Optional, ClassVar
 
 from loguru import logger as _logger
@@ -11,7 +9,7 @@ from sc2.client import Client
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
 
-from sc2bot.core.system import System
+from sc2bot.core.manager import Manager
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -44,13 +42,11 @@ class DebugWorldText:
     duration: float
 
 
-class DebugSystem(System):
+class DebugManager(Manager):
     text_size: ClassVar[int] = 16
     # State
     map_revealed: bool
     enemy_control: bool
-    slowdown: float
-    frame_start: Optional[float]
     # Frame data
     debug_messages: list[str]
     damage_taken: dict[Unit, float]
@@ -62,13 +58,12 @@ class DebugSystem(System):
     # Temporary displays
     debug_items: list[DebugWorldText]
 
-    def __init__(self, bot: 'AvocaDOS', *, slowdown: float = 0.0, log_level: str = "DEBUG") -> None:
+    def __init__(self, bot: 'AvocaDOS', *, log_level: str = "DEBUG") -> None:
         super().__init__(bot)
         self.debug_messages = []
         self.damage_taken = {}
         self.shot_last_frame = set()
         self._logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
-        self.slowdown = slowdown
         self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
@@ -87,19 +82,19 @@ class DebugSystem(System):
         self.logger.add(
             sys.stdout,
             level=log_level,
-            filter=lambda record: record['extra'].get('bot') == bot.name,
+            filter=lambda record: record['extra'].get('bot') == self.bot.name,
             format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         )
         self._logger.add(
             ingame_logging,
             level="DEBUG",
-            filter=lambda record: record['extra'].get('bot') == bot.name,
+            filter=lambda record: record['extra'].get('bot') == self.bot.name,
             format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         )
 
     @property
     def client(self) -> Client:
-        return self.bot.client
+        return self.api.client
 
     @property
     def logger(self) -> Logger:
@@ -134,8 +129,7 @@ class DebugSystem(System):
         self.damage_taken[unit] = amount_damage_taken
 
     async def on_step_start(self, step: int) -> None:
-        self._logger = self.logger.bind(step=self.bot.state.game_loop, time=self.bot.time)
-        self.frame_start = perf_counter()
+        self._logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time)
         await self._handle_chat()
 
     async def on_step_end(self, step: int) -> None:
@@ -144,17 +138,17 @@ class DebugSystem(System):
 
         if self.show_tasks:
             info = []
-            for task in self.bot.commander.tasks:
+            for task in self.api.bot.tasks:
                 info.append("   " + repr(task))
             self.text_screen(info, position=(0.005, 0.4))
 
-        mineral_rate, vespene_rate = self.bot.history.get_resource_rates()
+        mineral_rate, vespene_rate = self.history.get_resource_rates()
         self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.05))
 
-        mineral_rate, vespene_rate = self.bot.estimate_resource_collection_rates()
+        mineral_rate, vespene_rate = self.api.estimate_resource_collection_rates()
         self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.8, 0.08))
 
-        min_step, avg_step, max_step, last_step = self.bot.step_time
+        min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:
             color = GREEN
         elif last_step <= 40:
@@ -165,16 +159,16 @@ class DebugSystem(System):
                          f", max={max_step:.1f})", position=(0.73, 0.7), color=color)
 
         if self.show_orders:
-            for tag, orders in self.bot.commander.order.orders.items():
+            for tag, orders in self.api.bot.order.orders.items():
                 if not orders:
                     continue
-                unit = (self.bot.units + self.bot.structures).find_by_tag(tag)
+                unit = (self.api.units + self.api.structures).find_by_tag(tag)
                 if unit is None:
                     continue
                 self.box_with_text(unit, str(orders[0]))
 
         if self.show_combat:
-            for unit in self.bot.commander.units:
+            for unit in self.api.bot.units:
                 if unit.weapon_cooldown != 0:
                     #bar = f"{unit.weapon_cooldown:.3f}"
                     #bar = ";".join([str(w) for w in unit._weapons])
@@ -185,7 +179,7 @@ class DebugSystem(System):
                 if unit.orders:
                     order = unit.orders[0]
                     if isinstance(order.target, int):
-                        target = self.bot.all_units.find_by_tag(order.target)
+                        target = self.api.all_units.find_by_tag(order.target)
                     else:
                         target = order.target
                     if target is not None:
@@ -193,14 +187,14 @@ class DebugSystem(System):
                     #self.text_world(str(order), unit, size=14)
             for unit, damage in self.damage_taken.items():
                 color = RED if damage > 0 else GREEN
-                self.text_world(f"[{self.bot.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
+                self.text_world(f"[{self.api.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
                                 size=12, color=color)
 
         self.damage_taken.clear()
 
         for item in reversed(self.debug_items):
             self.client.debug_text_world(item.text, item.position, size=item.size, color=item.color)
-            if self.bot.time > item.created + item.duration:
+            if self.api.time > item.created + item.duration:
                 self.debug_items.remove(item)
 
         #if self.bot.map is not None:
@@ -209,10 +203,6 @@ class DebugSystem(System):
         #    for idx, expansion in enumerate(self.bot.map.expansions):
         #        self.box_with_text(expansion[0], f"Expansion {idx}: {expansion[1]}")
 
-        if self.slowdown and self.frame_start:
-            sleep = self.slowdown / 1000 - (perf_counter() - self.frame_start)
-            if sleep > 0:
-                await asyncio.sleep(sleep)
 
     def text_screen(self,
                     lines: list[str] | str,
@@ -235,7 +225,7 @@ class DebugSystem(System):
                    max_lines: int = 10,
                    duration: float = 0):
         position = self._normalize_point3(position)
-        item = DebugWorldText(position, text, size=size, color=color, created=self.bot.time, duration=duration)
+        item = DebugWorldText(position, text, size=size, color=color, created=self.api.time, duration=duration)
         self.debug_items.append(item)
 
 
@@ -267,7 +257,7 @@ class DebugSystem(System):
         cheats = {'!control_enemy', '!food', '!free', '!all_resources', '!god', '!minerals', '!gas',
                   '!cooldown', '!tech_tree', '!upgrade', '!fast_build'}
 
-        for chat_message in self.bot.state.chat:
+        for chat_message in self.api.state.chat:
             self.logger.debug("Chat message: {}", chat_message.message)
             if chat_message.message.startswith('!'):
                 cmd, *args = chat_message.message.split()
@@ -282,7 +272,7 @@ class DebugSystem(System):
                     self.show_orders = bool(int(args[0]))
 
                 elif cmd == '!debug' and len(args) == 1 and args[0] in {'0', '1'}:
-                    self.bot.debug_enabled = bool(int(args[0]))
+                    self.api.debug_enabled = bool(int(args[0]))
 
                 elif cmd in cheats:
                     func = getattr(self.client, f'debug_{cmd[1:]}', None)
@@ -297,7 +287,7 @@ class DebugSystem(System):
                             slowdown_time = float(args[0])
                         except ValueError:
                             continue
-                    self.bot.slowdown_time = slowdown_time
+                    self.api.slowdown_time = slowdown_time
 
     def _normalize_point3(self, point: Unit | Point3 | Point2) -> Point3:
         if isinstance(point, Point3):
@@ -305,5 +295,5 @@ class DebugSystem(System):
         if isinstance(point, Unit):
             return point.position3d
         if isinstance(point, Point2):
-            return Point3((point[0], point[1], self.bot.get_terrain_z_height(point)))
+            return Point3((point[0], point[1], self.api.get_terrain_z_height(point)))
         raise TypeError(f"invalid argument: {point}")

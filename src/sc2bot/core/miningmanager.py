@@ -8,15 +8,15 @@ from sc2bot.core.manager import Manager
 from sc2bot.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
-    from sc2bot.core.commander import Commander
+    from sc2bot.core.avocados import AvocaDOS
 
 
 class MiningManager(Manager):
     assignments: dict[ExpansionLocation, dict[int, int]]
     """location, worker_tag -> mineral_tag"""
 
-    def __init__(self, commander: 'Commander') -> None:
-        super().__init__(commander)
+    def __init__(self, bot: 'AvocaDOS') -> None:
+        super().__init__(bot)
         self.assignments = {}
 
     async def add_expansion(self, expansion: ExpansionLocation) -> None:
@@ -35,9 +35,9 @@ class MiningManager(Manager):
 
     def get_mineral_field_split_at_expansion(self, expansion: ExpansionLocation) -> tuple[Units, Units, Units]:
         count = self.get_assigned_worker_count_at_expansion(expansion)
-        empty_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 0], self.bot)
-        single_mining_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 1], self.bot)
-        double_mining_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 2], self.bot)
+        empty_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 0], self.api)
+        single_mining_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 1], self.api)
+        double_mining_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 2], self.api)
         return empty_fields, single_mining_fields, double_mining_fields
 
     def has_worker(self, worker: Unit) -> bool:
@@ -49,7 +49,7 @@ class MiningManager(Manager):
     def add_worker(self, worker: Unit) -> bool:
         if self.has_worker(worker):
             self.logger.warning("Worker {} already assigned to {}", worker, self)
-            self.bot.debug.text_world("Worker already assigned", worker, size=16, color=(255, 0, 0), duration=10)
+            self.debug.text_world("Worker already assigned", worker, size=16, color=(255, 0, 0), duration=10)
             return False
 
         for expansion, assignment in self.assignments.items():
@@ -75,7 +75,7 @@ class MiningManager(Manager):
         else:
             target_point = expansion.mining_gather_targets.get(mineral.tag)
         if target_point is not None:
-            self.commander.order.move(worker, target_point)
+            self.bot.order.move(worker, target_point)
         else:
             self.logger.error("Missing target point for mineral {}", mineral)
         self.assignments[expansion][worker.tag] = mineral.tag
@@ -94,7 +94,7 @@ class MiningManager(Manager):
         return False
 
     def get_townhall(self, expansion: ExpansionLocation) -> Optional[Unit]:
-        return self.bot.townhalls.closest_to(expansion.center)
+        return self.api.townhalls.closest_to(expansion.center)
 
     async def assign_miners_at_expansion(self, expansion: ExpansionLocation) -> None:
         if expansion not in self.assignments:
@@ -116,7 +116,7 @@ class MiningManager(Manager):
         minerals = expansion.mineral_fields.sorted_by_distance_to(townhall)
         # Method 1
         for mineral in 2 * minerals:
-            workers = await self.commander.pick_workers(mineral.position, number=1)
+            workers = await self.bot.pick_workers(mineral.position, number=1)
             for worker, _ in workers:
                 self._assign_worker(expansion, worker, mineral)
 
@@ -154,7 +154,7 @@ class MiningManager(Manager):
         # TODO: check dead tags
 
         # Assign idle workers
-        for worker in self.commander.workers.idle:
+        for worker in self.bot.workers.idle:
             self.add_worker(worker)
 
         for expansion, exp_assignment in self.assignments.items():
@@ -165,7 +165,7 @@ class MiningManager(Manager):
                 continue
 
             for worker_tag, mineral_tag in exp_assignment.items():
-                worker = self.commander.workers.find_by_tag(worker_tag)
+                worker = self.bot.workers.find_by_tag(worker_tag)
                 if worker is None:
                     self.logger.error("Invalid worker tag: {}", worker_tag)
                     continue
@@ -190,8 +190,8 @@ class MiningManager(Manager):
 
                 distance = worker.distance_to(target_point)
                 if 0.75 < distance < 2:
-                    self.commander.order.move(worker, target_point)
-                    self.commander.order.smart(worker, target, queue=True)
+                    self.bot.order.move(worker, target_point)
+                    self.bot.order.smart(worker, target, queue=True)
                 # elif worker.is_idle:
                 #     self.logger.info("Restarting idle worker {}", worker)
                 #     if distance <= 0.75:

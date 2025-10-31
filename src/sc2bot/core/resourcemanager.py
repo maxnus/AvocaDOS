@@ -10,7 +10,7 @@ from sc2.units import Units
 from sc2bot.core.manager import Manager
 
 if TYPE_CHECKING:
-    from sc2bot.core.commander import Commander
+    from sc2bot.core.avocados import AvocaDOS
 
 
 class ResourceManager(Manager):
@@ -21,8 +21,8 @@ class ResourceManager(Manager):
     reserved_minerals: int
     reserved_vespene: int
 
-    def __init__(self, commander: 'Commander', *, minerals: int = 0, vespene: int = 0) -> None:
-        super().__init__(commander)
+    def __init__(self, bot: 'AvocaDOS', *, minerals: int = 0, vespene: int = 0) -> None:
+        super().__init__(bot)
         self.reset(minerals, vespene)
 
     def __repr__(self) -> str:
@@ -45,7 +45,7 @@ class ResourceManager(Manager):
         return self.total_vespene - self.spent_vespene - self.reserved_vespene
 
     def calculate_cost(self, item: UnitTypeId | UpgradeId | AbilityId) -> Cost:
-        return self.bot.calculate_cost(item)
+        return self.api.calculate_cost(item)
 
     def can_afford(self, item: UnitTypeId | UpgradeId | AbilityId | Cost) -> bool:
         if isinstance(item, Cost):
@@ -62,7 +62,7 @@ class ResourceManager(Manager):
             cost = self.calculate_cost(item)
         if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
             return 0
-        mineral_rate, vespene_rate = self.bot.estimate_resource_collection_rates(excluded_workers=excluded_workers)
+        mineral_rate, vespene_rate = self.api.estimate_resource_collection_rates(excluded_workers=excluded_workers)
         time = 0
         if cost.minerals > 0:
             if mineral_rate == 0:

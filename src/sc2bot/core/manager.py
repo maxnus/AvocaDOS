@@ -3,24 +3,47 @@ from typing import TYPE_CHECKING
 
 from loguru._logger import Logger
 
+
 if TYPE_CHECKING:
+    from sc2bot.core.botapi import BotApi
     from sc2bot.core.avocados import AvocaDOS
-    from sc2bot.core.commander import Commander
+    from sc2bot.mapdata import MapManager
+    from sc2bot.debug.debugmanager import DebugManager
+    from sc2bot.core.historymanager import HistoryManager
+    from sc2bot.core.orders import OrderManager
 
 
 class Manager(ABC):
-    commander: 'Commander'
+    bot: 'AvocaDOS'
 
-    def __init__(self, commander: 'Commander') -> None:
-        self.commander = commander
+    def __init__(self, bot: 'AvocaDOS') -> None:
+        self.bot = bot
 
     def __repr__(self) -> str:
         return self.__class__.__name__
 
     @property
-    def bot(self) -> 'AvocaDOS':
-        return self.commander.bot
+    def api(self) -> 'BotApi':
+        return self.bot.api
 
     @property
     def logger(self) -> Logger:
-        return self.commander.logger
+        return self.bot.logger
+
+    # --- Other Manager
+
+    @property
+    def map(self) -> 'MapManager':
+        return self.bot.map
+
+    @property
+    def debug(self) -> 'DebugManager':
+        return self.bot.debug
+
+    @property
+    def history(self) -> 'HistoryManager':
+        return self.bot.history
+
+    @property
+    def order(self) -> 'OrderManager':
+        return self.bot.order

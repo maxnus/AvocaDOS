@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, Optional
 
-from pip._internal import locations
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
+from sc2bot.core.manager import Manager
 from sc2bot.core.util import UnitCost
 from sc2bot.debug.micro_scenario import MicroScenario, MicroScenarioResults
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
 
 
-class MicroScenarioManager:
+class MicroScenarioManager(Manager):
     bot: 'AvocaDOS'
     units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     running: bool
@@ -23,6 +23,7 @@ class MicroScenarioManager:
 
     def __init__(self, bot: 'AvocaDOS', *,
                  units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]) -> None:
+        super().__init__(bot)
         if isinstance(units, dict):
             units = (units, units)
         self.bot = bot
@@ -36,17 +37,17 @@ class MicroScenarioManager:
 
     def get_locations(self) -> list[Point2]:
         locations = []
-        if self.bot.game_info.map_name == 'Micro Training 4x4':
+        if self.api.game_info.map_name == 'Micro Training 4x4':
             for row in range(4):
                 y = row * 40 + 12
                 for col in range(4):
                     x = col * 40 + 12
                     locations.append(Point2((x, y)))
         else:
-            raise NotImplementedError(f"map {self.bot.game_info.map_name}")
+            raise NotImplementedError(f"map {self.api.game_info.map_name}")
         return locations
 
-    async def start(self, *, number_scenarios: int = 64) -> None:
+    async def on_start(self, *, number_scenarios: int = 64) -> None:
 
         self.locations = self.get_locations()
         self.free_locations = self.locations.copy()
@@ -62,7 +63,7 @@ class MicroScenarioManager:
             self.scenarios[scenario.id] = scenario
             await scenario.start()
 
-    async def step(self) -> Optional[float]:
+    async def on_step(self) -> Optional[float]:
         if not self.running:
             raise RuntimeError
 

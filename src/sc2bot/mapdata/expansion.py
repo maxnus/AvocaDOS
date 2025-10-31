@@ -1,22 +1,20 @@
-import math
 from typing import Any, TYPE_CHECKING
 
 from sc2.position import Point2
 from sc2.units import Units
 
-from sc2bot.core.system import System
+from sc2bot.core.manager import Manager
 from sc2bot.core.util import get_circle_intersections, Circle
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
-
 
 GATHER_RADIUS = 1.325
 RETURN_RADIUS = 3.125 # CC = 2.75, SCV = 0.375 (TODO: are other races the same?)
 MINERAL_LINE_CENTER_DISTANCE = 4.5
 
 
-class ExpansionLocation(System):
+class ExpansionLocation(Manager):
     center: Point2
     base_center: Point2
     mineral_fields: Units
@@ -29,8 +27,8 @@ class ExpansionLocation(System):
     def __init__(self, bot: 'AvocaDOS', location: Point2) -> None:
         super().__init__(bot)
         self.center = location
-        self.mineral_fields = self.bot.mineral_field.closer_than(8, self.center).sorted_by_distance_to(self.center)
-        self.vespene_geyser = self.bot.vespene_geyser.closer_than(8, self.center).sorted_by_distance_to(self.center)
+        self.mineral_fields = self.api.mineral_field.closer_than(8, self.center).sorted_by_distance_to(self.center)
+        self.vespene_geyser = self.api.vespene_geyser.closer_than(8, self.center).sorted_by_distance_to(self.center)
         self.mining_gather_targets = {}
         self.mining_return_targets = {}
         for mineral_field in self.mineral_fields:
@@ -68,8 +66,8 @@ class ExpansionLocation(System):
 
     def debug_show(self):
         for point in self.mining_gather_targets.values():
-            self.bot.debug.box(point, size=0.25, color=(255, 0, 0))
+            self.debug.box(point, size=0.25, color=(255, 0, 0))
         for point in self.mining_return_targets.values():
-            self.bot.debug.box(point, size=0.25, color=(0, 0, 255))
+            self.debug.box(point, size=0.25, color=(0, 0, 255))
         #self.bot.debug.box(self.mineral_field_center, size=0.25, color=(0, 255, 0))
-        self.bot.debug.box(self.mineral_line_center, size=0.25, color=(0, 255, 0))
+        self.debug.box(self.mineral_line_center, size=0.25, color=(0, 255, 0))
