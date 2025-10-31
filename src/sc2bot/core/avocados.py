@@ -1,7 +1,5 @@
-import asyncio
 import random
 from enum import Enum
-from time import perf_counter
 from typing import Optional
 
 from loguru._logger import Logger
@@ -27,7 +25,7 @@ class AvocaDOS(BotAI):
     name: str
     # Systems
     build: Optional[BuildOrder]
-    commanders: dict[str, Commander]
+    commander: Commander
     history: History
     map: Optional[MapData]
     # Debug
@@ -50,7 +48,7 @@ class AvocaDOS(BotAI):
         else:
             self.build = None
         self.history = History(self)
-        self.commanders = {}
+        self.commander = Commander(self)
         self.map = None
         # Debug
         self.debug = DebugSystem(self, slowdown=slowdown, log_level=log_level)
@@ -75,15 +73,7 @@ class AvocaDOS(BotAI):
             self.logger.debug("Loading build order {}", self.build)
             self.build.load()
 
-        if 'Main' not in self.commanders:
-            main = self.add_commander('Main')
-            self.logger.warning("Adding main commander")
-        else:
-            main = self.commanders['Main']
-        main.add_units(self.units | self.structures)
-        #commander.add_units(self.structures)
-        #commander.add_units(self.workers.random)
-        await main.mining.add_expansion(self.map.start_base)
+        await self.commander.mining.add_expansion(self.map.start_base)
 
         if self.micro_scenario is not None:
             await self.micro_scenario.start()
@@ -93,12 +83,9 @@ class AvocaDOS(BotAI):
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.step()
         # Distribute resources
-        if self.commanders:
-            commander = max(self.commanders.values(), key=lambda cmd: cmd.resource_priority)
-            commander.resources.reset(self.minerals, self.vespene)
+        self.commander.resources.reset(self.minerals, self.vespene)
         # Update commander
-        for commander in self.commanders.values():
-            await commander.on_step(step)
+        await self.commander.on_step(step)
 
         #if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
@@ -110,26 +97,6 @@ class AvocaDOS(BotAI):
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         await self.debug.on_unit_took_damage(unit, amount_damage_taken)
-
-    # --- Commanders
-
-    def add_commander(self, name, **kwargs) -> Commander:
-        commander = Commander(self, name, **kwargs)
-        self.logger.debug("Adding {}", commander)
-        self.commanders[name] = commander
-        return commander
-
-    def remove_commander(self, name: str) -> Commander:
-        commander = self.commanders.pop(name)
-        self.logger.debug("Removing {}", commander)
-        return commander
-
-    def get_commander_of(self, unit: Unit | int) -> Optional[Commander]:
-        tag = unit.tag if isinstance(unit, Unit) else unit
-        for commander in self.commanders.values():
-            if tag in commander.tags:
-                return commander
-        return None
 
     # --- Base utility
 
@@ -202,29 +169,10 @@ class AvocaDOS(BotAI):
         return Units(workers, self)
 
     async def on_unit_created(self, unit: Unit) -> None:
-        await self._assign_new_unit(unit)
+        pass
 
     async def on_building_construction_started(self, unit: Unit) -> None:
-        await self._assign_new_unit(unit)
+        pass
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
-        commander = self.get_commander_of(unit_tag)
-        if commander is not None:
-            commander.remove_units(unit_tag)
-
-    async def _assign_new_unit(self, unit: Unit) -> None:
-        trainer_type = TRAINERS.get(unit.type_id)
-        commander = None
-        if trainer_type:
-            trainers = (self.units + self.structures).of_type(trainer_type).closer_than(8, unit)
-            if trainers:
-                trainer = trainers.closest_to(unit)
-                commander = self.get_commander_of(trainer)
-                #self.logger.debug("Trainer of {} at {} is {} at {}", unit, unit.position, trainer, trainer.position)
-
-        if commander is None:
-            self.logger.warning("Cannot identify trainer of {} at {}", unit, unit.position)
-            commander = self.commanders['Main']
-
-        commander.add_units(unit)
-
+        pass

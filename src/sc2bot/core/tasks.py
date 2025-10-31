@@ -205,47 +205,23 @@ class AttackTask(OrderTask):
     pass
 
 
-class HandoverUnitsTask(Task):
-    utype: UnitTypeId
-    commander: str
-    number: Optional[int]
-
-    def __init__(self,
-                 utype: UnitTypeId,
-                 commander: str,
-                 number: Optional[int] = None,
-                 *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
-                 repeat: bool = False,
-                 ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-        self.utype = utype
-        self.commander = commander
-        self.number = number
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(utype={self.utype.name}, commander={self.commander}, priority={self.priority})"
-
-
-class MiningTask(Task):
-    location: Optional[Point2]
-    max_workers: Optional[int]
-
-    def __init__(self,
-                 location: Optional[Point2] = None,
-                 max_workers: Optional[int] = None,
-                 *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
-                 repeat: bool = False,
-                 ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-        self.location = location
-        self.max_workers = max_workers
-
-    def __repr__(self) -> str:
-        return (f"{self.__class__.__name__}(location={self.location}, max_workers={self.max_workers},"
-                f" priority={self.priority})")
+# class MiningTask(Task):
+#     location: Optional[Point2]
+#     max_workers: Optional[int]
+#
+#     def __init__(self,
+#                  location: Optional[Point2] = None,
+#                  max_workers: Optional[int] = None,
+#                  *,
+#                  reqs: Optional[TaskRequirements] = None,
+#                  deps: Optional[TaskDependencies | TaskStatus | int] =  None,
+#                  priority: int = 50,
+#                  repeat: bool = False,
+#                  ) -> None:
+#         super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+#         self.location = location
+#         self.max_workers = max_workers
+#
+#     def __repr__(self) -> str:
+#         return (f"{self.__class__.__name__}(location={self.location}, max_workers={self.max_workers},"
+#                 f" priority={self.priority})")

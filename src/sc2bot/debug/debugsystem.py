@@ -57,7 +57,7 @@ class DebugSystem(System):
     # Config
     show_log: bool
     show_orders: bool
-    show_commanders: bool
+    show_tasks: bool
     show_combat: bool
     # Temporary displays
     debug_items: list[DebugWorldText]
@@ -74,7 +74,7 @@ class DebugSystem(System):
         self.enemy_control = False
         self.show_log = False
         self.show_orders = False
-        self.show_commanders = True
+        self.show_tasks = True
         self.show_combat = True
         self.debug_items = []
 
@@ -142,12 +142,10 @@ class DebugSystem(System):
         if self.show_log:
             self.text_screen(self.debug_messages)
 
-        if self.show_commanders:
+        if self.show_tasks:
             info = []
-            for commander in self.bot.commanders.values():
-                info.append(repr(commander))
-                for task in commander.tasks:
-                    info.append("   " + repr(task))
+            for task in self.bot.commander.tasks:
+                info.append("   " + repr(task))
             self.text_screen(info, position=(0.005, 0.4))
 
         mineral_rate, vespene_rate = self.bot.history.get_resource_rates()
@@ -167,34 +165,32 @@ class DebugSystem(System):
                          f", max={max_step:.1f})", position=(0.73, 0.7), color=color)
 
         if self.show_orders:
-            for commander in self.bot.commanders.values():
-                for tag, orders in commander.order.orders.items():
-                    if not orders:
-                        continue
-                    unit = (self.bot.units + self.bot.structures).find_by_tag(tag)
-                    if unit is None:
-                        continue
-                    self.box_with_text(unit, str(orders[0]))
+            for tag, orders in self.bot.commander.order.orders.items():
+                if not orders:
+                    continue
+                unit = (self.bot.units + self.bot.structures).find_by_tag(tag)
+                if unit is None:
+                    continue
+                self.box_with_text(unit, str(orders[0]))
 
         if self.show_combat:
-            for commander in self.bot.commanders.values():
-                for unit in commander.units:
-                    if unit.weapon_cooldown != 0:
-                        #bar = f"{unit.weapon_cooldown:.3f}"
-                        #bar = ";".join([str(w) for w in unit._weapons])
-                        text = f'({math.ceil(unit.weapon_cooldown)})'
-                        self.text_world(text, unit.position3d + Point3((0, 0, -0.5)),
-                                        size=12, color=CYAN)
+            for unit in self.bot.commander.units:
+                if unit.weapon_cooldown != 0:
+                    #bar = f"{unit.weapon_cooldown:.3f}"
+                    #bar = ";".join([str(w) for w in unit._weapons])
+                    text = f'({math.ceil(unit.weapon_cooldown)})'
+                    self.text_world(text, unit.position3d + Point3((0, 0, -0.5)),
+                                    size=12, color=CYAN)
 
-                    if unit.orders:
-                        order = unit.orders[0]
-                        if isinstance(order.target, int):
-                            target = self.bot.all_units.find_by_tag(order.target)
-                        else:
-                            target = order.target
-                        if target is not None:
-                            self.line(unit, target)
-                        #self.text_world(str(order), unit, size=14)
+                if unit.orders:
+                    order = unit.orders[0]
+                    if isinstance(order.target, int):
+                        target = self.bot.all_units.find_by_tag(order.target)
+                    else:
+                        target = order.target
+                    if target is not None:
+                        self.line(unit, target)
+                    #self.text_world(str(order), unit, size=14)
             for unit, damage in self.damage_taken.items():
                 color = RED if damage > 0 else GREEN
                 self.text_world(f"[{self.bot.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
@@ -280,7 +276,7 @@ class DebugSystem(System):
                     self.show_log = bool(int(args[0]))
 
                 elif cmd == '!cmd' and len(args) == 1 and args[0] in {'0', '1'}:
-                    self.show_commanders = bool(int(args[0]))
+                    self.show_tasks = bool(int(args[0]))
 
                 elif cmd == '!orders' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_orders = bool(int(args[0]))

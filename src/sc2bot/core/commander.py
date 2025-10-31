@@ -56,42 +56,30 @@ class RetreatCommand(Command):
 
 
 class Commander(System):
-    name: str
-    #
-    tags: set[int]
     previous_orders: dict[int, Optional[Order]]
     # Systems
     order: OrderManager
-    resource_priority: float
     resources: ResourceManager
     tasks: TaskManager
     combat: MicroManager
     mining: MiningManager
-    # Other
 
-    def __init__(self, bot: 'AvocaDOS', name: str, *,
-                 tags: Optional[set[int]] = None,
+    def __init__(self, bot: 'AvocaDOS', *,
                  tasks: Optional[list[Task]] = None,
-                 resource_priority: float = 0.5,
                  ) -> None:
         super().__init__(bot)
-        self.name = name
-        self.tags = tags or set()
         # Manager
         self.order = OrderManager(self)
-        self.resource_priority = resource_priority
         self.resources = ResourceManager(self)
         self.tasks = TaskManager(self, tasks)
         self.combat = MicroManager(self)
         self.mining = MiningManager(self)
-        # Other
-        self.expected_units = {}
 
     def __repr__(self) -> str:
         unit_info = [f'{count} {utype.name}' for utype, count in sorted(
             sorted(self.get_unit_type_counts().items(), key=lambda item: item[0].name),
             key=lambda item: item[1], reverse=True)]
-        return f"{self.name}({', '.join(unit_info)})"
+        return f"{type(self).__name__}({', '.join(unit_info)})"
 
     async def on_step(self, step: int):
         # if (number_dead := self.remove_dead_tags()) != 0:
@@ -114,7 +102,7 @@ class Commander(System):
 
     @property
     def logger(self) -> Logger:
-        return super().logger.bind(prefix=self.name)
+        return super().logger
 
     @property
     def map(self) -> MapData:
@@ -124,11 +112,11 @@ class Commander(System):
 
     @property
     def units(self) -> Units:
-        return self.bot.units.tags_in(self.tags)
+        return self.bot.units
 
     @property
     def workers(self) -> Units:
-        return self.bot.workers.tags_in(self.tags)
+        return self.bot.workers
 
     @property
     def army(self) -> Units:
@@ -136,11 +124,11 @@ class Commander(System):
 
     @property
     def structures(self) -> Units:
-        return self.bot.structures.tags_in(self.tags)
+        return self.bot.structures
 
     @property
     def townhalls(self) -> Units:
-        return self.bot.townhalls.tags_in(self.tags)
+        return self.bot.townhalls
 
     @property
     def forces(self) -> Units:
@@ -179,36 +167,6 @@ class Commander(System):
     #
     #     return abilities_amount, max_build_progress
 
-    # --- Control
-
-    # def remove_dead_tags(self) -> int:
-    #     size_before = len(self.tags)
-    #     alive = self.bot.units | self.bot.structures
-    #     self.tags.intersection_update(alive.tags)
-    #     number_dead = size_before - len(self.tags)
-    #     if number_dead:
-    #         self.logger.trace("Removed {} dead tags", number_dead)
-    #     return number_dead
-
-    def add_units(self, units: Units | Unit | set[int]) -> None:
-        if isinstance(units, Unit):
-            tags = {units.tag}
-        elif isinstance(units, Units):
-            tags = units.tags
-        else:
-            tags = units
-        self.logger.trace("Adding {}", units)
-        self.tags.update(tags)
-
-    def remove_units(self, units: int | Iterable[int]) -> None:
-        units = units if isinstance(units, Units) else {units}
-        self.logger.trace("Removing {}", units)
-        self.tags.difference_update(units)
-
-    def has_units(self, units: Unit | Units) -> bool:
-        if isinstance(units, Unit):
-            return units.tag in self.tags
-        return all(u.tag in self.tags for u in units)
 
     # --- Position
 

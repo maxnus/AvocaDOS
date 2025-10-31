@@ -1,8 +1,7 @@
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -204,9 +203,6 @@ class OrderManager(Manager):
         return self._order(unit, SmartOrder, target, queue=queue, force=force)
 
     def _check_unit(self, unit: Unit, *, queue: bool) -> bool:
-        if not self.commander.has_units(unit):
-            self.logger.error("{} does not control {}", self, unit)
-            return False
         if not queue and unit.tag in self.orders:
             self.logger.error("Unit {} already has orders: {}", unit, self.orders.get(unit.tag))
             return False

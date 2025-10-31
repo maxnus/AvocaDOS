@@ -1,9 +1,7 @@
-import itertools
 from collections.abc import Iterator
 from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
-from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
@@ -11,9 +9,7 @@ from sc2.position import Point2
 from .constants import ALTERNATIVES, TRAINERS
 from .manager import Manager
 from .tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies, BuildingCountTask,
-                    UnitCountTask,
-                    ResearchTask, MoveTask, AttackTask, HandoverUnitsTask, MiningTask)
-from .util import LineSegment
+                    UnitCountTask, ResearchTask, MoveTask, AttackTask)
 
 if TYPE_CHECKING:
     from .commander import Commander
@@ -109,8 +105,6 @@ class TaskManager(Manager):
             completed = self._on_move_task(task)
         elif isinstance(task, AttackTask):
             completed = self._on_attack_task(task)
-        elif isinstance(task, HandoverUnitsTask):
-            completed = self._on_handover_units_task(task)
         else:
             completed = False
             self.logger.warning("Not implemented: {}", task)
@@ -248,14 +242,3 @@ class TaskManager(Manager):
         for unit in self.commander.army.idle:
             self.commander.order.attack(unit, task.target)
         return False
-
-    def _on_handover_units_task(self, task: HandoverUnitsTask) -> bool:
-        commander = self.bot.commanders.get(task.commander)
-        if commander is None:
-            return False
-        units = self.commander.units(task.utype)
-        if not units:
-            return False
-        self.commander.remove_units(units)
-        commander.add_units(units)
-        return True
