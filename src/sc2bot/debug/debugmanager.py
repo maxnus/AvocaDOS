@@ -63,7 +63,7 @@ class DebugManager(Manager):
         self.debug_messages = []
         self.damage_taken = {}
         self.shot_last_frame = set()
-        self._logger = _logger.bind(bot=bot.name, prefix='Bot', frame=0, time=0)
+        self._logger = _logger.bind(bot=bot.name, prefix=bot.name, step=0, time=0)
         self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
@@ -83,13 +83,13 @@ class DebugManager(Manager):
             sys.stdout,
             level=log_level,
             filter=lambda record: record['extra'].get('bot') == self.bot.name,
-            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
+            format="[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         )
         self._logger.add(
             ingame_logging,
             level="DEBUG",
             filter=lambda record: record['extra'].get('bot') == self.bot.name,
-            format="[{extra[frame]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
+            format="[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
         )
 
     @property

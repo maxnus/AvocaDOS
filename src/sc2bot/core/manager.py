@@ -28,7 +28,7 @@ class Manager(ABC):
 
     @property
     def logger(self) -> Logger:
-        return self.bot.logger
+        return self.bot.logger.bind(prefix=type(self).__name__)
 
     # --- Other Manager
 

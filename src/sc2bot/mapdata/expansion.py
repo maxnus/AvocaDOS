@@ -17,8 +17,8 @@ MINERAL_LINE_CENTER_DISTANCE = 4.5
 class ExpansionLocation(Manager):
     center: Point2
     base_center: Point2
-    mineral_fields: Units
-    vespene_geyser: Units
+    mineral_fields_tags: set[int]
+    vespene_geyser_tags: set[int]
     mineral_field_center: Point2
     mineral_line_center: Point2
     mining_gather_targets: dict[int, Point2]
@@ -27,8 +27,10 @@ class ExpansionLocation(Manager):
     def __init__(self, bot: 'AvocaDOS', location: Point2) -> None:
         super().__init__(bot)
         self.center = location
-        self.mineral_fields = self.api.mineral_field.closer_than(8, self.center).sorted_by_distance_to(self.center)
-        self.vespene_geyser = self.api.vespene_geyser.closer_than(8, self.center).sorted_by_distance_to(self.center)
+        self.mineral_fields_tags = (self.api.mineral_field.closer_than(8, self.center)
+                                    .sorted_by_distance_to(self.center).tags)
+        self.vespene_geyser_tags = (self.api.vespene_geyser.closer_than(8, self.center)
+                                    .sorted_by_distance_to(self.center).tags)
         self.mining_gather_targets = {}
         self.mining_return_targets = {}
         for mineral_field in self.mineral_fields:
@@ -49,6 +51,14 @@ class ExpansionLocation(Manager):
                                      / len(self.mineral_fields))
         self.mineral_line_center = self.center.towards(self.mineral_field_center, MINERAL_LINE_CENTER_DISTANCE)
         self.base_center = self.center.towards(self.mineral_field_center, -10)
+
+    @property
+    def mineral_fields(self) -> Units:
+        return self.api.mineral_field.tags_in(self.mineral_fields_tags)
+
+    @property
+    def vespene_geyser(self) -> Units:
+        return self.api.vespene_geyser.tags_in(self.vespene_geyser_tags)
 
     def minerals(self) -> int:
         return sum(mf.mineral_contents for mf in self.mineral_fields)
