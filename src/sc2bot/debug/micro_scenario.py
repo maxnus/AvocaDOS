@@ -147,7 +147,7 @@ class MicroScenario(Manager):
             self.tags_p2 = units_p2.tags
             #cmd = self.bot.add_commander(f'MicroScenario{self.id}')
             #cmd.add_units(units_p1 if self.api.player_id == 1 else units_p2)
-            self.task.add(AttackTask(self.location))
+            self.tasks.add(AttackTask(self.location))
             # for unit in units_p1:
             #     unit.attack(self.location)
             # for unit in units_p2:

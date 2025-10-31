@@ -136,15 +136,27 @@ class AvocaDOS:
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         await self.debug.on_unit_took_damage(unit, amount_damage_taken)
 
-    # --- Properties
+    async def on_unit_created(self, unit: Unit) -> None:
+        pass
 
-    @property
-    def time(self) -> float:
-        return self.api.time
+    async def on_building_construction_started(self, unit: Unit) -> None:
+        pass
+
+    async def on_building_construction_finished(self, unit: Unit) -> None:
+        pass
+
+    async def on_unit_destroyed(self, unit_tag: int) -> None:
+        pass
+
+    # --- Properties
 
     @property
     def logger(self) -> Logger:
         return self.debug.logger
+
+    @property
+    def time(self) -> float:
+        return self.api.time
 
     # --- Units
 
@@ -177,51 +189,6 @@ class AvocaDOS:
         for unit in self.forces:
             counter[unit.type_id] += 1
         return counter
-
-    def _get_creation_ability(self, utype: UnitTypeId) -> AbilityId:
-        try:
-            return self.api.game_data.units[utype.value].creation_ability.exact_id
-        except AttributeError:
-            return CREATION_ABILITY_FIX.get(utype.value, 0)
-
-    # TODO: FIX
-    # def get_pending(self, utype: UnitTypeId) -> list[float]:
-    #     # replicate: self.bot.already_pending(utype)
-    #
-    #     # tuple[Counter[AbilityId], dict[AbilityId, float]]
-    #     abilities_amount: Counter[AbilityId] = Counter()
-    #     build_progress: dict[AbilityId, list[float]] = defaultdict(list)
-    #     unit: Unit
-    #     for unit in self.units + self.structures:
-    #         for order in unit.orders:
-    #             abilities_amount[order.ability.exact_id] += 1
-    #         if not unit.is_ready and (self.bot.race != Race.Terran or not unit.is_structure):
-    #             # If an SCV is constructing a building, already_pending would count this structure twice
-    #             # (once from the SCV order, and once from "not structure.is_ready")
-    #             creation_ability = CREATION_ABILITY_FIX.get(
-    #                 unit.type_id, self.bot.game_data.units[unit.type_id.value].creation_ability.exact_id)
-    #             abilities_amount[creation_ability] += 2 if unit.type_id == UnitTypeId.ARCHON else 1
-    #             build_progress[creation_ability].append(unit.build_progress)
-    #
-    #     return abilities_amount, max_build_progress
-
-
-    # --- Position
-
-    @property
-    def center(self) -> Optional[Point2]:
-        if self.forces.empty:
-            return None
-        return self.forces.center
-
-    def get_position_covariance(self) -> Optional[numpy.ndarray]:
-        if self.forces.empty:
-            return None
-        center = self.units.center
-        deltas = [unit.position - center for unit in self.forces]
-        dx = sum(d[0] for d in deltas)
-        dy = sum(d[1] for d in deltas)
-        return numpy.asarray([[dx*dx, dx*dy], [dy*dx, dy*dy]])
 
     # --- Pick unit
 
@@ -329,11 +296,6 @@ class AvocaDOS:
         if position is None:
             return researchers.random
         return researchers.closest_to(position)
-
-    # --- Tasks
-
-    def add_task(self, task: Task) -> int:
-        return self.tasks.add(task)
 
     # --- Callbacks
 

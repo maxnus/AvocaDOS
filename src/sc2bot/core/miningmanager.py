@@ -158,7 +158,6 @@ class MiningManager(Manager):
             self.add_worker(worker)
 
         for expansion, exp_assignment in self.assignments.items():
-            expansion.debug_show()
             townhall = self.get_townhall(expansion)
             if townhall is None:
                 self.logger.error("No townhall at {}", expansion)

@@ -59,7 +59,7 @@ class Manager(ABC):
         return self.bot.resources
 
     @property
-    def task(self) -> 'TaskManager':
+    def tasks(self) -> 'TaskManager':
         return self.bot.tasks
 
     @property

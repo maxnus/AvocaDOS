@@ -1,4 +1,4 @@
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
 from sc2.position import Point2
 from sc2.units import Units
@@ -19,8 +19,8 @@ class ExpansionLocation(Manager):
     base_center: Point2
     mineral_fields_tags: set[int]
     vespene_geyser_tags: set[int]
-    mineral_field_center: Point2
-    mineral_line_center: Point2
+    mineral_field_center: Optional[Point2]
+    mineral_line_center: Optional[Point2]
     mining_gather_targets: dict[int, Point2]
     mining_return_targets: dict[int, Point2]
 
@@ -47,10 +47,15 @@ class ExpansionLocation(Manager):
             self.mining_gather_targets[mineral_field.tag] = gather_target
             # Return
             self.mining_return_targets[mineral_field.tag] = self.center.towards(gather_target, RETURN_RADIUS)
-        self.mineral_field_center = (sum((mf.position for mf in self.mineral_fields), start=Point2((0, 0)))
-                                     / len(self.mineral_fields))
-        self.mineral_line_center = self.center.towards(self.mineral_field_center, MINERAL_LINE_CENTER_DISTANCE)
-        self.base_center = self.center.towards(self.mineral_field_center, -10)
+        if self.mineral_fields:
+            self.mineral_field_center = (sum((mf.position for mf in self.mineral_fields), start=Point2((0, 0)))
+                                        / len(self.mineral_fields))
+            self.mineral_line_center = self.center.towards(self.mineral_field_center, MINERAL_LINE_CENTER_DISTANCE)
+            self.base_center = self.center.towards(self.mineral_field_center, -10)
+        else:
+            self.mineral_field_center = None
+            self.mineral_line_center = None
+            self.base_center = self.center
 
     @property
     def mineral_fields(self) -> Units:
@@ -73,11 +78,3 @@ class ExpansionLocation(Manager):
         if isinstance(other, ExpansionLocation):
             return self.center == other.center
         return NotImplemented
-
-    def debug_show(self):
-        for point in self.mining_gather_targets.values():
-            self.debug.box(point, size=0.25, color=(255, 0, 0))
-        for point in self.mining_return_targets.values():
-            self.debug.box(point, size=0.25, color=(0, 0, 255))
-        #self.bot.debug.box(self.mineral_field_center, size=0.25, color=(0, 255, 0))
-        self.debug.box(self.mineral_line_center, size=0.25, color=(0, 255, 0))

@@ -5,7 +5,7 @@ from time import perf_counter
 from typing import Optional
 
 from sc2.bot_ai import BotAI
-from sc2.constants import IS_STRUCTURE
+from sc2.constants import IS_STRUCTURE, CREATION_ABILITY_FIX
 from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -51,15 +51,45 @@ class BotApi(BotAI):
         await self.bot.on_unit_took_damage(unit, amount_damage_taken)
 
     async def on_unit_created(self, unit: Unit) -> None:
-        pass
+        await self.bot.on_unit_created(unit)
 
     async def on_building_construction_started(self, unit: Unit) -> None:
-        pass
+        await self.bot.on_building_construction_started(unit)
+
+    async def on_building_construction_finished(self, unit: Unit) -> None:
+        await self.bot.on_building_construction_finished(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
-        pass
+        await self.bot.on_unit_destroyed(unit_tag)
 
     # --- Extra utility
+
+    def get_creation_ability(self, utype: UnitTypeId) -> AbilityId:
+        try:
+            return self.game_data.units[utype.value].creation_ability.exact_id
+        except AttributeError:
+            return CREATION_ABILITY_FIX.get(utype.value, 0)
+
+    # TODO: pending at location
+    # def get_pending(self, utype: UnitTypeId) -> list[float]:
+    #     # replicate: self.bot.already_pending(utype)
+    #
+    #     # tuple[Counter[AbilityId], dict[AbilityId, float]]
+    #     abilities_amount: Counter[AbilityId] = Counter()
+    #     build_progress: dict[AbilityId, list[float]] = defaultdict(list)
+    #     unit: Unit
+    #     for unit in self.units + self.structures:
+    #         for order in unit.orders:
+    #             abilities_amount[order.ability.exact_id] += 1
+    #         if not unit.is_ready and (self.bot.race != Race.Terran or not unit.is_structure):
+    #             # If an SCV is constructing a building, already_pending would count this structure twice
+    #             # (once from the SCV order, and once from "not structure.is_ready")
+    #             creation_ability = CREATION_ABILITY_FIX.get(
+    #                 unit.type_id, self.bot.game_data.units[unit.type_id.value].creation_ability.exact_id)
+    #             abilities_amount[creation_ability] += 2 if unit.type_id == UnitTypeId.ARCHON else 1
+    #             build_progress[creation_ability].append(unit.build_progress)
+    #
+    #     return abilities_amount, max_build_progress
 
     def get_attributes(self, utype: UnitTypeId) -> list[Enum]:
         return self.game_data.units[utype.value].attributes
@@ -101,31 +131,3 @@ class BotApi(BotAI):
         if not building:
             return 0
         return self.get_cost(building.type_id).time * (1 - building.build_progress)
-
-    def estimate_resource_collection_rates(self, *,
-                                           excluded_workers: Optional[Unit | Units] = None,
-                                           worker_mineral_rate: float = 1.0) -> tuple[float, float]:
-        # TODO only correctly placed townhalls
-        mineral_workers = 0
-        for townhall in self.townhalls:
-            mineral_workers += len(self.workers_mining_at(townhall, excluded_workers=excluded_workers))
-        mineral_rate = max(worker_mineral_rate * mineral_workers, 0)
-        return mineral_rate, 0
-
-    def workers_mining_at(self, townhall: Unit, *,
-                          excluded_workers: Optional[Unit | Units] = None,
-                          radius: float = 10.0) -> Units:
-        """Return number of workers currently mining minerals around a specific base."""
-        nearby_minerals = self.mineral_field.closer_than(radius, townhall)
-        if not nearby_minerals:
-            return Units([], self)
-        allowed_orders = {AbilityId.HARVEST_GATHER, AbilityId.HARVEST_RETURN}
-        allowed_tags = {0, townhall.tag, *(m.tag for m in nearby_minerals)}
-        workers = self.workers.closer_than(radius, townhall)
-        if excluded_workers:
-            excluded_workers_tags = (excluded_workers.tags if isinstance(excluded_workers, Units)
-                                     else {excluded_workers.tag})
-            workers = workers.tags_not_in(excluded_workers_tags)
-        workers = workers.filter(lambda w: (w.orders and w.orders[0].ability.id in allowed_orders) and w.order_target in allowed_tags)
-        return Units(workers, self)
-
