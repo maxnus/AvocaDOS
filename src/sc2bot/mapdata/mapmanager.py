@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.pixel_map import PixelMap
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
@@ -19,6 +20,8 @@ class MapManager(BotObject):
     expansion_order: list[tuple[int, float]]
     enemy_start_locations: list[ExpansionLocation]
     enemy_expansion_order: list[list[tuple[int, float]]]
+    ramp_defense_location: Point2
+    placement_grid: PixelMap
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -42,6 +45,18 @@ class MapManager(BotObject):
                 key=lambda x: x[1]
             ))
 
+        self.ramp_defense_location = self.api.main_base_ramp.top_center
+        self.placement_grid = self.api.game_info.placement_grid.copy()
+
+    # async def can_place_building(self, utype: UnitTypeId, position: Point2) -> bool:
+    #     footprint_size = int(2 * self.api.game_data.units[utype.value].footprint_radius)
+    #
+    #     point = position
+    #     if not self.placement_grid[point]:
+    #         return False
+    #
+    #     return await self.api.can_place_single(utype, point)
+
     def get_proxy_location(self) -> Point2:
         idx = self.enemy_expansion_order[0][2][0]
         return self.expansions[idx].center
@@ -59,36 +74,41 @@ class MapManager(BotObject):
             case UnitTypeId.REFINERY:
                 if near is None:
                     near = self.map.start_base.center
-                geysers = self.api.vespene_geyser.closer_than(10.0, near)
-                if geysers:
-                    return geysers.random
+                geysers = self.api.vespene_geyser.closer_than(10.0, near).filter(lambda g: g.has_vespene)
+                if not geysers:
+                    return None
+                if len(geysers) == 1:
+                    return geysers.first
+                geysers_contents = sorted([(geyser, geyser.vespene_contents) for geyser in geysers],
+                                          key=lambda x: x[1], reverse=True)
+                if geysers_contents[0][1] > geysers_contents[1][1]:
+                    return geysers_contents[0][0]
+                return geysers.closest_to(near)
 
             case UnitTypeId.SUPPLYDEPOT:
-                positions = [p for p in self.api.main_base_ramp.corner_depots if await self.api.can_place_single(utype, p)]
-                if positions:
-                    return self.bot.map.start_base.center.closest(positions)
+                ramp_positions = [p for p in self.api.main_base_ramp.corner_depots
+                             if await self.api.can_place_single(utype, p)]
+                if ramp_positions:
+                    return self.bot.map.start_base.center.closest(ramp_positions)
                 if await self.api.can_place_single(utype, self.api.main_base_ramp.depot_in_middle):
                     return self.api.main_base_ramp.depot_in_middle
-                return await self.api.find_placement(utype, near=self.map.start_base.base_center)
+                return await self.api.find_placement(utype, near=self.map.start_base.base_center,
+                                                     random_alternative=False)
 
             case UnitTypeId.BARRACKS:
                 if near is None:
-                    position = self.api.main_base_ramp.barracks_correct_placement
-                    if await self.api.can_place_single(utype, position):
-                        return position
+                    ramp_position = self.api.main_base_ramp.barracks_correct_placement
+                    if await self.api.can_place_single(utype, ramp_position):
+                        return ramp_position
                     return await self.api.find_placement(utype, near=self.map.start_base.base_center,
-                                                         addon_place=True)
+                                                         addon_place=True, random_alternative=False)
                 else:
                     return await self.api.find_placement(utype, near=near, max_distance=max_distance,
                                                          random_alternative=False, addon_place=True)
-            case UnitTypeId.COMMANDCENTER:
-                if near is None:
-                    self.logger.error("NotImplemented")
-                else:
-                    return await self.api.find_placement(utype, near=near)
+
             case _:
                 self.logger.error("Not implemented: {}", utype)
-        return None
+                return None
 
     async def get_travel_times(self, units: Units, destination: Point2, *,
                                target_distance: float = 0.0) -> list[float]:

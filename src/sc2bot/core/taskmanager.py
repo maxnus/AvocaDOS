@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterator
 from time import perf_counter
 from typing import Optional, TYPE_CHECKING
@@ -9,7 +10,8 @@ from sc2.position import Point2
 from .constants import ALTERNATIVES, TRAINERS
 from .botobject import BotObject
 from .tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies, BuildingCountTask,
-                    UnitCountTask, ResearchTask, MoveTask, AttackTask)
+                    UnitCountTask, ResearchTask, AttackTask, DefenseTask)
+from ..micro.squad import SquadDefendTask, SquadAttackTask, Squad
 
 if TYPE_CHECKING:
     from .avocados import AvocaDOS
@@ -101,13 +103,11 @@ class TaskManager(BotObject):
             completed = await self._on_unit_count_task(task)
         elif isinstance(task, ResearchTask):
             completed = self._on_research_task(task)
-        elif isinstance(task, MoveTask):
-            completed = self._on_move_task(task)
-        elif isinstance(task, AttackTask):
-            completed = self._on_attack_task(task)
+        elif isinstance(task, (AttackTask, DefenseTask)):
+            completed = self._on_squad_task(task)
         else:
+            self.logger.error("Not implemented: {}", task)
             completed = False
-            self.logger.warning("Not implemented: {}", task)
         #if (time_ms := 1000 * (perf_counter() - t0)) > 5:
         #    self.logger.warning("{} took {:.3f} ms", task, time_ms)
         if completed:
@@ -226,27 +226,52 @@ class TaskManager(BotObject):
         #    self.logger.trace("No researcher for {}", task.upgrade)
         return False
 
-    def _on_move_task(self, task: MoveTask) -> bool:
-        if task.units is None:
-            units = self.bot.units
+    def _on_squad_task(self, task: AttackTask | DefenseTask) -> bool:
+        if isinstance(task, AttackTask):
+            squads_with_task = self.squads.with_task(SquadAttackTask(task.target))
         else:
-            #units = []
-            #for utype, number in task.units.items():
-            units = sum((self.bot.units(utype).closest_n_units(task.target, number) for utype, number in task.units.items()),
-                        start=[])
-        for unit in units:
-            self.order.move(unit, task.target)
-        return True
+            squads_with_task = self.squads.with_task(SquadDefendTask(task.target))
 
-    def _on_attack_task(self, task: AttackTask) -> bool:
-        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
-        if len(units) < 8:
+        total_strength = sum(s.strength for s in squads_with_task)
+        if task.strength is not None and total_strength >= task.strength:
             return False
 
-        #if len(self.squads) > 0:
-        #    squad = self.squads.closest_to(task.target)
-        #    squad.add(units)
-        #else:
-        squad = self.squads.create(units)
-        squad.attack(task.target)
+        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
+
+        if task.strength is not None and units:
+            units_to_add = int(math.ceil(task.strength - total_strength))
+            units = units.closest_n_units(task.target, units_to_add)
+
+        if task.strength is None:
+            for squad in self.squads:
+                if squad in squads_with_task:
+                    continue
+                units += squad.units
+
+        if not units:
+            return False
+
+        # Find suitable existing squad
+        squad = None
+        if squads_with_task:
+            # TODO
+            closest_squad, distance = min([(s, s.center.distance_to(units.center)) for s in squads_with_task],
+                                  key=lambda x: x[1])
+            if distance <= 10:
+                squad = closest_squad
+
+        if squad is None:
+            if len(units) < task.minimum_size:
+                #self.logger.info("Squad size of {} is required but only {} units found", task.minimum_size, len(units))
+                return False
+            self.squads.remove_from_squads(units)
+            squad = self.squads.create(units)
+        else:
+            self.squads.remove_from_squads(units)
+            squad.add(units)
+
+        if isinstance(task, AttackTask):
+            squad.attack(task.target)
+        else:
+            squad.defend(task.target)
         return False

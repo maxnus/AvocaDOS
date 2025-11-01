@@ -1,10 +1,8 @@
 import math
-import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, ClassVar
 
-from loguru import logger as _logger
-from loguru._logger import Logger
+
 from sc2.client import Client
 from sc2.ids.ability_id import AbilityId
 from sc2.position import Point3, Point2
@@ -80,39 +78,29 @@ class DebugManager(BotObject):
     show_orders: bool
     show_tasks: bool
     show_combat: bool
+    show_squads: bool
     show_extra: bool
     # Temporary displays
     debug_items: list[DebugWorldText]
 
-    def __init__(self, bot: 'AvocaDOS', *, log_level: str = "DEBUG") -> None:
+    def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.damage_taken = {}
         self.shot_last_frame = set()
-        self._logger = _logger.bind(bot=bot.name, prefix=bot.name, step=0, time=0)
         self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
         self.show_orders = False
         self.show_tasks = True
         self.show_combat = True
+        self.show_squads = True
         self.show_extra = True
         self.debug_items = []
-
-        self.logger.remove()
-        self.logger.add(
-            sys.stdout,
-            level=log_level,
-            filter=lambda record: record['extra'].get('bot') == self.bot.name,
-            format="[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}] {message}"
-        )
 
     @property
     def client(self) -> Client:
         return self.api.client
 
-    @property
-    def logger(self) -> Logger:
-        return self._logger
 
     # Controls
 
@@ -143,18 +131,16 @@ class DebugManager(BotObject):
         #self.damage_taken[unit] = amount_damage_taken
         pass
 
-    async def on_step_start(self, step: int) -> None:
-        self._logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time)
+    async def on_step(self, step: int) -> None:
         await self._handle_chat()
-
-
-    async def on_step_end(self, step: int) -> None:
         if self.show_tasks:
             self._show_tasks()
         if self.show_extra:
             self._show_extra()
         if self.show_orders:
             self._show_orders()
+        if self.show_squads:
+            self._show_squads()
         if self.show_combat:
             self._show_combat()
         #self.damage_taken.clear()
@@ -304,6 +290,11 @@ class DebugManager(BotObject):
                 continue
             order = orders[0]
             self.box_with_text(unit, order.short_repr)
+
+    def _show_squads(self) -> None:
+        for squad in self.squads:
+            for unit in squad.units:
+                self.box_with_text(unit, f"{squad.id}", color=Color.PINK)
 
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.api.get_resource_collection_rates()

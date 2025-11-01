@@ -18,6 +18,16 @@ def unique_id() -> int:
     return next(_id_counter)
 
 
+def normalize_tags(unit: Unit | int | Units | set[int]) -> set[int]:
+    if isinstance(unit, Unit):
+        return {unit.tag}
+    if isinstance(unit, int):
+        return {unit}
+    if isinstance(unit, Units):
+        return unit.tags
+    return unit
+
+
 async def wait_until(predicate: Callable[..., Any], check_interval: float = 1) -> None:
     """Repeatedly check predicate() until it returns True."""
     while not predicate():

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @dataclass(repr=False, frozen=True)
 class Order(ABC):
-    id: int = field(default_factory=unique_id, init=False, compare=False)
+    #id: int = field(default_factory=unique_id, init=False, compare=False)
 
     @abstractmethod
     def __repr__(self) -> str:

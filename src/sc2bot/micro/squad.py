@@ -1,5 +1,6 @@
 import math
-from dataclasses import dataclass
+from abc import ABC
+from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy
@@ -10,18 +11,22 @@ from sc2.units import Units
 from sc2bot.core.botobject import BotObject
 
 
-class SquadTask:
+
+@dataclass
+class SquadTask(ABC):
     pass
 
 
 @dataclass
 class SquadAttackTask(SquadTask):
     target: Point2 | Unit
+    priority: float = field(default=0.5, compare=False)
 
 
 @dataclass
 class SquadDefendTask(SquadTask):
     target: Point2 | Unit
+    priority: float = field(default=0.5, compare=False)
 
 
 class Squad(BotObject):
@@ -29,8 +34,9 @@ class Squad(BotObject):
     task: Optional[SquadTask]
     spacing: float
 
-    def __init__(self, bot, tags: Optional[set[int]] = None ) -> None:
+    def __init__(self, bot, tags: Optional[set[int]] = None, _code: bool = False) -> None:
         super().__init__(bot)
+        assert _code, "Squads should only be created by the SquadManager"
         self.tags = tags or set()
         self.task = None
         self.spacing = 1.0
@@ -42,24 +48,27 @@ class Squad(BotObject):
     def units(self) -> Units:
         return self.bot.units.tags_in(self.tags)
 
+    @property
+    def strength(self) -> float:
+        # TODO: better measure of strength
+        return len(self)
+
     def __contains__(self, tag: int) -> bool:
         return tag in self.tags
 
-    def add(self, unit: Unit | int | Units | set[int]) -> None:
-        if isinstance(unit, Unit):
-            tags = {unit.tag}
-        elif isinstance(unit, int):
-            tags = {unit}
-        elif isinstance(unit, Units):
-            tags = unit.tags
-        else:
-            tags = unit
-        self.tags.update(tags)
+    def add(self, units: Unit | int | Units | set[int]) -> None:
+        self.squads.add_units(self, units)
+
+    def remove(self, units: Unit | int | Units | set[int]) -> None:
+        self.squads.remove_units(self, units)
 
     # --- Orders
 
     def attack(self, target: Unit | Point2) -> None:
         self.task = SquadAttackTask(target)
+
+    def defend(self, target: Unit | Point2) -> None:
+        self.task = SquadDefendTask(target)
 
     # --- Position
 

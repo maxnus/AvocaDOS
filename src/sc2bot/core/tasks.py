@@ -1,5 +1,4 @@
 import copy
-import itertools
 from abc import ABC, abstractmethod
 from enum import Enum, StrEnum
 from typing import Optional, Self
@@ -86,7 +85,7 @@ class Task(ABC):
 
     def copy(self, status: Optional[TaskStatus] = None) -> Self:
         copied_task = copy.copy(self)
-        copied_task.id = _get_next_id()
+        copied_task.id = unique_id()
         copied_task.status = status or self.status
         return copied_task
 
@@ -169,54 +168,33 @@ class ResearchTask(Task):
 
 
 
-class OrderTask(Task):
+class AttackOrDefenseTask(Task, ABC):
     target: Point2
-    units: Optional[dict[UnitTypeId, int]]
+    strength: Optional[float]
+    minimum_size: int
 
     def __init__(self,
                  target: Point2,
-                 units: Optional[dict[UnitTypeId, int]] | UnitTypeId = None,
+                 strength: Optional[float] = None,
                  *,
+                 minimum_size: int = 1,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[TaskDependencies | TaskStatus | int] = None,
                  priority: int = 50,
                  repeat: bool = False,
                  ) -> None:
         super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-        if isinstance(units, UnitTypeId):
-            units = {units: 1}
-        self.units = units
         self.target = target
+        self.strength = strength
+        self.minimum_size = minimum_size
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(target={self.target}, units={self.units}, priority={self.priority})"
+        return f"{self.__class__.__name__}(target={self.target}, strength={self.strength}, priority={self.priority})"
 
 
-class MoveTask(OrderTask):
+class AttackTask(AttackOrDefenseTask):
     pass
 
 
-class AttackTask(OrderTask):
+class DefenseTask(AttackOrDefenseTask):
     pass
-
-
-# class MiningTask(Task):
-#     location: Optional[Point2]
-#     max_workers: Optional[int]
-#
-#     def __init__(self,
-#                  location: Optional[Point2] = None,
-#                  max_workers: Optional[int] = None,
-#                  *,
-#                  reqs: Optional[TaskRequirements] = None,
-#                  deps: Optional[TaskDependencies | TaskStatus | int] =  None,
-#                  priority: int = 50,
-#                  repeat: bool = False,
-#                  ) -> None:
-#         super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
-#         self.location = location
-#         self.max_workers = max_workers
-#
-#     def __repr__(self) -> str:
-#         return (f"{self.__class__.__name__}(location={self.location}, max_workers={self.max_workers},"
-#                 f" priority={self.priority})")

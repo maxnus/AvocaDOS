@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional
 from sc2.ids.unit_typeid import UnitTypeId
 
 from sc2bot.core.botobject import BotObject
-from sc2bot.core.tasks import UnitCountTask, AttackTask
+from sc2bot.core.tasks import UnitCountTask, AttackTask, DefenseTask
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -32,27 +32,19 @@ class BuildOrderManager(BotObject):
 
         rax123 = bot.tasks.add(UnitCountTask(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 14)))
         rax456 = bot.tasks.add(UnitCountTask(UnitTypeId.BARRACKS, 6, reqs=('S', 23)))
-        #rax2 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 2, reqs=(UnitTypeId.SCV, 15)))
-        #rax3 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 16)))
-        #rax4 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 4, reqs=(UnitTypeId.SCV, 17)))
-        #rax5 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 5, reqs=(UnitTypeId.SCV, 18)))
-        #rax6 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 6, reqs=(UnitTypeId.SCV, 19)))
 
         bot.tasks.add(UnitCountTask(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS))
 
         # --- Supply
         bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 3, reqs=('S', 26)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 4, reqs=('S', 34)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 5, reqs=('S', 42)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 6, reqs=('S', 50)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 7, reqs=('S', 58)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 8, reqs=('S', 64)))
+        for number in range(3, 30):
+            bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, number, reqs=('S', number * 8 + 2)))
 
         # Units
         bot.tasks.add(UnitCountTask(UnitTypeId.MARINE, 100, reqs=UnitTypeId.BARRACKS))
 
-        bot.tasks.add(AttackTask(target=bot.map.enemy_start_locations[0].center, reqs=(UnitTypeId.MARINE, 8)))
+        bot.tasks.add(DefenseTask(target=bot.map.ramp_defense_location, strength=8))
+        bot.tasks.add(AttackTask(target=bot.map.enemy_start_locations[0].center, minimum_size=8, reqs=(UnitTypeId.MARINE, 8)))
 
     def load_proxy_marine(self) -> None:
         bot = self.bot

@@ -2,10 +2,10 @@ import heapq
 from collections import Counter
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
+import sys
 
-import numpy
+from loguru import logger as _logger
 from loguru._logger import Logger
-from sc2.constants import CREATION_ABILITY_FIX
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -23,8 +23,7 @@ from sc2bot.mapdata.mapmanager import MapManager
 from sc2bot.core.orders import Order, OrderManager
 from sc2bot.core.resourcemanager import ResourceManager
 from sc2bot.core.taskmanager import TaskManager
-from sc2bot.core.tasks import Task
-from sc2bot.core.util import squared_distance, LineSegment
+from sc2bot.core.util import LineSegment
 from sc2bot.micro.combat import CombatManager
 from sc2bot.micro.squadmanager import SquadManager
 
@@ -57,10 +56,13 @@ class RetreatCommand(Command):
     target: Point2
 
 
+LOG_FORMAT = "<green>[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}]</green> <level>{message}</level>"
+
 
 class AvocaDOS:
     api: 'BotApi'
     name: str
+    logger: Logger
     # Manager
     map: Optional[MapManager]
     build: BuildOrderManager
@@ -85,6 +87,17 @@ class AvocaDOS:
         super().__init__()
         self.api = api
         self.name = name
+
+        # Logging
+        self.logger = _logger.bind(bot=name, prefix=name, step=0, time=0)
+        self.logger.remove()
+        self.logger.add(
+            sys.stdout,
+            level=log_level,
+            filter=lambda record: record['extra'].get('bot') == self.name,
+            format=LOG_FORMAT,
+        )
+
         # Manager
         self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
@@ -95,7 +108,7 @@ class AvocaDOS:
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
         self.map = MapManager(self)
-        self.debug = DebugManager(self, log_level=log_level)
+        self.debug = DebugManager(self)
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
         else:
@@ -118,7 +131,7 @@ class AvocaDOS:
         await self.mining.add_expansion(self.map.start_base)
 
     async def on_step(self, step: int):
-        await self.debug.on_step_start(step)
+        self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time)
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.on_step(step)
 
@@ -132,11 +145,9 @@ class AvocaDOS:
         await self.mining.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
-
         # TODO
         await self.other(step)
-
-        await self.debug.on_step_end(step)
+        await self.debug.on_step(step)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         await self.debug.on_unit_took_damage(unit, amount_damage_taken)
@@ -154,10 +165,6 @@ class AvocaDOS:
         pass
 
     # --- Properties
-
-    @property
-    def logger(self) -> Logger:
-        return self.debug.logger
 
     @property
     def time(self) -> float:

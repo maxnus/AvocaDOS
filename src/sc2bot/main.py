@@ -62,7 +62,8 @@ def macro():
     runner = GameRunner(
         'AcropolisLE',
         bot=Bot(Race.Terran, BotApi(build='mass_marine', log_level='DEBUG')),
-        opponent=Computer(Race.Protoss, Difficulty.VeryHard),
+        opponent=Computer(Race.Protoss, Difficulty.CheatInsane),
+        #opponent=Computer(Race.Protoss, Difficulty.VeryHard),
         #opponent=Computer(Race.Protoss, Difficulty.Easy),
         realtime='--realtime' in sys.argv,
     )

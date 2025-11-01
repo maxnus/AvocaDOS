@@ -84,7 +84,7 @@ class MiningManager(BotObject):
         else:
             self.logger.error("Missing target point for mineral {}", mineral)
         self.assignments[expansion][worker.tag] = mineral.tag
-        self.logger.info("Assigning {} to {}", worker, mineral)
+        self.logger.debug("Assigning {} to {}", worker, mineral)
 
     def unassign_worker(self, unit: Unit | int) -> bool:
         tag = unit.tag if isinstance(unit, Unit) else unit

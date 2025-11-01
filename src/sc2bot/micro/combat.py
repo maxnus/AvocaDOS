@@ -1,4 +1,4 @@
-from typing import Optional, ClassVar
+from typing import Optional, ClassVar, TYPE_CHECKING
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.buff_id import BuffId
@@ -9,15 +9,34 @@ from sc2.units import Units
 
 from sc2bot.core.botobject import BotObject
 from sc2bot.core.util import squared_distance, get_closest_distance, lerp
-from sc2bot.micro.squad import Squad, SquadTask, SquadAttackTask
+from sc2bot.micro.squad import Squad, SquadTask, SquadAttackTask, SquadDefendTask
 from sc2bot.micro.weapons import Weapons
+
+if TYPE_CHECKING:
+    from sc2bot.core.avocados import AvocaDOS
 
 
 class CombatManager(BotObject):
     # Parameters
-    attack_priority_base_weight: ClassVar[float] = 0.9
-    attack_priority_weakness_weight: ClassVar[float] = 0.08
-    attack_priority_distance_weight: ClassVar[float] = 0.02
+    attack_priority_base_weight: float
+    attack_priority_weakness_weight: float
+    attack_priority_distance_weight: float
+    attack_priority_base_weakness_correlation: float
+    attack_priority_base_distance_correlation: float
+    attack_priority_weakness_distance_correlation: float
+    attack_priority_threshold: float
+    defense_priority_threshold: float
+
+    def __init__(self, bot: 'AvocaDOS') -> None:
+        super().__init__(bot)
+        self.attack_priority_base_weight = 0.75
+        self.attack_priority_weakness_weight = 0.10
+        self.attack_priority_distance_weight = 0.05
+        self.attack_priority_base_weakness_correlation = 0.05
+        self.attack_priority_base_distance_correlation = 0.05
+        self.attack_priority_weakness_distance_correlation = 0.00
+        self.attack_priority_threshold = 0.375  # attack_priority_base_weight/2
+        self.defense_priority_threshold = 0.50
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}'
@@ -72,31 +91,51 @@ class CombatManager(BotObject):
 
         match target.type_id:
             # Terran
-            case UnitTypeId.SCV:
-                return 0.1
-            case UnitTypeId.MARINE:
-                return 0.5
-            case UnitTypeId.REAPER:
-                return 0.6
-            case UnitTypeId.MARAUDER:
-                return 0.4
-            case UnitTypeId.GHOST:
-                return 0.7
+            case UnitTypeId.SCV: return 0.50
+            case UnitTypeId.MARAUDER: return 0.55
+            case UnitTypeId.MARINE: return 0.60
+            case UnitTypeId.REAPER: return 0.65
+            case UnitTypeId.HELLION: return 0.65
+            case UnitTypeId.CYCLONE: return 0.65
+            case UnitTypeId.VIKING: return 0.65
+            case UnitTypeId.WIDOWMINE: return 0.70
+            case UnitTypeId.WIDOWMINEBURROWED: return 0.70
+            case UnitTypeId.SIEGETANK: return 0.70
+            case UnitTypeId.GHOST: return 0.70
+            case UnitTypeId.MEDIVAC: return 0.75
+            case UnitTypeId.SIEGETANKSIEGED: return 0.80
             # Zerg
-            case UnitTypeId.ZERGLING: return 0.5
-            case UnitTypeId.BANELING: return 1.0
+            case UnitTypeId.DRONEBURROWED: return 0.50
+            case UnitTypeId.DRONE: return 0.50
+            case UnitTypeId.ROACHBURROWED : return 0.50
+            case UnitTypeId.ROACH: return 0.55
+            case UnitTypeId.ZERGLINGBURROWED: return 0.55
+            case UnitTypeId.ZERGLING: return 0.60
+            case UnitTypeId.QUEENBURROWED: return 0.55
+            case UnitTypeId.QUEEN: return 0.60
+            case UnitTypeId.HYDRALISKBURROWED: return 0.60
+            case UnitTypeId.HYDRALISK: return 0.65
+            case UnitTypeId.BANELINGBURROWED: return 0.90
+            case UnitTypeId.BANELING: return 1.00
             # Protoss
-            case UnitTypeId.PROBE: return 0.2
-            case UnitTypeId.ZEALOT: return 0.5
-            case UnitTypeId.STALKER: return 0.55
-            case UnitTypeId.ADEPT: return 0.6
+            case UnitTypeId.PROBE: return 0.50
+            case UnitTypeId.ZEALOT: return 0.55
+            case UnitTypeId.PHOENIX: return 0.55
+            case UnitTypeId.STALKER: return 0.60
+            case UnitTypeId.ADEPT: return 0.65
+            case UnitTypeId.ADEPTPHASESHIFT: return 0.30
+            case UnitTypeId.VOIDRAY: return 0.65
             case UnitTypeId.SENTRY:
                 # TODO: detect if sentry is the actual caster
                 if target.has_buff(BuffId.GUARDIANSHIELD):
-                    return 0.8
+                    return 0.80
                 else:
-                    return 0.65
-            # Building
+                    return 0.55
+            case UnitTypeId.IMMORTAL: return 0.70
+            case UnitTypeId.ORACLE: return 0.75
+            case UnitTypeId.COLOSSUS: return 0.80
+            case UnitTypeId.DISRUPTOR: return 0.85
+            case UnitTypeId.WARPPRISM: return 0.90
 
             case _:
                 self.logger.warning("No attack base priority for {}", target.type_id.name)
@@ -112,17 +151,19 @@ class CombatManager(BotObject):
         priorities: dict[Unit, float] = {}
         min_distance = get_closest_distance(attacker, targets)
         for target in targets:
-            floor = 0.0
-            ceil = 1.0
-            # if target.is_structure and not target.can_attack:
-            #     ceil = 0.0
+            floor, ceil = 0.0, 1.0
             base = self._get_attack_base_priority(target)
             # t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
             weakness = 1 - target.shield_health_percentage**2
             distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
-            priority = (self.attack_priority_base_weight * base
-                        + self.attack_priority_weakness_weight * weakness
-                        + self.attack_priority_distance_weight * distance)
+            priority = (
+                    self.attack_priority_base_weight * base
+                    + self.attack_priority_weakness_weight * weakness
+                    + self.attack_priority_distance_weight * distance
+                    + self.attack_priority_base_weakness_correlation * base * weakness
+                    + self.attack_priority_base_distance_correlation * base * distance
+                    + self.attack_priority_weakness_distance_correlation * weakness * distance
+            )
             priorities[target] = max(floor, min(ceil, priority))
         return priorities
 
@@ -249,7 +290,7 @@ class CombatManager(BotObject):
         # --- Defense
         defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
 
-        if defense_prio >= 0.5:  # or (defense_position and unit.shield_health_percentage < 0.2):
+        if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
             return self.order.move(unit, defense_position)
 
         # --- Offense
@@ -271,28 +312,36 @@ class CombatManager(BotObject):
             if ability_prio > 0.5:
                 return self.order.ability(unit, ability_id, ability_target)
 
-        if (squad_target_priority >= 0.5 and squad_target
+        if (squad_target_priority >= self.attack_priority_threshold and squad_target
                 and (unit.distance_to(squad_target) >= unit.ground_range + unit.distance_to_weapon_ready)):
             return self.order.attack(unit, squad_target)
 
         if defense_position and unit.shield_health_percentage < 0.8:
             return self.order.move(unit, defense_position)
 
-        if squad_target_priority >= 0.5 and squad_target:
+        if squad_target_priority >= self.attack_priority_threshold and squad_target:
             return self.order.attack(unit, squad_target)
 
-        if isinstance(squad.task, SquadAttackTask):
-            # Regroup
-            scan_sq = self.get_scan_range(unit)**2
-            if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.get_max_spread_squared():
-                return self.order.move(unit, squad.center)
-            # Move
-            elif squared_distance(unit, squad.task.target) > scan_sq:
-                return self.order.move(unit, squad.task.target)
-            # Attack
-            else:
-                # TODO
-                return self.order.attack(unit, squad.task.target)
+        # Regroup
+        scan_sq = self.get_scan_range(unit)**2
+        if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.get_max_spread_squared():
+            return self.order.move(unit, squad.center)
+
+        if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
+            # TODO
+            return self.order.move(unit, squad.task.target)
+            ## Move to task location
+            #if squared_distance(unit, squad.task.target) > scan_sq:
+            #    return self.order.move(unit, squad.task.target)
+            ## Attack
+            #else:
+            #    return self.order.move(unit, squad.task.target)
+            #    ## TODO
+            #    #if isinstance(squad.task, SquadAttackTask):
+            #    #    return self.order.move(unit, squad.task.target)
+            #    #elif isinstance(squad.task, SquadDefendTask):
+            #    #    if not unit.orders:
+            #    #        return self.order.move(unit, squad.task.target, queue=True)
 
         return False
 
