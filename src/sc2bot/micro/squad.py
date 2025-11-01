@@ -18,6 +18,11 @@ class SquadAttackTask(SquadTask):
     target: Point2 | Unit
 
 
+@dataclass
+class SquadDefendTask(SquadTask):
+    target: Point2 | Unit
+
+
 class Squad(BotObject):
     tags: set[int]
     task: Optional[SquadTask]
@@ -27,9 +32,26 @@ class Squad(BotObject):
         self.tags = tags or set()
         self.task = None
 
+    def __len__(self) -> int:
+        return len(self.units)
+
     @property
     def units(self) -> Units:
         return self.bot.units.tags_in(self.tags)
+
+    def __contains__(self, tag: int) -> bool:
+        return tag in self.tags
+
+    def add(self, unit: Unit | int | Units | set[int]) -> None:
+        if isinstance(unit, Unit):
+            tags = {unit.tag}
+        elif isinstance(unit, int):
+            tags = {unit}
+        elif isinstance(unit, Units):
+            tags = unit.tags
+        else:
+            tags = unit
+        self.tags.update(tags)
 
     # --- Orders
 

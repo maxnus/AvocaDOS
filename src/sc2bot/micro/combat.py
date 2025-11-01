@@ -196,7 +196,7 @@ class CombatManager(BotObject):
                 unit,
                 enemies=enemies,
                 abilities=unit_abilities,
-                squad_task=squad.task,
+                squad=squad,
                 squad_attack_priorities=squad_attack_priorities,
                 squad_target=squat_target
             )
@@ -204,7 +204,7 @@ class CombatManager(BotObject):
     def _micro_unit(self, unit: Unit, *,
                     enemies: Units,
                     abilities: list[AbilityId],
-                    squad_task: SquadTask,
+                    squad: Squad,
                     squad_attack_priorities: dict[Unit, float],
                     squad_target: Optional[Unit]) -> bool:
 
@@ -236,8 +236,17 @@ class CombatManager(BotObject):
         if squad_target is not None:
             return self.order.attack(unit, squad_target)
 
-        if isinstance(squad_task, SquadAttackTask):
-            return self.order.attack(unit, squad_task.target)
+        if isinstance(squad.task, SquadAttackTask):
+            # Regroup
+            scan_sq = self.get_scan_range(unit)**2
+            if len(squad) > 0 and squared_distance(unit, squad.center) >= 16:
+                return self.order.move(unit, squad.center)
+            # Move
+            elif squared_distance(unit, squad.task.target) > scan_sq:
+                return self.order.attack(unit, squad.task.target)
+            # Attack
+            else:
+                return self.order.move(unit, squad.task.target)
 
         return False
 

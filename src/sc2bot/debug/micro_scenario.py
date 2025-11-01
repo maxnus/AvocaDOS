@@ -8,7 +8,6 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from sc2bot.core.botobject import BotObject
-from sc2bot.core.tasks import AttackTask
 from sc2bot.core.util import UnitCost
 from sc2bot.micro.squad import Squad
 
@@ -105,7 +104,7 @@ class MicroScenario(BotObject):
     async def finish(self) -> Optional[MicroScenarioResults]:
         results = self._get_results()
         #self.bot.remove_commander(f'MicroScenario{self.id}')
-        self.squads.delete_squad(self.squad)
+        self.squads.delete(self.squad)
         await self.api.client.debug_kill_unit(self.tags_p1 | self.tags_p2)
         return results
 
@@ -151,7 +150,7 @@ class MicroScenario(BotObject):
             #cmd = self.bot.add_commander(f'MicroScenario{self.id}')
             #cmd.add_units(units_p1 if self.api.player_id == 1 else units_p2)
 
-            self.squad = self.squads.create_squad(units_p1 if self.api.player_id == 1 else units_p2)
+            self.squad = self.squads.create(units_p1 if self.api.player_id == 1 else units_p2)
             self.squad.attack(self.location)
 
             #self.tasks.add(AttackTask(self.location))

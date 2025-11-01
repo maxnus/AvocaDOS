@@ -239,6 +239,14 @@ class TaskManager(BotObject):
         return True
 
     def _on_attack_task(self, task: AttackTask) -> bool:
-        for unit in self.bot.army.idle:
-            self.order.attack(unit, task.target)
+        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
+        if len(units) < 8:
+            return False
+
+        #if len(self.squads) > 0:
+        #    squad = self.squads.closest_to(task.target)
+        #    squad.add(units)
+        #else:
+        squad = self.squads.create(units)
+        squad.attack(task.target)
         return False

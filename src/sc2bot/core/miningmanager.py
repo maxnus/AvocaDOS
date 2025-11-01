@@ -82,10 +82,7 @@ class MiningManager(BotObject):
         self.logger.info("Assigning {} to {}", worker, mineral)
 
     def remove_worker(self, unit: Unit | int) -> bool:
-        if isinstance(unit, Unit):
-            tag = unit.tag
-        else:
-            tag = unit
+        tag = unit.tag if isinstance(unit, Unit) else unit
         for assignment in self.assignments.values():
             if tag in assignment:
                 assignment.pop(tag)
@@ -150,10 +147,21 @@ class MiningManager(BotObject):
         for expansion in self.assignments:
             await self.assign_miners_at_expansion(expansion)
 
+    def check_empty_minerals(self):
+        for expansion, exp_assignment in self.assignments.items():
+            for worker_tag, mineral_tag in exp_assignment.items():
+                mineral_field = expansion.mineral_fields.find_by_tag(mineral_tag)
+                if mineral_field is None:
+                    self.remove_worker(worker_tag)
+
     async def on_step(self, step: int) -> None:
         # TODO: check dead tags
 
+        # Check for empty minerals
+        self.check_empty_minerals()
+
         # Assign idle workers
+        # TODO moving but without order
         for worker in self.bot.workers.idle:
             self.add_worker(worker)
 

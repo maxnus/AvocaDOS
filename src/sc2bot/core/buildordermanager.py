@@ -30,7 +30,8 @@ class BuildOrderManager(BotObject):
         # Buildings
         bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 1, reqs=(UnitTypeId.SCV, 13)))
 
-        rax1 = bot.tasks.add(UnitCountTask(UnitTypeId.BARRACKS, 6, reqs=(UnitTypeId.SCV, 14)))
+        rax123 = bot.tasks.add(UnitCountTask(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 14)))
+        rax456 = bot.tasks.add(UnitCountTask(UnitTypeId.BARRACKS, 6, reqs=('S', 23)))
         #rax2 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 2, reqs=(UnitTypeId.SCV, 15)))
         #rax3 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 16)))
         #rax4 = main.add_task(UnitCountTask(UnitTypeId.BARRACKS, 4, reqs=(UnitTypeId.SCV, 17)))
@@ -40,14 +41,18 @@ class BuildOrderManager(BotObject):
         bot.tasks.add(UnitCountTask(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS))
 
         # --- Supply
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 19)))
+        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18)))
         bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 3, reqs=('S', 26)))
-        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 4, reqs=('S', 35)))
+        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 4, reqs=('S', 34)))
+        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 5, reqs=('S', 42)))
+        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 6, reqs=('S', 50)))
+        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 7, reqs=('S', 58)))
+        bot.tasks.add(UnitCountTask(UnitTypeId.SUPPLYDEPOT, 8, reqs=('S', 64)))
 
         # Units
         bot.tasks.add(UnitCountTask(UnitTypeId.MARINE, 100, reqs=UnitTypeId.BARRACKS))
 
-        bot.tasks.add(AttackTask(target=bot.map.enemy_start_locations[0].center))
+        bot.tasks.add(AttackTask(target=bot.map.enemy_start_locations[0].center, reqs=(UnitTypeId.MARINE, 8)))
 
     def load_proxy_marine(self) -> None:
         bot = self.bot
