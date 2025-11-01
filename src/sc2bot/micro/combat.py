@@ -8,6 +8,7 @@ from sc2.units import Units
 
 from sc2bot.core.botobject import BotObject
 from sc2bot.core.util import squared_distance, get_closest_distance, lerp
+from sc2bot.micro.squad import Squad, SquadTask, SquadAttackTask
 from sc2bot.micro.weapons import Weapons
 
 
@@ -21,12 +22,6 @@ from sc2bot.micro.weapons import Weapons
 #     UnitTypeId.ZEALOT: [(0.2, 1), (3, 0.5)],
 # }
 
-
-def piecewise(distance, points: list[tuple[float, float]]) -> float:
-    for d, t in points:
-        if distance <= d:
-            return t
-    return 0
 
 
 unit_type_attack_priority: dict[UnitTypeId, float] = {
@@ -43,10 +38,16 @@ unit_type_attack_priority: dict[UnitTypeId, float] = {
 }
 
 
-class MicroManager(BotObject):
+class CombatManager(BotObject):
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}'
+
+    async def on_step(self, step: int) -> None:
+        for squad in self.squads:
+            await self.micro_squad(squad)
+
+    # ---
 
     def weapon_ready(self, unit: Unit) -> bool:
         if unit.type_id == UnitTypeId.REAPER:
@@ -59,10 +60,9 @@ class MicroManager(BotObject):
         return unit.weapon_cooldown < 1
 
     async def get_abilities(self, units: Units) -> list[list[AbilityId]]:
-        if units:
-            ability_list = await self.api.get_available_abilities(units)
-        else:
-            ability_list = []
+        if not units:
+            return []
+        ability_list = await self.api.get_available_abilities(units)
         # Filter down to relevant
         keep = {
             AbilityId.KD8CHARGE_KD8CHARGE,
@@ -173,19 +173,17 @@ class MicroManager(BotObject):
                     break
         return Units(enemies, self.api)
 
-    async def micro_units(self,
-                          units: Optional[Units] = None, *,
+    async def micro_squad(self, squad: Squad, *,
                           enemies: Optional[Units] = None) -> None:
-        if units is None:
-            units = self.bot.units
+        units = squad.units
         if enemies is None:
             enemies = self.get_enemies(units)
 
-        group_attack_priorities = self.bot.combat.get_attack_priorities(units, enemies)
-        if group_attack_priorities:
-            group_target, group_target_prio = max(group_attack_priorities.items(), key=lambda kv: kv[1])
+        squad_attack_priorities = self.combat.get_attack_priorities(units, enemies)
+        if squad_attack_priorities:
+            squat_target, group_target_prio = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
         else:
-            group_target = None
+            squat_target = None
             group_target_prio = 0
 
         #if self.bot.state.game_loop % 20 == 0:
@@ -198,15 +196,17 @@ class MicroManager(BotObject):
                 unit,
                 enemies=enemies,
                 abilities=unit_abilities,
-                group_attack_priorities=group_attack_priorities,
-                group_target=group_target
+                squad_task=squad.task,
+                squad_attack_priorities=squad_attack_priorities,
+                squad_target=squat_target
             )
 
     def _micro_unit(self, unit: Unit, *,
                     enemies: Units,
                     abilities: list[AbilityId],
-                    group_attack_priorities: dict[Unit, float],
-                    group_target: Optional[Unit]) -> bool:
+                    squad_task: SquadTask,
+                    squad_attack_priorities: dict[Unit, float],
+                    squad_target: Optional[Unit]) -> bool:
 
         # --- Defense
         defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
@@ -215,26 +215,29 @@ class MicroManager(BotObject):
             return self.order.move(unit, defense_position)
 
         # --- Offense
-        attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=group_attack_priorities)
+        attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=squad_attack_priorities)
 
         if target:
             return self.order.attack(unit, target)
 
         # --- Ability
-        if abilities and group_attack_priorities:
+        if abilities and squad_attack_priorities:
             ability_prio, ability_id, ability_target = self._evaluate_ability(
-                unit, abilities=abilities, group_attack_priorities=group_attack_priorities)
+                unit, abilities=abilities, group_attack_priorities=squad_attack_priorities)
             if ability_prio > 0.5:
                 return self.order.ability(unit, ability_id, ability_target)
 
-        if group_target and (unit.distance_to(group_target) >= unit.ground_range + unit.distance_to_weapon_ready):
-            return self.order.attack(unit, group_target)
+        if squad_target and (unit.distance_to(squad_target) >= unit.ground_range + unit.distance_to_weapon_ready):
+            return self.order.attack(unit, squad_target)
 
         if defense_position and unit.shield_health_percentage < 0.8:
             return self.order.move(unit, defense_position)
 
-        if group_target is not None:
-            return self.order.attack(unit, group_target)
+        if squad_target is not None:
+            return self.order.attack(unit, squad_target)
+
+        if isinstance(squad_task, SquadAttackTask):
+            return self.order.attack(unit, squad_task.target)
 
         return False
 

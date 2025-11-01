@@ -64,6 +64,11 @@ class BotApi(BotAI):
 
     # --- Extra utility
 
+    def get_resource_collection_rates(self) -> tuple[float, float]:
+        mineral_rate = self.state.score.collection_rate_minerals / 60
+        vespene_rate = self.state.score.collection_rate_vespene / 60
+        return mineral_rate, vespene_rate
+
     def get_creation_ability(self, utype: UnitTypeId) -> AbilityId:
         try:
             return self.game_data.units[utype.value].creation_ability.exact_id

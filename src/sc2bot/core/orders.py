@@ -3,11 +3,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
+from sc2 import units
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
+from sc2.units import Units
 
 from sc2bot.core.botobject import BotObject
 from sc2bot.core.util import unique_id
@@ -159,40 +161,40 @@ class OrderManager(BotObject):
     def has_order(self, unit: Unit) -> bool:
         return unit.tag in self.orders
 
-    def move(self, unit: Unit, target: Point2, *,
+    def move(self, unit: Unit | Units, target: Point2, *,
              queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, MoveOrder, target, queue=queue, force=force)
 
-    def attack(self, unit: Unit, target: Point2 | Unit, *,
+    def attack(self, unit: Unit | Units, target: Point2 | Unit, *,
                queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, AttackOrder, target, queue=queue, force=force)
 
-    def ability(self, unit: Unit, ability: AbilityId, target: Point2 | Unit, *,
+    def ability(self, unit: Unit | Units, ability: AbilityId, target: Point2 | Unit, *,
                 queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, AbilityOrder, ability, target, queue=queue, force=force)
 
-    def gather(self, unit: Unit, target: Unit, *,
+    def gather(self, unit: Unit | Units, target: Unit, *,
                queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, GatherOrder, target, queue=queue, force=force)
 
-    def return_resource(self, unit: Unit, *,
+    def return_resource(self, unit: Unit | Units, *,
                         queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, ReturnResourceOrder, queue=queue, force=force)
 
-    def build(self, unit: Unit, utype: UnitTypeId, position: Point2 | Unit, *,
+    def build(self, unit: Unit | Units, utype: UnitTypeId, position: Point2 | Unit, *,
               queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, BuildOrder, utype, position, queue=queue, force=force)
 
-    def train(self, unit: Unit, utype: UnitTypeId, *,
+    def train(self, unit: Unit | Units, utype: UnitTypeId, *,
               queue: bool = False, force: bool = False) -> bool:
         # TODO: do not train if already training
         return self._order(unit, TrainOrder, utype, queue=queue, force=force)
 
-    def research(self, unit: Unit, upgrade: UpgradeId, *,
+    def research(self, unit: Unit | Units, upgrade: UpgradeId, *,
                  queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, ResearchOrder, upgrade, queue=queue, force=force)
 
-    def smart(self, unit: Unit, target: Point2 | Unit, *,
+    def smart(self, unit: Unit | Units, target: Point2 | Unit, *,
               queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, SmartOrder, target, queue=queue, force=force)
 
@@ -217,9 +219,12 @@ class OrderManager(BotObject):
         idx = 0 if not queue else -1
         return order != prev_orders[idx]
 
-    def _order(self, unit: Unit, order_cls: type[Order],
+    def _order(self, unit: Unit | Units, order_cls: type[Order],
                *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId,
                queue: bool, force: bool) -> bool:
+        if isinstance(unit, Units):
+            return all(self._order(u, order_cls, *order_args, queue=queue, force=force) for u in unit)
+
         if not self._check_unit(unit, queue=queue):
             return False
         order = order_cls(*order_args)

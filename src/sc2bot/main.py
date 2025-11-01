@@ -42,12 +42,12 @@ def micro():
     map_name = 'micro-training-4x4'
 
     #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZEALOT: 4})
-    #micro_scenario = {UnitTypeId.MARINE: 8}
+    micro_scenario = {UnitTypeId.MARINE: 8}
     #micro_scenario = ({UnitTypeId.MARINE: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4})
     #micro_scenario = {UnitTypeId.REAPER: 8}
     #micro_scenario = {UnitTypeId.REAPER: 1}
     #micro_scenario = {UnitTypeId.REAPER: 8}, {UnitTypeId.MARINE: 12}
-    micro_scenario = {UnitTypeId.REAPER: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4}
+    #micro_scenario = {UnitTypeId.REAPER: 8}, {UnitTypeId.ZERGLING: 8, UnitTypeId.BANELING: 4}
 
     runner = GameRunner(
         map_name,
@@ -62,7 +62,7 @@ def macro():
     runner = GameRunner(
         'AcropolisLE',
         bot=Bot(Race.Terran, BotApi(build='mass_marine', log_level='DEBUG')),
-        opponent=Computer(Race.Protoss, Difficulty.Hard),
+        opponent=Computer(Race.Protoss, Difficulty.VeryHard),
         #opponent=Computer(Race.Protoss, Difficulty.Easy),
         realtime='--realtime' in sys.argv,
     )
@@ -70,6 +70,6 @@ def macro():
 
 
 if __name__ == "__main__":
-    micro()
-    #macro()
+    #micro()
+    macro()
 

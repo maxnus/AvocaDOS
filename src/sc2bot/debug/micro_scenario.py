@@ -2,7 +2,6 @@ import itertools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
-from sc2.client import Client
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -11,6 +10,7 @@ from sc2.units import Units
 from sc2bot.core.botobject import BotObject
 from sc2bot.core.tasks import AttackTask
 from sc2bot.core.util import UnitCost
+from sc2bot.micro.squad import Squad
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -39,6 +39,7 @@ class MicroScenario(BotObject):
     arena_size: tuple[float, float]
     max_duration: float
     # Set after started (TODO: separate class?):
+    squad: Optional[Squad]
     started: Optional[float]
     finished: Optional[float]
     tags_p1: Optional[set[int]]
@@ -65,6 +66,7 @@ class MicroScenario(BotObject):
         self.spawns = spawns
         self.arena_size = (22, 22)
         self.max_duration = max_duration
+        self.squad = None
         self.started = None
         self.finished = None
         self.tags_p1 = None
@@ -103,6 +105,7 @@ class MicroScenario(BotObject):
     async def finish(self) -> Optional[MicroScenarioResults]:
         results = self._get_results()
         #self.bot.remove_commander(f'MicroScenario{self.id}')
+        self.squads.delete_squad(self.squad)
         await self.api.client.debug_kill_unit(self.tags_p1 | self.tags_p2)
         return results
 
@@ -147,7 +150,11 @@ class MicroScenario(BotObject):
             self.tags_p2 = units_p2.tags
             #cmd = self.bot.add_commander(f'MicroScenario{self.id}')
             #cmd.add_units(units_p1 if self.api.player_id == 1 else units_p2)
-            self.tasks.add(AttackTask(self.location))
+
+            self.squad = self.squads.create_squad(units_p1 if self.api.player_id == 1 else units_p2)
+            self.squad.attack(self.location)
+
+            #self.tasks.add(AttackTask(self.location))
             # for unit in units_p1:
             #     unit.attack(self.location)
             # for unit in units_p2:

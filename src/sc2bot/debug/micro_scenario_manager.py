@@ -63,7 +63,7 @@ class MicroScenarioManager(BotObject):
             self.scenarios[scenario.id] = scenario
             await scenario.start()
 
-    async def on_step(self) -> Optional[float]:
+    async def on_step(self, step: int) -> None:
         if not self.running:
             raise RuntimeError
 
@@ -89,9 +89,7 @@ class MicroScenarioManager(BotObject):
             await self.debug.hide_map()
             await self.debug.control_enemy_off()
             self.running = False
-            return self.analyse()
-        else:
-            return None
+            self.analyse()
 
     def analyse(self, *, vespene_mineral_value: float | tuple[float, float] = 2.0) -> float:
         if isinstance(vespene_mineral_value, float):

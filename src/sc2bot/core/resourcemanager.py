@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 
 
 class ResourceManager(BotObject):
-    total_minerals: int
-    total_vespene: int
     spent_minerals: int
     spent_vespene: int
     reserved_minerals: int
@@ -23,14 +21,15 @@ class ResourceManager(BotObject):
 
     def __init__(self, bot: 'AvocaDOS', *, minerals: int = 0, vespene: int = 0) -> None:
         super().__init__(bot)
-        self.reset(minerals, vespene)
+        self.spent_minerals = 0
+        self.spent_vespene = 0
+        self.reserved_minerals = 0
+        self.reserved_vespene = 0
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.minerals}, {self.vespene})"
 
-    def reset(self, minerals: int, vespene: int) -> None:
-        self.total_minerals = minerals
-        self.total_vespene = vespene
+    async def on_step(self, step: int) -> None:
         self.spent_minerals = 0
         self.spent_vespene = 0
         self.reserved_minerals = 0
@@ -38,11 +37,11 @@ class ResourceManager(BotObject):
 
     @property
     def minerals(self) -> int:
-        return self.total_minerals - self.spent_minerals - self.reserved_minerals
+        return self.api.minerals - self.spent_minerals - self.reserved_minerals
 
     @property
     def vespene(self) -> int:
-        return self.total_vespene - self.spent_vespene - self.reserved_vespene
+        return self.api.vespene - self.spent_vespene - self.reserved_vespene
 
     def calculate_cost(self, item: UnitTypeId | UpgradeId | AbilityId) -> Cost:
         return self.api.calculate_cost(item)
@@ -62,8 +61,7 @@ class ResourceManager(BotObject):
             cost = self.calculate_cost(item)
         if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
             return 0
-        mineral_rate = self.api.state.score.collection_rate_minerals
-        vespene_rate = self.api.state.score.collection_rate_vespene
+        mineral_rate, vespene_rate = self.api.get_resource_collection_rates()
         time = 0
         if cost.minerals > 0:
             if mineral_rate == 0:

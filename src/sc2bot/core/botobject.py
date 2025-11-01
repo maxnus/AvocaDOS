@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from sc2bot.core.miningmanager import MiningManager
     from sc2bot.core.resourcemanager import ResourceManager
     from sc2bot.core.taskmanager import TaskManager
+    from sc2bot.micro.squadmanager import SquadManager
+    from sc2bot.micro.combat import CombatManager
 
 
 class BotObject(ABC):
@@ -70,3 +72,19 @@ class BotObject(ABC):
     @property
     def mining(self) -> 'MiningManager':
         return self.bot.mining
+
+    @property
+    def squads(self) -> 'SquadManager':
+        return self.bot.squads
+
+    @property
+    def combat(self) -> 'CombatManager':
+        return self.bot.combat
+
+    # --- Callbacks
+
+    async def on_start(self) -> None:
+        pass
+
+    async def on_step(self, step: int) -> None:
+        pass

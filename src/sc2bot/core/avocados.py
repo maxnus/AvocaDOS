@@ -25,7 +25,8 @@ from sc2bot.core.resourcemanager import ResourceManager
 from sc2bot.core.taskmanager import TaskManager
 from sc2bot.core.tasks import Task
 from sc2bot.core.util import squared_distance, LineSegment
-from sc2bot.micro.combat import MicroManager
+from sc2bot.micro.combat import CombatManager
+from sc2bot.micro.squadmanager import SquadManager
 
 if TYPE_CHECKING:
     from sc2bot.core.botapi import BotApi
@@ -66,7 +67,8 @@ class AvocaDOS:
     order: OrderManager
     resources: ResourceManager
     tasks: TaskManager
-    combat: MicroManager
+    squads: SquadManager
+    combat: CombatManager
     mining: MiningManager
     history: HistoryManager
     debug: DebugManager
@@ -88,7 +90,8 @@ class AvocaDOS:
         self.order = OrderManager(self)
         self.resources = ResourceManager(self)
         self.tasks = TaskManager(self)
-        self.combat = MicroManager(self)
+        self.squads = SquadManager(self)
+        self.combat = CombatManager(self)
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
         self.map = MapManager(self)
@@ -117,19 +120,21 @@ class AvocaDOS:
     async def on_step(self, step: int):
         await self.debug.on_step_start(step)
         if self.micro_scenario is not None and self.micro_scenario.running:
-            await self.micro_scenario.on_step()
-
-        self.resources.reset(self.api.minerals, self.api.vespene)
+            await self.micro_scenario.on_step(step)
 
         # if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
 
-        # Update other systems
+        await self.resources.on_step(step)
         await self.history.on_step(step)
         await self.order.on_step(step)
-        await self.micro(step)
         await self.tasks.on_step(step)
         await self.mining.on_step(step)
+        await self.squads.on_step(step)
+        await self.combat.on_step(step)
+
+        # TODO
+        await self.other(step)
 
         await self.debug.on_step_end(step)
 
@@ -299,10 +304,7 @@ class AvocaDOS:
 
     # --- Callbacks
 
-    async def micro(self, iteration: int) -> None:
-
-        units = self.units - self.workers
-        await self.combat.micro_units(units)
+    async def other(self, iteration: int) -> None:
 
         if iteration % 8 == 0:
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
