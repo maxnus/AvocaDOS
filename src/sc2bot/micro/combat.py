@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, ClassVar
 
 from sc2.ids.ability_id import AbilityId
+from sc2.ids.buff_id import BuffId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -12,33 +13,11 @@ from sc2bot.micro.squad import Squad, SquadTask, SquadAttackTask
 from sc2bot.micro.weapons import Weapons
 
 
-# THREAT_DISTANCE_PROFILE: dict[UnitTypeId, list[tuple[float, float]]] = {
-#     # Worker
-#     UnitTypeId.SCV: [(0.2, 1), (2, 0.2)],
-#     UnitTypeId.DRONE: [(0.2, 1), (2, 0.2)],
-#     UnitTypeId.PROBE: [(0.2, 1), (2, 0.2)],
-#     # Terran
-#     # Protoss
-#     UnitTypeId.ZEALOT: [(0.2, 1), (3, 0.5)],
-# }
-
-
-
-unit_type_attack_priority: dict[UnitTypeId, float] = {
-    # Terran
-    UnitTypeId.SCV: 0.1,
-    UnitTypeId.MARINE: 0.5,
-    UnitTypeId.REAPER: 0.6,
-    UnitTypeId.MARAUDER: 0.4,
-    UnitTypeId.GHOST: 0.7,
-    # Zerg
-    UnitTypeId.ZERGLING: 0.5,
-    UnitTypeId.BANELING: 1.0,
-    # Protoss
-}
-
-
 class CombatManager(BotObject):
+    # Parameters
+    attack_priority_base_weight: ClassVar[float] = 0.9
+    attack_priority_weakness_weight: ClassVar[float] = 0.08
+    attack_priority_distance_weight: ClassVar[float] = 0.02
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}'
@@ -80,6 +59,49 @@ class CombatManager(BotObject):
         # TODO
         return self.get_scan_range(unit)
 
+    def _get_attack_base_priority(self, target: Unit, *, default: float = 0.5) -> float:
+        if target.is_structure:
+            if target.can_attack:
+                return 0.20
+            if target.type_id == UnitTypeId.PYLON:
+                return 0.15
+            if target.type_id == UnitTypeId.SUPPLYDEPOT:
+                return 0.10
+            else:
+                return 0.05
+
+        match target.type_id:
+            # Terran
+            case UnitTypeId.SCV:
+                return 0.1
+            case UnitTypeId.MARINE:
+                return 0.5
+            case UnitTypeId.REAPER:
+                return 0.6
+            case UnitTypeId.MARAUDER:
+                return 0.4
+            case UnitTypeId.GHOST:
+                return 0.7
+            # Zerg
+            case UnitTypeId.ZERGLING: return 0.5
+            case UnitTypeId.BANELING: return 1.0
+            # Protoss
+            case UnitTypeId.PROBE: return 0.2
+            case UnitTypeId.ZEALOT: return 0.5
+            case UnitTypeId.STALKER: return 0.55
+            case UnitTypeId.ADEPT: return 0.6
+            case UnitTypeId.SENTRY:
+                # TODO: detect if sentry is the actual caster
+                if target.has_buff(BuffId.GUARDIANSHIELD):
+                    return 0.8
+                else:
+                    return 0.65
+            # Building
+
+            case _:
+                self.logger.warning("No attack base priority for {}", target.type_id.name)
+                return default
+
     def get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
         """Attack priority is based on:
             1) Unit Type (i.e., Baneling > Zergling > Drone)
@@ -90,14 +112,18 @@ class CombatManager(BotObject):
         priorities: dict[Unit, float] = {}
         min_distance = get_closest_distance(attacker, targets)
         for target in targets:
-            if target.is_structure:
-                base = 0.0
-            else:
-                base = unit_type_attack_priority.get(target.type_id, 0.5)
+            floor = 0.0
+            ceil = 1.0
+            # if target.is_structure and not target.can_attack:
+            #     ceil = 0.0
+            base = self._get_attack_base_priority(target)
             # t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
-            weakness = 1 - target.shield_health_percentage
+            weakness = 1 - target.shield_health_percentage**2
             distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
-            priorities[target] = 0.9 * base + 0.08 * weakness + 0.02 * distance
+            priority = (self.attack_priority_base_weight * base
+                        + self.attack_priority_weakness_weight * weakness
+                        + self.attack_priority_distance_weight * distance)
+            priorities[target] = max(floor, min(ceil, priority))
         return priorities
 
     def get_defense_priority(self, defender: Unit, threat: Unit) -> float:
@@ -145,7 +171,6 @@ class CombatManager(BotObject):
                 return 0.8 if distance <= 3.0 else 0.2
             # --- Other
 
-
         return 0.0
 
     def get_defense_priorities(self, defender: Unit, threats: Units) -> dict[Unit, float]:
@@ -166,9 +191,10 @@ class CombatManager(BotObject):
 
     def get_enemies(self, units: Units, *, max_distance: float = 12) -> Units:
         enemies = []
-        for enemy in self.api.enemy_units:
+        max_distance_sq = max_distance**2
+        for enemy in self.api.all_enemy_units:
             for unit in units:
-                if squared_distance(unit, enemy) <= max_distance * max_distance:
+                if squared_distance(unit, enemy) <= max_distance_sq:
                     enemies.append(enemy)
                     break
         return Units(enemies, self.api)
@@ -181,10 +207,20 @@ class CombatManager(BotObject):
 
         squad_attack_priorities = self.combat.get_attack_priorities(units, enemies)
         if squad_attack_priorities:
-            squat_target, group_target_prio = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
+            squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
+            # DEBUG
+            for unit, priority in squad_attack_priorities.items():
+                if unit == squad_target:
+                    color = 'RED'
+                elif priority >= 0.5:
+                    color = 'YELLOW'
+                else:
+                    color = 'GREEN'
+                self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
+
         else:
-            squat_target = None
-            group_target_prio = 0
+            squad_target = None
+            squad_target_priority = 0
 
         #if self.bot.state.game_loop % 20 == 0:
         #    abilities = await self.get_abilities(units)
@@ -198,7 +234,8 @@ class CombatManager(BotObject):
                 abilities=unit_abilities,
                 squad=squad,
                 squad_attack_priorities=squad_attack_priorities,
-                squad_target=squat_target
+                squad_target_priority=squad_target_priority,
+                squad_target=squad_target
             )
 
     def _micro_unit(self, unit: Unit, *,
@@ -206,6 +243,7 @@ class CombatManager(BotObject):
                     abilities: list[AbilityId],
                     squad: Squad,
                     squad_attack_priorities: dict[Unit, float],
+                    squad_target_priority: float,
                     squad_target: Optional[Unit]) -> bool:
 
         # --- Defense
@@ -215,7 +253,13 @@ class CombatManager(BotObject):
             return self.order.move(unit, defense_position)
 
         # --- Offense
-        attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=squad_attack_priorities)
+
+        weapon_ready = self.weapon_ready(unit)
+        if weapon_ready:
+            attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=squad_attack_priorities)
+        else:
+            attack_prio = 0
+            target = None
 
         if target:
             return self.order.attack(unit, target)
@@ -227,35 +271,37 @@ class CombatManager(BotObject):
             if ability_prio > 0.5:
                 return self.order.ability(unit, ability_id, ability_target)
 
-        if squad_target and (unit.distance_to(squad_target) >= unit.ground_range + unit.distance_to_weapon_ready):
+        if (squad_target_priority >= 0.5 and squad_target
+                and (unit.distance_to(squad_target) >= unit.ground_range + unit.distance_to_weapon_ready)):
             return self.order.attack(unit, squad_target)
 
         if defense_position and unit.shield_health_percentage < 0.8:
             return self.order.move(unit, defense_position)
 
-        if squad_target is not None:
+        if squad_target_priority >= 0.5 and squad_target:
             return self.order.attack(unit, squad_target)
 
         if isinstance(squad.task, SquadAttackTask):
             # Regroup
             scan_sq = self.get_scan_range(unit)**2
-            if len(squad) > 0 and squared_distance(unit, squad.center) >= 16:
+            if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.get_max_spread_squared():
                 return self.order.move(unit, squad.center)
             # Move
             elif squared_distance(unit, squad.task.target) > scan_sq:
-                return self.order.attack(unit, squad.task.target)
+                return self.order.move(unit, squad.task.target)
             # Attack
             else:
-                return self.order.move(unit, squad.task.target)
+                # TODO
+                return self.order.attack(unit, squad.task.target)
 
         return False
 
-    def _evaluate_defense(self, unit: Unit, *, enemies: Units) -> tuple[float, Point2]:
+    def _evaluate_defense(self, unit: Unit, *, enemies: Units) -> tuple[float, Optional[Point2]]:
         threat_range = self.get_threat_range(unit)
         threats = enemies.closer_than(threat_range, unit)
         defense_priorities = self.bot.combat.get_defense_priorities(unit, threats)
         if not defense_priorities:
-            return 0, unit.position
+            return 0, None
         threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])
         # TODO
         defense_position = unit.position.towards(threat, distance=-3 * unit.distance_per_step)
@@ -265,9 +311,6 @@ class CombatManager(BotObject):
 
     def _evaluate_offense(self, unit: Unit, *,
                           group_attack_priorities: dict[Unit, float]) -> tuple[float, Optional[Unit]]:
-        weapon_ready = self.weapon_ready(unit)
-        if not weapon_ready:
-            return 0, None
 
         scan_range = self.get_scan_range(unit)
         attack_priorities_scan_range = {target: priority for target, priority

@@ -261,9 +261,12 @@ class AvocaDOS:
         return workers[0]
 
     def pick_trainer(self, utype: UnitTypeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
-        trainer_utype = TRAINERS[utype]
+        trainer_utype = TRAINERS.get(utype)
+        if trainer_utype is None:
+            self.logger.error("No trainer for {}", utype)
+            return None
 
-        free_trainers = self.structures(trainer_utype).idle.filter(lambda x: not self.order.has_order(x))
+        free_trainers = self.structures(trainer_utype).ready.idle.filter(lambda x: not self.order.has_order(x))
         #self.logger.trace("free trainers for {}: {}", utype.name, free_trainers)
         if not free_trainers:
             return None

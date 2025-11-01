@@ -154,7 +154,8 @@ class MiningManager(BotObject):
 
     def _check_for_dead_tags(self):
         for expansion, exp_assignment in self.assignments.items():
-            for worker_tag, mineral_tag in exp_assignment.items():
+            for worker_tag in list(exp_assignment.keys()):
+                mineral_tag = exp_assignment[worker_tag]
                 if worker_tag not in self.api.alive_tags or mineral_tag not in self.api.alive_tags:
                     self.logger.info("Empty mineral field {}, removing worker {}", mineral_tag, worker_tag)
                     self.unassign_worker(worker_tag)

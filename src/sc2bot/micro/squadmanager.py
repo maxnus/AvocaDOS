@@ -23,8 +23,11 @@ class SquadManager(BotObject):
         self._squads = {}
 
     async def on_step(self, step: int) -> None:
-        for squad in self:
+        for squad in list(self._squads.values()):
             squad.tags &= self.api.alive_tags
+            if len(squad) == 0:
+                self.logger.info("Squad {} has been killed", squad)
+                self._squads.pop(squad.id)
 
         #     if isinstance(squad.task, SquadAttackTask):
         #         self.order.attack(squad.units, squad.task.target)

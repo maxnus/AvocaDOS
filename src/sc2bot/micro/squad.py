@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -26,11 +27,13 @@ class SquadDefendTask(SquadTask):
 class Squad(BotObject):
     tags: set[int]
     task: Optional[SquadTask]
+    spacing: float
 
     def __init__(self, bot, tags: Optional[set[int]] = None ) -> None:
         super().__init__(bot)
         self.tags = tags or set()
         self.task = None
+        self.spacing = 1.0
 
     def __len__(self) -> int:
         return len(self.units)
@@ -59,6 +62,17 @@ class Squad(BotObject):
         self.task = SquadAttackTask(target)
 
     # --- Position
+
+    def get_max_spread_squared(self) -> float:
+        if len(self) < 2:
+            return 1
+        unit_sq_radius = sum(unit.radius*unit.radius for unit in self.units)
+        return 4 * self.spacing**2 * unit_sq_radius
+
+    def get_max_spread(self) -> float:
+        if len(self) < 2:
+            return 1
+        return math.sqrt(self.get_max_spread_squared())
 
     @property
     def center(self) -> Optional[Point2]:
