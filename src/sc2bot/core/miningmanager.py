@@ -19,6 +19,11 @@ class MiningManager(BotObject):
         super().__init__(bot)
         self.assignments = {}
 
+    async def on_step(self, step: int) -> None:
+        self._check_for_dead_tags()
+        self._assign_idle_workers()
+        self._speed_mine()
+
     async def add_expansion(self, expansion: ExpansionLocation) -> None:
         self.assignments[expansion] = {}
         await self.assign_miners()
@@ -81,7 +86,7 @@ class MiningManager(BotObject):
         self.assignments[expansion][worker.tag] = mineral.tag
         self.logger.info("Assigning {} to {}", worker, mineral)
 
-    def remove_worker(self, unit: Unit | int) -> bool:
+    def unassign_worker(self, unit: Unit | int) -> bool:
         tag = unit.tag if isinstance(unit, Unit) else unit
         for assignment in self.assignments.values():
             if tag in assignment:
@@ -147,61 +152,70 @@ class MiningManager(BotObject):
         for expansion in self.assignments:
             await self.assign_miners_at_expansion(expansion)
 
-    def check_empty_minerals(self):
+    def _check_for_dead_tags(self):
         for expansion, exp_assignment in self.assignments.items():
             for worker_tag, mineral_tag in exp_assignment.items():
-                mineral_field = expansion.mineral_fields.find_by_tag(mineral_tag)
-                if mineral_field is None:
-                    self.remove_worker(worker_tag)
+                if worker_tag not in self.api.alive_tags or mineral_tag not in self.api.alive_tags:
+                    self.logger.info("Empty mineral field {}, removing worker {}", mineral_tag, worker_tag)
+                    self.unassign_worker(worker_tag)
 
-    async def on_step(self, step: int) -> None:
-        # TODO: check dead tags
-
-        # Check for empty minerals
-        self.check_empty_minerals()
-
-        # Assign idle workers
-        # TODO moving but without order
-        for worker in self.bot.workers.idle:
+    def _assign_idle_workers(self) -> None:
+        def worker_filter(unit: Unit) -> bool:
+            if self.order.has_order(unit):
+                return False
+            if unit.is_constructing_scv:
+                return False
+            if self.has_worker(unit):
+                return False
+            return True
+        for worker in self.bot.workers.filter(worker_filter):
             self.add_worker(worker)
 
-        for expansion, exp_assignment in self.assignments.items():
-            townhall = self.get_townhall(expansion)
-            if townhall is None:
-                self.logger.error("No townhall at {}", expansion)
+    def _speed_mine(self) -> None:
+        for expansion in self.assignments:
+            self._speed_mine_at_expansion(expansion)
+
+    def _speed_mine_at_expansion(self, expansion: ExpansionLocation) -> None:
+        if expansion not in self.assignments:
+            raise ValueError(f"unknown expansion: {expansion}")
+        assignment = self.assignments[expansion]
+
+        townhall = self.get_townhall(expansion)
+        if townhall is None:
+            self.logger.error("No townhall at {}", expansion)
+            return
+
+        for worker_tag, mineral_tag in assignment.items():
+            worker = self.bot.workers.find_by_tag(worker_tag)
+            if worker is None:
+                self.logger.error("Invalid worker tag: {}", worker_tag)
                 continue
 
-            for worker_tag, mineral_tag in exp_assignment.items():
-                worker = self.bot.workers.find_by_tag(worker_tag)
-                if worker is None:
-                    self.logger.error("Invalid worker tag: {}", worker_tag)
+            mineral_field = expansion.mineral_fields.find_by_tag(mineral_tag)
+            if mineral_field is None:
+                self.logger.error("Invalid mineral field tag: {}", mineral_tag)
+                continue
+
+            if worker.is_carrying_minerals:
+                target_point = expansion.mining_return_targets.get(mineral_tag)
+                if target_point is None:
+                    self.logger.error("Invalid mining return target for: {}", mineral_tag)
                     continue
-
-                mineral_field = expansion.mineral_fields.find_by_tag(mineral_tag)
-                if mineral_field is None:
-                    self.logger.error("Invalid mineral field tag: {}", mineral_tag)
+                target = townhall
+            else:
+                target_point = expansion.mining_gather_targets.get(mineral_tag)
+                if target_point is None:
+                    self.logger.error("Invalid mining gather target for: {}", mineral_tag)
                     continue
+                target = mineral_field
 
-                if worker.is_carrying_minerals:
-                    target_point = expansion.mining_return_targets.get(mineral_tag)
-                    if target_point is None:
-                        self.logger.error("Invalid mining return target for: {}", mineral_tag)
-                        continue
-                    target = townhall
-                else:
-                    target_point = expansion.mining_gather_targets.get(mineral_tag)
-                    if target_point is None:
-                        self.logger.error("Invalid mining gather target for: {}", mineral_tag)
-                        continue
-                    target = mineral_field
-
-                distance = worker.distance_to(target_point)
-                if 0.75 < distance < 2:
-                    self.bot.order.move(worker, target_point)
-                    self.bot.order.smart(worker, target, queue=True)
-                # elif worker.is_idle:
-                #     self.logger.info("Restarting idle worker {}", worker)
-                #     if distance <= 0.75:
-                #         self.commander.order.smart(worker, target, force=True)
-                #     elif distance >= 2:
-                #         self.commander.order.move(worker, target_point, force=True)
+            distance = worker.distance_to(target_point)
+            if 0.75 < distance < 2:
+                self.bot.order.move(worker, target_point)
+                self.bot.order.smart(worker, target, queue=True)
+            # elif worker.is_idle:
+            #     self.logger.info("Restarting idle worker {}", worker)
+            #     if distance <= 0.75:
+            #         self.commander.order.smart(worker, target, force=True)
+            #     elif distance >= 2:
+            #         self.commander.order.move(worker, target_point, force=True)

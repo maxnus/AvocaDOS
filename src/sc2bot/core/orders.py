@@ -1,9 +1,7 @@
-import itertools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
-from sc2 import units
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -26,6 +24,11 @@ class Order(ABC):
     def __repr__(self) -> str:
         pass
 
+    @property
+    @abstractmethod
+    def short_repr(self) -> str:
+        pass
+
     @abstractmethod
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         pass
@@ -39,6 +42,10 @@ class BuildOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name}, {self.position})"
 
+    @property
+    def short_repr(self) -> str:
+        return f"B({self.utype.name})"
+
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.build(self.utype, position=self.position, queue=queue)
 
@@ -50,16 +57,24 @@ class TrainOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name})"
 
+    @property
+    def short_repr(self) -> str:
+        return f"T({self.utype.name})"
+
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.train(self.utype, queue=queue)
 
 
 @dataclass(frozen=True)
-class ResearchOrder(Order):
+class UpgradeOrder(Order):
     upgrade: UpgradeId
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.upgrade.name})"
+
+    @property
+    def short_repr(self) -> str:
+        return f"U({self.upgrade.name})"
 
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.research(self.upgrade, queue=queue)
@@ -72,6 +87,10 @@ class MoveOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
 
+    @property
+    def short_repr(self) -> str:
+        return "M"
+
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.move(self.target, queue=queue)
 
@@ -82,6 +101,10 @@ class AttackOrder(Order):
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "A"
 
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.attack(self.target, queue=queue)
@@ -95,6 +118,10 @@ class AbilityOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
 
+    @property
+    def short_repr(self) -> str:
+        return "C"
+
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit(self.ability, target=self.target, queue=queue)
 
@@ -105,6 +132,10 @@ class SmartOrder(Order):
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "S"
 
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.smart(target=self.target, queue=queue)
@@ -117,6 +148,10 @@ class GatherOrder(Order):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
 
+    @property
+    def short_repr(self) -> str:
+        return "G"
+
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.gather(target=self.target, queue=queue)
 
@@ -126,6 +161,10 @@ class ReturnResourceOrder(Order):
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}"
+
+    @property
+    def short_repr(self) -> str:
+        return "R"
 
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
         unit.return_resource(queue=queue)
@@ -190,9 +229,9 @@ class OrderManager(BotObject):
         # TODO: do not train if already training
         return self._order(unit, TrainOrder, utype, queue=queue, force=force)
 
-    def research(self, unit: Unit | Units, upgrade: UpgradeId, *,
-                 queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, ResearchOrder, upgrade, queue=queue, force=force)
+    def upgrade(self, unit: Unit | Units, upgrade: UpgradeId, *,
+                queue: bool = False, force: bool = False) -> bool:
+        return self._order(unit, UpgradeOrder, upgrade, queue=queue, force=force)
 
     def smart(self, unit: Unit | Units, target: Point2 | Unit, *,
               queue: bool = False, force: bool = False) -> bool:

@@ -23,8 +23,9 @@ class SquadManager(BotObject):
         self._squads = {}
 
     async def on_step(self, step: int) -> None:
-        pass
-        # for squad in self:
+        for squad in self:
+            squad.tags &= self.api.alive_tags
+
         #     if isinstance(squad.task, SquadAttackTask):
         #         self.order.attack(squad.units, squad.task.target)
         #     elif squad.task is None:

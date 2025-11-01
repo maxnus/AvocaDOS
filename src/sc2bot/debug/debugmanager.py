@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING, Optional, ClassVar
 from loguru import logger as _logger
 from loguru._logger import Logger
 from sc2.client import Client
+from sc2.ids.ability_id import AbilityId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit
 
 from sc2bot.core.botobject import BotObject
+from sc2bot.core.orders import AttackOrder
 
 if TYPE_CHECKING:
     from sc2bot.core.avocados import AvocaDOS
@@ -17,8 +19,10 @@ if TYPE_CHECKING:
 
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
+GREY = (128, 128, 128)
 
 
 # class DebugDisplayItem:
@@ -162,7 +166,8 @@ class DebugManager(BotObject):
                 unit = (self.api.units + self.api.structures).find_by_tag(tag)
                 if unit is None:
                     continue
-                self.box_with_text(unit, str(orders[0]))
+                order = orders[0]
+                self.box_with_text(unit, order.short_repr)
 
         if self.show_combat:
             for unit in self.api.bot.units:
@@ -179,8 +184,15 @@ class DebugManager(BotObject):
                         target = self.api.all_units.find_by_tag(order.target)
                     else:
                         target = order.target
-                    if target is not None:
-                        self.line(unit, target)
+                    if target is None:
+                        continue
+                    if order.ability == AbilityId.MOVE_MOVE:
+                        color = GREEN
+                    elif order.ability == AbilityId.ATTACK:
+                        color = RED if isinstance(target, int) else YELLOW
+                    else:
+                        color = GREY
+                    self.line(unit, target, color=color)
                     #self.text_world(str(order), unit, size=14)
             for unit, damage in self.damage_taken.items():
                 color = RED if damage > 0 else GREEN
@@ -278,19 +290,20 @@ class DebugManager(BotObject):
 
                 elif cmd == '!slow':
                     if len(args) == 0:
-                        slowdown_time = 40
+                        slowdown = 40
                     else:
                         try:
-                            slowdown_time = float(args[0])
+                            slowdown = float(args[0])
                         except ValueError:
                             continue
-                    self.api.slowdown_time = slowdown_time
+                    self.logger.info("Setting slowdown time to: {}", slowdown)
+                    self.api.slowdown = slowdown
 
-    def _normalize_point3(self, point: Unit | Point3 | Point2) -> Point3:
+    def _normalize_point3(self, point: Unit | Point3 | Point2, *, z_offset: float = 1.0) -> Point3:
         if isinstance(point, Point3):
-            return point
+            return point + Point3((0, 0, z_offset))
         if isinstance(point, Unit):
-            return point.position3d
+            return point.position3d + Point3((0, 0, z_offset))
         if isinstance(point, Point2):
-            return Point3((point[0], point[1], self.api.get_terrain_z_height(point)))
+            return Point3((point[0], point[1], self.api.get_terrain_z_height(point) + z_offset))
         raise TypeError(f"invalid argument: {point}")

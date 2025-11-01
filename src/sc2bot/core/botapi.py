@@ -5,7 +5,7 @@ from time import perf_counter
 from typing import Optional
 
 from sc2.bot_ai import BotAI
-from sc2.constants import IS_STRUCTURE, CREATION_ABILITY_FIX
+from sc2.constants import CREATION_ABILITY_FIX
 from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -20,6 +20,9 @@ class BotApi(BotAI):
     bot: AvocaDOS
     game_step: int
     slowdown: float
+    # Tag memory
+    dead_tags: set[int]
+    alive_tags: set[int]
 
     def __init__(self, *,
                  seed: int = 0,
@@ -32,15 +35,23 @@ class BotApi(BotAI):
         self.bot = AvocaDOS(self, **kwargs)
         self.game_step = game_step
         self.slowdown = slowdown
+        #
+        self.alive_tags = set() # Initialized correctly in on_start
+        self.dead_tags = set()
 
     # --- Callbacks
 
     async def on_start(self) -> None:
         self.client.game_step = self.game_step
+        self.alive_tags = self.all_units.tags
         await self.bot.on_start()
 
     async def on_step(self, step: int):
         frame_start = perf_counter()
+        # Update tag memory
+        self.alive_tags.update(self.all_units.tags)
+        self.dead_tags.update(self.state.dead_units)
+        self.alive_tags.difference_update(self.dead_tags)
         await self.bot.on_step(step)
         if self.slowdown:
             sleep = self.slowdown / 1000 - (perf_counter() - frame_start)
@@ -51,15 +62,23 @@ class BotApi(BotAI):
         await self.bot.on_unit_took_damage(unit, amount_damage_taken)
 
     async def on_unit_created(self, unit: Unit) -> None:
+        # if unit.tag in self.dead_tags:
+        #     raise ValueError(f"internal error: unit tag {unit.tag} already marked as dead")
+        # self.alive_tags.add(unit.tag)
         await self.bot.on_unit_created(unit)
 
     async def on_building_construction_started(self, unit: Unit) -> None:
+        # if unit.tag in self.dead_tags:
+        #     raise ValueError(f"internal error: unit tag {unit.tag} already marked as dead")
+        # self.alive_tags.add(unit.tag)
         await self.bot.on_building_construction_started(unit)
 
     async def on_building_construction_finished(self, unit: Unit) -> None:
         await self.bot.on_building_construction_finished(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
+        # self.alive_tags.remove(unit_tag)
+        # self.dead_tags.add(unit_tag)
         await self.bot.on_unit_destroyed(unit_tag)
 
     # --- Extra utility
@@ -96,11 +115,8 @@ class BotApi(BotAI):
     #
     #     return abilities_amount, max_build_progress
 
-    def get_attributes(self, utype: UnitTypeId) -> list[Enum]:
+    def get_unit_attributes(self, utype: UnitTypeId) -> list[Enum]:
         return self.game_data.units[utype.value].attributes
-
-    def is_structure(self, utype: UnitTypeId) -> bool:
-        return IS_STRUCTURE in self.get_attributes(utype)
 
     def get_scv_build_target(self, scv: Unit) -> Optional[Unit]:
         """Return the building unit that this SCV is constructing, or None."""

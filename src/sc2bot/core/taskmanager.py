@@ -132,12 +132,12 @@ class TaskManager(BotObject):
 
         if self.bot.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
             self.order.build(worker, task.utype, target)
-            self.mining.remove_worker(worker)  # TODO
+            self.mining.unassign_worker(worker)  # TODO
         else:
             resource_time = self.bot.resources.can_afford_in(task.utype, excluded_workers=worker)
             if resource_time <= travel_time:
                 self.order.move(worker, position)
-                self.mining.remove_worker(worker)  # TODO
+                self.mining.unassign_worker(worker)  # TODO
                 self.resources.reserve(task.utype)
         task.assigned.add(worker.tag)
         return False
@@ -184,14 +184,14 @@ class TaskManager(BotObject):
                 if self.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
                     self.order.build(worker, task.utype, target)
-                    self.mining.remove_worker(worker)     # TODO
+                    self.mining.unassign_worker(worker)     # TODO
                 else:
                     resource_time = self.resources.can_afford_in(task.utype, excluded_workers=worker)
                     #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
                         self.order.move(worker, position)
-                        self.mining.remove_worker(worker)  # TODO
+                        self.mining.unassign_worker(worker)  # TODO
                         self.resources.reserve(task.utype)
 
         else:
@@ -220,7 +220,7 @@ class TaskManager(BotObject):
             return False
         researcher = self.bot.pick_researcher(task.upgrade)
         if researcher is not None:
-            self.order.research(researcher, task.upgrade)
+            self.order.upgrade(researcher, task.upgrade)
             self.logger.info("Starting {} at {}", task.upgrade.name, researcher)
         #else:
         #    self.logger.trace("No researcher for {}", task.upgrade)

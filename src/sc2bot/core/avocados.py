@@ -203,7 +203,9 @@ class AvocaDOS:
                            include_moving: bool = True,
                            include_collecting: bool = True,
                            include_constructing: bool = True,
-                           construction_time_discount: float = 0.7) -> list[tuple[Unit, float]]:
+                           construction_time_discount: float = 0.7,
+                           carrying_resource_penalty: float = 1.5,
+                           ) -> list[tuple[Unit, float]]:
 
         def worker_filter(worker: Unit) -> bool:
             if self.order.has_order(worker):
@@ -228,9 +230,12 @@ class AvocaDOS:
             if len(workers) > number + 10:
                 workers = workers.closest_n_units(position=location, n=number + 10)
             travel_times = await self.map.get_travel_times(workers, location, target_distance=target_distance)
-            workers_and_dist = {unit: travel_time + construction_time_discount
-                                      * self.api.get_remaining_construction_time(unit)
-                                for unit, travel_time in zip(workers, travel_times)}
+            workers_and_dist = {
+                unit: travel_time
+                      + carrying_resource_penalty if unit.is_carrying_resource else 0
+                      + construction_time_discount * self.api.get_remaining_construction_time(unit)
+                for unit, travel_time in zip(workers, travel_times)
+            }
         elif isinstance(location, LineSegment):
             workers_and_dist = {unit: location.distance_to(unit) for unit in workers}
         else:
