@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Optional
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.mapdata.expansion import ExpansionLocation
+from avocados.core.botobject import BotObject
+from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 class MiningManager(BotObject):

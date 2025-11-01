@@ -3,11 +3,11 @@ from typing import Any, TYPE_CHECKING, Optional
 from sc2.position import Point2
 from sc2.units import Units
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.core.util import get_circle_intersections, Circle
+from avocados.core.botobject import BotObject
+from avocados.core.util import get_circle_intersections, Circle
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 GATHER_RADIUS = 1.325
 RETURN_RADIUS = 3.125 # CC = 2.75, SCV = 0.375 (TODO: are other races the same?)

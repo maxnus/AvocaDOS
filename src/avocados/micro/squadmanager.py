@@ -6,12 +6,12 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.core.util import squared_distance, normalize_tags
-from sc2bot.micro.squad import Squad, SquadAttackTask, SquadTask
+from avocados.core.botobject import BotObject
+from avocados.core.util import squared_distance, normalize_tags
+from avocados.micro.squad import Squad, SquadAttackTask, SquadTask
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 class SquadManager(BotObject):

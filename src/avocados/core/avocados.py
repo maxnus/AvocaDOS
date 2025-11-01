@@ -13,22 +13,22 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.buildordermanager import BuildOrderManager
-from sc2bot.core.constants import TRAINERS, RESEARCHERS
-from sc2bot.core.historymanager import HistoryManager
-from sc2bot.core.miningmanager import MiningManager
-from sc2bot.debug.debugmanager import DebugManager
-from sc2bot.debug.micro_scenario_manager import MicroScenarioManager
-from sc2bot.mapdata.mapmanager import MapManager
-from sc2bot.core.orders import Order, OrderManager
-from sc2bot.core.resourcemanager import ResourceManager
-from sc2bot.core.taskmanager import TaskManager
-from sc2bot.core.util import LineSegment
-from sc2bot.micro.combat import CombatManager
-from sc2bot.micro.squadmanager import SquadManager
+from avocados.core.buildordermanager import BuildOrderManager
+from avocados.core.constants import TRAINERS, RESEARCHERS
+from avocados.core.historymanager import HistoryManager
+from avocados.core.miningmanager import MiningManager
+from avocados.debug.debugmanager import DebugManager
+from avocados.debug.micro_scenario_manager import MicroScenarioManager
+from avocados.mapdata.mapmanager import MapManager
+from avocados.core.orders import Order, OrderManager
+from avocados.core.resourcemanager import ResourceManager
+from avocados.core.taskmanager import TaskManager
+from avocados.core.util import LineSegment
+from avocados.micro.combat import CombatManager
+from avocados.micro.squadmanager import SquadManager
 
 if TYPE_CHECKING:
-    from sc2bot.core.botapi import BotApi
+    from avocados.core.botapi import BotApi
 
 
 @dataclass
@@ -145,6 +145,7 @@ class AvocaDOS:
         await self.mining.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
+
         # TODO
         await self.other(step)
         await self.debug.on_step(step)

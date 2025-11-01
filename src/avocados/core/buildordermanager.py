@@ -2,11 +2,11 @@ from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.core.tasks import UnitCountTask, AttackTask, DefenseTask
+from avocados.core.botobject import BotObject
+from avocados.core.tasks import UnitCountTask, AttackTask, DefenseTask
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 class BuildOrderManager(BotObject):

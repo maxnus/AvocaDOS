@@ -7,13 +7,13 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.core.util import squared_distance, get_closest_distance, lerp
-from sc2bot.micro.squad import Squad, SquadTask, SquadAttackTask, SquadDefendTask
-from sc2bot.micro.weapons import Weapons
+from avocados.core.botobject import BotObject
+from avocados.core.util import squared_distance, get_closest_distance, lerp
+from avocados.micro.squad import Squad, SquadTask, SquadAttackTask, SquadDefendTask
+from avocados.micro.weapons import Weapons
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 class CombatManager(BotObject):
@@ -135,6 +135,7 @@ class CombatManager(BotObject):
             case UnitTypeId.ORACLE: return 0.75
             case UnitTypeId.COLOSSUS: return 0.80
             case UnitTypeId.DISRUPTOR: return 0.85
+            case UnitTypeId.HIGHTEMPLAR: return 0.90
             case UnitTypeId.WARPPRISM: return 0.90
 
             case _:

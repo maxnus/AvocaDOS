@@ -12,8 +12,8 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.avocados import AvocaDOS
-from sc2bot.core.util import UnitCost
+from avocados.core.avocados import AvocaDOS
+from avocados.core.util import UnitCost
 
 
 class BotApi(BotAI):

@@ -3,20 +3,20 @@ from typing import TYPE_CHECKING
 
 from loguru._logger import Logger
 
-from sc2bot.core.util import unique_id
+from avocados.core.util import unique_id
 
 if TYPE_CHECKING:
-    from sc2bot.core.botapi import BotApi
-    from sc2bot.core.avocados import AvocaDOS
-    from sc2bot.mapdata import MapManager
-    from sc2bot.debug.debugmanager import DebugManager
-    from sc2bot.core.historymanager import HistoryManager
-    from sc2bot.core.orders import OrderManager
-    from sc2bot.core.miningmanager import MiningManager
-    from sc2bot.core.resourcemanager import ResourceManager
-    from sc2bot.core.taskmanager import TaskManager
-    from sc2bot.micro.squadmanager import SquadManager
-    from sc2bot.micro.combat import CombatManager
+    from avocados.core.botapi import BotApi
+    from avocados.core.avocados import AvocaDOS
+    from avocados.mapdata import MapManager
+    from avocados.debug.debugmanager import DebugManager
+    from avocados.core.historymanager import HistoryManager
+    from avocados.core.orders import OrderManager
+    from avocados.core.miningmanager import MiningManager
+    from avocados.core.resourcemanager import ResourceManager
+    from avocados.core.taskmanager import TaskManager
+    from avocados.micro.squadmanager import SquadManager
+    from avocados.micro.combat import CombatManager
 
 
 class BotObject(ABC):

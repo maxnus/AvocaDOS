@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING, Optional
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.core.util import UnitCost
-from sc2bot.debug.micro_scenario import MicroScenario, MicroScenarioResults
+from avocados.core.botobject import BotObject
+from avocados.core.util import UnitCost
+from avocados.debug.micro_scenario import MicroScenario, MicroScenarioResults
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 class MicroScenarioManager(BotObject):

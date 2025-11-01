@@ -9,11 +9,11 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from sc2bot.core.botobject import BotObject
-from sc2bot.core.util import unique_id
+from avocados.core.botobject import BotObject
+from avocados.core.util import unique_id
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 @dataclass(repr=False, frozen=True)

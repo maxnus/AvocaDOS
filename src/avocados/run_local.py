@@ -1,28 +1,25 @@
-import asyncio
 import sys
-from typing import Optional
 
 from sc2 import maps
-from sc2.bot_ai import BotAI
-from sc2.ids.unit_typeid import UnitTypeId
-from sc2.maps import Map
-from sc2.player import Bot, Computer
-from sc2.main import run_game
 from sc2.data import Race, Difficulty
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.main import run_game
+from sc2.maps import Map
+from sc2.player import Bot, Computer, BotProcess
 
-from sc2bot.core.botapi import BotApi
+from avocados.core.botapi import BotApi
 
 
 class GameRunner:
     map: Map
     bot: Bot
-    opponent: Bot | Computer
+    opponent: Bot | BotProcess | Computer
     realtime: bool
 
     def __init__(self,
                  map_: Map | str,
                  bot: Bot,
-                 opponent: Bot | Computer,
+                 opponent: Bot | BotProcess | Computer,
                  *,
                  realtime: bool = False) -> None:
         if isinstance(map_, str):
@@ -60,10 +57,12 @@ def micro():
 
 def macro():
     runner = GameRunner(
-        'AcropolisLE',
+        #'AcropolisLE',
+        #'UltraloveAIE',
+        'LeyLinesAIE',
         bot=Bot(Race.Terran, BotApi(build='mass_marine', log_level='DEBUG')),
-        opponent=Computer(Race.Protoss, Difficulty.CheatInsane),
-        #opponent=Computer(Race.Protoss, Difficulty.VeryHard),
+        #opponent=Computer(Race.Protoss, Difficulty.CheatInsane),
+        opponent=Computer(Race.Protoss, Difficulty.VeryHard),
         #opponent=Computer(Race.Protoss, Difficulty.Easy),
         realtime='--realtime' in sys.argv,
     )

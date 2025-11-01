@@ -7,11 +7,11 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 
-from .constants import ALTERNATIVES, TRAINERS
-from .botobject import BotObject
-from .tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies, BuildingCountTask,
-                    UnitCountTask, ResearchTask, AttackTask, DefenseTask)
-from ..micro.squad import SquadDefendTask, SquadAttackTask, Squad
+from avocados.core.constants import ALTERNATIVES, TRAINERS
+from avocados.core.botobject import BotObject
+from avocados.core.tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies,
+                                 BuildingCountTask, UnitCountTask, ResearchTask, AttackTask, DefenseTask)
+from avocados.micro.squad import SquadDefendTask, SquadAttackTask
 
 if TYPE_CHECKING:
     from .avocados import AvocaDOS

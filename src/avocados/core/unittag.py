@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
-from sc2bot.core.botobject import BotObject
+from avocados.core.botobject import BotObject
 
 if TYPE_CHECKING:
-    from sc2bot.core.avocados import AvocaDOS
+    from avocados.core.avocados import AvocaDOS
 
 
 class UnitTag(BotObject):
