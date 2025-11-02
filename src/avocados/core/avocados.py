@@ -84,7 +84,7 @@ class AvocaDOS:
                  build: Optional[str] = None,
                  debug: bool = True,
                  log_level: str = "DEBUG",
-                 log_file: Optional[str] = 'AvocaDOS_{time:YYYY-MM-DD_HH-mm-ss}.log',
+                 log_file: Optional[str] = None,
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
                  ) -> None:
         super().__init__()

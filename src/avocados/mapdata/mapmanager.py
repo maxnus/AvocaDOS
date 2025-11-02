@@ -30,6 +30,7 @@ class MapManager(BotObject):
         super().__init__(bot)
 
     async def on_start(self) -> None:
+        self.logger.debug("on_start started")
         self.center = self.api.game_info.map_center
         self.start_base = ExpansionLocation(self.bot, self.api.start_location)
 
@@ -51,6 +52,7 @@ class MapManager(BotObject):
 
         self.ramp_defense_location = self.api.main_base_ramp.top_center
         self.placement_grid = self.api.game_info.placement_grid.copy()
+        self.logger.debug("on_start finished")
 
     async def on_step(self, step: int) -> None:
         # check for enemy start location

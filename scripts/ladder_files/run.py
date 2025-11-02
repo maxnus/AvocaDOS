@@ -4,7 +4,7 @@ import asyncio
 import aiohttp
 from loguru import logger
 
-import sc2
+from sc2.main import _play_game
 from sc2.portconfig import Portconfig
 from sc2.client import Client
 from sc2.protocol import ConnectionAlreadyClosedError
@@ -62,7 +62,7 @@ async def join_ladder_game(host, port, players, realtime, portconfig, save_repla
     ws_connection = await aiohttp.ClientSession().ws_connect(ws_url, timeout=120)
     client = Client(ws_connection)
     try:
-        result = await sc2.main._play_game(players[0], client, realtime, portconfig, game_time_limit)
+        result = await _play_game(players[0], client, realtime, portconfig, game_time_limit)
         if save_replay_as is not None:
             await client.save_replay(save_replay_as)
         # await client.leave()

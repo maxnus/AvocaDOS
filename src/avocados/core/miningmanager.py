@@ -161,7 +161,7 @@ class MiningManager(BotObject):
             for worker_tag in list(exp_assignment.keys()):
                 mineral_tag = exp_assignment[worker_tag]
                 if worker_tag not in self.api.alive_tags or mineral_tag not in self.api.alive_tags:
-                    self.logger.info("Empty mineral field {}, removing worker {}", mineral_tag, worker_tag)
+                    self.logger.info("Empty mineral field={} or dead worker={}", mineral_tag, worker_tag)
                     self.unassign_worker(worker_tag)
 
     def _assign_idle_workers(self) -> None:

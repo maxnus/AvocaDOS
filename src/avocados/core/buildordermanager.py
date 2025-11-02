@@ -14,12 +14,15 @@ class BuildOrderManager(BotObject):
 
     def __init__(self, bot: 'AvocaDOS', build: Optional[str] = None) -> None:
         super().__init__(bot)
-        self.build = build
+        self.build = build or 'mass_marine'
 
     async def on_start(self) -> None:
+        self.logger.debug("on_start started")
         if self.build:
+            self.logger.info("Loading build: {}", self.build)
             func = getattr(self, f'load_{self.build}')
             func()
+        self.logger.debug("on_start finished")
 
     def load_mass_marine(self) -> None:
         bot = self.bot
