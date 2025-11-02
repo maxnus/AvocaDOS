@@ -170,13 +170,13 @@ class ResearchObjective(Objective):
 
 class AttackOrDefenseObjective(Objective, ABC):
     target: Point2
-    strength: Optional[float]
+    strength: float
     minimum_size: int
     duration: Optional[float]
 
     def __init__(self,
                  target: Point2,
-                 strength: Optional[float] = None,
+                 strength: float = 100,
                  *,
                  minimum_size: int = 1,
                  duration: Optional[float] = None,

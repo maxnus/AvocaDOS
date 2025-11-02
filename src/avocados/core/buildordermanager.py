@@ -50,6 +50,9 @@ class BuildOrderManager(BotObject):
             prev = bot.objectives.add(AttackObjective(target=loc.center,
                                                       minimum_size=6, duration=5, reqs=(UnitTypeId.MARINE, 6),
                                                       deps=prev, priority=70))
+        for loc in bot.map.get_enemy_expansions(0):
+            prev = bot.objectives.add(AttackObjective(target=loc.center, minimum_size=6, duration=5, deps=prev,
+                                                      priority=70))
 
     def load_proxy_marine(self) -> None:
         bot = self.bot

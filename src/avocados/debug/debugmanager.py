@@ -146,7 +146,7 @@ class DebugManager(BotObject):
 
         for item in reversed(self.debug_items):
             self.client.debug_text_world(item.text, item.position, size=item.size, color=item.color)
-            if self.api.time > item.created + item.duration:
+            if self.api.time >= item.created + item.duration:
                 self.debug_items.remove(item)
 
         #if self.bot.map is not None:
@@ -193,6 +193,12 @@ class DebugManager(BotObject):
             else:
                 size = 0.5
         self.client.debug_box2_out(center, half_vertex_length=size, color=color)
+
+    def sphere(self, center: Unit | Point3 | Point2, radius: float, *,
+               color: tuple[int, int, int] | str = Color.YELLOW) -> None:
+        center = self._normalize_point3(center)
+        color = normalize_color(color)
+        self.client.debug_sphere_out(center, radius, color=color)
 
     def box_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
                       color: tuple[int, int, int] | str = Color.YELLOW) -> None:
@@ -285,10 +291,15 @@ class DebugManager(BotObject):
             order = orders[0]
             self.box_with_text(unit, order.short_repr)
 
-    def _show_squads(self) -> None:
+    def _show_squads(self, color: tuple[int, int, int] | str = Color.PINK) -> None:
         for squad in self.squads:
+            radius = math.sqrt(squad.radius_squared)
+            self.sphere(squad.center, radius, color=color)
+            if squad.leash is not None:
+                self.sphere(squad.center, squad.leash_range, color=color)
+            self.text_world(f"{squad.id}|{len(squad)}|{squad.status}", squad.center, color=color)
             for unit in squad.units:
-                self.box_with_text(unit, f"{squad.id}[{squad.status}]", color=Color.PINK)
+                self.text_world(f"{squad.id}", unit, color=color)
 
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.api.get_resource_collection_rates()

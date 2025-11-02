@@ -183,14 +183,14 @@ class CombatManager(BotObject):
         priorities: dict[Unit, float] = {}
         # TODO testing
         #min_distance = get_closest_distance(attacker, targets)
-        min_sq_distance = get_closest_sq_distance(attacker, targets)
+        min_sq_distance = max(get_closest_sq_distance(attacker, targets), 1)
         for target in targets:
             floor, ceil = 0.0, 1.0
             base = self._get_attack_base_priority(target)
             # t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
             weakness = 1 - target.shield_health_percentage**2
             #distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
-            distance = min_sq_distance / (get_closest_sq_distance(attacker, target) + 1e-15)
+            distance = min_sq_distance / max(get_closest_sq_distance(attacker, target), 1)
             priority = (
                     self.attack_priority_base_weight * base
                     + self.attack_priority_weakness_weight * weakness
@@ -362,7 +362,7 @@ class CombatManager(BotObject):
 
         # Regroup
         #scan_sq = self.get_scan_range(unit)**2
-        if squad.leash and len(squad) > 0 and squared_distance(unit, squad.center) >= squad.leash_range:
+        if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.leash_range**2:
             return self.order.move(unit, squad.center)
 
         if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):

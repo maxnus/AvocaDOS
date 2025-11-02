@@ -39,14 +39,14 @@ class SquadStatus(StrEnum):
     MOVING = "M"
     COMBAT = "C"
     AT_TARGET= "T"
-    GROUPING = "G"
+    #GROUPING = "G"
 
 
 class Squad(BotObject):
     tags: set[int]
     task: Optional[SquadTask]
     spacing: float
-    leash: Optional[float]
+    leash: float
     status: SquadStatus
     status_changed: float
 
@@ -56,7 +56,7 @@ class Squad(BotObject):
         self.tags = tags or set()
         self.task = None
         self.spacing = 0.0
-        self.leash = None
+        self.leash = 10.0
         self.status = SquadStatus.IDLE
         self.status_changed = 0.0
 
@@ -77,13 +77,13 @@ class Squad(BotObject):
             self.status_changed = self.time
         self.status = status
         if status == SquadStatus.COMBAT:
-            self.leash = 8
+            self.leash = 6.0
         elif status == SquadStatus.MOVING:
-            self.leash = 6
-        elif status == SquadStatus.GROUPING:
-            self.leash = 2
+            self.leash = 4.0
+        #elif status == SquadStatus.GROUPING:
+        #    self.leash = 2.0
         else:
-            self.leash = None
+            self.leash = 10.0
 
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.units)
@@ -91,8 +91,8 @@ class Squad(BotObject):
     def __contains__(self, tag: int) -> bool:
         return tag in self.tags
 
-    def add(self, units: Unit | int | Units | set[int]) -> None:
-        self.squads.add_units(self, units)
+    def add(self, units: Unit | int | Units | set[int], *, remove_from_squads: bool = False) -> None:
+        self.squads.add_units(self, units, remove_from_squads=remove_from_squads)
 
     def remove(self, units: Unit | int | Units | set[int]) -> None:
         self.squads.remove_units(self, units)
@@ -145,12 +145,10 @@ class Squad(BotObject):
             return self.units.first.radius**2
         unit_sq_radius = sum(number * (unit.radius + self.spacing)**2
                              for unit, number in get_unique_unit_types(self.units).items())
-        return unit_sq_radius
+        return 2 * unit_sq_radius
 
     @property_cache_once_per_frame
     def leash_range(self) -> float:
-        if self.leash is None:
-            return float('inf')
         return math.sqrt(self.radius_squared) + self.leash
 
     # @property_cache_once_per_frame

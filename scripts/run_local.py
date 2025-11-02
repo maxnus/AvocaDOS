@@ -79,5 +79,6 @@ def macro(**kwargs) -> GameRunner:
 
 if __name__ == "__main__":
     #runner = micro()
-    runner = macro(map_='LastFantasyAIE')
+    #runner = macro(map_='LastFantasyAIE')
+    runner = macro()
     runner.run()

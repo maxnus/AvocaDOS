@@ -111,7 +111,7 @@ class AttackOrder(Order):
 @dataclass(frozen=True)
 class AbilityOrder(Order):
     ability: AbilityId
-    target: Point2 | Unit
+    target: Point2 | Unit | None
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -206,7 +206,7 @@ class OrderManager(BotObject):
                queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, AttackOrder, target, queue=queue, force=force)
 
-    def ability(self, unit: Unit | Units, ability: AbilityId, target: Point2 | Unit, *,
+    def ability(self, unit: Unit | Units, ability: AbilityId, target: Optional[Point2 | Unit] = None, *,
                 queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, AbilityOrder, ability, target, queue=queue, force=force)
 

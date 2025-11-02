@@ -67,9 +67,9 @@ class SquadManager(BotObject):
                 tags_filtered -= common_tags
         return tags_filtered
 
-    def create(self, units: Units | set[int]) -> Squad:
+    def create(self, units: Units | set[int], *, remove_from_squads: bool = False) -> Squad:
         squad = Squad(self.bot, _code=True)
-        self.add_units(squad, units)
+        self.add_units(squad, units, remove_from_squads=remove_from_squads)
         self._squads[squad.id] = squad
         return squad
 
@@ -80,8 +80,11 @@ class SquadManager(BotObject):
             self.logger.warning("Squad {} not found", id_)
         self.remove_units(squad, squad.tags)
 
-    def add_units(self, squad: Squad, units: Unit | Units | int | set[int]) -> None:
+    def add_units(self, squad: Squad, units: Unit | Units | int | set[int], *,
+                  remove_from_squads: bool = False) -> None:
         tags = normalize_tags(units)
+        if remove_from_squads:
+            self.remove_from_squads(units)
         tags = self._filter_tags(tags)
         for tag in tags:
             self._tag_to_squad[tag] = squad.id

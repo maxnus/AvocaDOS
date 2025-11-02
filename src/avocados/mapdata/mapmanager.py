@@ -90,9 +90,8 @@ class MapManager(BotObject):
     def get_expansions(self, sort_by: Optional[Callable[[ExpansionLocation], float]] = None) -> list[ExpansionLocation]:
         raise NotImplementedError
 
-    def get_enemy_expansions(self) -> list[ExpansionLocation]:
-        start_idx = 0
-        return [self.expansions[idx] for idx, _ in self.enemy_expansion_order[start_idx]]
+    def get_enemy_expansions(self, start_location_idx: int) -> list[ExpansionLocation]:
+        return [self.expansions[idx] for idx, _ in self.enemy_expansion_order[start_location_idx]]
 
     def get_proxy_location(self) -> Point2:
         idx = self.enemy_expansion_order[0][2][0]

@@ -324,9 +324,10 @@ class AvocaDOS:
     async def other(self, iteration: int) -> None:
 
         if iteration % 8 == 0:
-            for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
-                raise_depot = self.api.enemy_units.closer_than(2.5, unit)
-                unit(AbilityId.MORPH_SUPPLYDEPOT_RAISE if raise_depot else AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+            for unit in self.structures((UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED)).ready.idle:
+                raise_depot = self.api.enemy_units.closer_than(2, unit)
+                self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE
+                                         if raise_depot else AbilityId.MORPH_SUPPLYDEPOT_LOWER)
 
         if iteration % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:

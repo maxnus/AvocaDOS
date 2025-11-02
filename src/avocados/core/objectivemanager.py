@@ -237,23 +237,37 @@ class ObjectiveManager(BotObject):
                                                    for s in squads_with_task)):
             # Objective complete
             for s in squads_with_task:
+                # This belongs in the SquadManager...
                 s.task = None
             return True
 
         total_strength = sum(s.strength for s in squads_with_task)
-        if objective.strength is not None and total_strength >= objective.strength:
+        if total_strength >= objective.strength:
             return False
 
-        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
+        # Send idle squads
+        for squad in self.squads:
+            if squad.task is None:
+                if isinstance(objective, AttackObjective):
+                    squad.attack(objective.target, priority=objective.priority / 100)  # TODO
+                else:
+                    squad.defend(objective.target, priority=objective.priority / 100)  # TODO
+                total_strength += squad.strength
+                if total_strength >= objective.strength:
+                    return False
 
-        if objective.strength is not None and units:
+        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
+        if units:
             units_to_add = int(math.ceil(objective.strength - total_strength))
             units = units.closest_n_units(objective.target, units_to_add)
 
-        if objective.strength is None:
-            for squad in self.squads:
-                if squad not in squads_with_task and squad.task is None or squad.task.priority < objective.priority/100:  # TODO
-                    units += squad.units
+        # Add units from squads with lower priority tasks
+        for squad in self.squads:
+            if squad not in squads_with_task and squad.task is None or squad.task.priority < objective.priority/100:  # TODO
+                units += squad.units
+                total_strength += squad.strength
+                if total_strength >= objective.strength:
+                    break
 
         if not units:
             return False
@@ -269,13 +283,16 @@ class ObjectiveManager(BotObject):
 
         if squad is None:
             if len(units) < objective.minimum_size:
-                #self.logger.info("Squad size of {} is required but only {} units found", task.minimum_size, len(units))
                 return False
-            self.squads.remove_from_squads(units)
-            squad = self.squads.create(units)
+            squad = self.squads.create(units, remove_from_squads=True)
         else:
-            self.squads.remove_from_squads(units)
-            squad.add(units)
+            squad.add(units, remove_from_squads=True)
+
+        # Always create a new squad - we can always merge later
+        # if len(units) < max(objective.minimum_size, 1):
+        #     return False
+        # self.squads.remove_from_squads(units)
+        # squad = self.squads.create(units)
 
         if isinstance(objective, AttackObjective):
             squad.attack(objective.target, priority=objective.priority/100) # TODO
