@@ -3,12 +3,11 @@ import itertools
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any
 
 import numpy as np
 from sc2.position import Point2
 from sc2.unit import Unit
-from sc2.units import Units
 
 
 _id_counter = itertools.count()
@@ -16,16 +15,6 @@ _id_counter = itertools.count()
 
 def unique_id() -> int:
     return next(_id_counter)
-
-
-def normalize_tags(unit: Unit | int | Units | set[int]) -> set[int]:
-    if isinstance(unit, Unit):
-        return {unit.tag}
-    if isinstance(unit, int):
-        return {unit}
-    if isinstance(unit, Units):
-        return unit.tags
-    return unit
 
 
 async def wait_until(predicate: Callable[..., Any], check_interval: float = 1) -> None:
@@ -120,15 +109,6 @@ class LineSegment:
         distance = point.distance_to(q)
         return distance
 
-
-def get_closest_distance(units1: Units, units2: Units) -> float:
-    closest = float('inf')
-    for unit1 in units1:
-        for unit2 in units2:
-            closest = min(closest, squared_distance(unit1, unit2))
-    return math.sqrt(closest)
-
-
 def lerp(distance, points: list[tuple[float, float]]) -> float:
     # Flat extrapolation
     if distance <= points[0][0]:
@@ -141,55 +121,3 @@ def lerp(distance, points: list[tuple[float, float]]) -> float:
             p = (d2 - distance) / (d2 - d1)
             return p * t1 + (1 - p) * t2
     raise ValueError
-
-
-@dataclass
-class UnitCost:
-    minerals: float
-    vespene: float
-    supply: float
-
-    def __repr__(self) -> str:
-        return f"{self.minerals:.0f}M {self.vespene:.0f}G {self.supply:.1f}S"
-
-    @property
-    def resources(self) -> float:
-        return self.minerals + self.vespene
-
-    def __add__(self, other: 'UnitCost') -> Self:
-        return UnitCost(
-            minerals=self.minerals + other.minerals,
-            vespene=self.vespene + other.vespene,
-            supply=self.supply + other.supply,
-        )
-
-    def __sub__(self, other: 'UnitCost') -> Self:
-        return UnitCost(
-            minerals=self.minerals - other.minerals,
-            vespene=self.vespene - other.vespene,
-            supply=self.supply - other.supply,
-        )
-
-    def __mul__(self, factor: float) -> Self:
-        return UnitCost(
-            minerals=self.minerals * factor,
-            vespene=self.vespene * factor,
-            supply=self.supply * factor,
-        )
-
-    def __rmul__(self, factor: float) -> Self:
-        return self * factor
-
-    def __truediv__(self, divisor: float) -> Self:
-        return UnitCost(
-            minerals=self.minerals / divisor,
-            vespene=self.vespene / divisor,
-            supply=self.supply / divisor,
-        )
-
-    def __pow__(self, exponent: float) -> Self:
-        return UnitCost(
-            minerals=self.minerals ** exponent,
-            vespene=self.vespene ** exponent,
-            supply=self.supply ** exponent,
-        )

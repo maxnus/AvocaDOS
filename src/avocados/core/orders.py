@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.ability_id import AbilityId
@@ -10,7 +10,6 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.util import unique_id
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
 
 @dataclass(repr=False, frozen=True)
 class Order(ABC):
-    #id: int = field(default_factory=unique_id, init=False, compare=False)
 
     @abstractmethod
     def __repr__(self) -> str:

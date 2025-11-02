@@ -4,7 +4,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
 from avocados.core.botobject import BotObject
-from avocados.core.util import UnitCost
+from avocados.core.unitutil import UnitCost
 from avocados.debug.micro_scenario import MicroScenario, MicroScenarioResults
 
 if TYPE_CHECKING:

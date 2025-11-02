@@ -101,7 +101,6 @@ class DebugManager(BotObject):
     def client(self) -> Client:
         return self.api.client
 
-
     # Controls
 
     async def reveal_map(self) -> None:
@@ -254,10 +253,8 @@ class DebugManager(BotObject):
         raise TypeError(f"invalid argument: {point}")
 
     def _show_tasks(self) -> None:
-        info = []
-        for task in self.api.bot.tasks:
-            info.append("   " + repr(task))
-        self.text_screen(info, position=(0.003, 0.005))
+        lines = [repr(task) for task in self.api.bot.tasks]
+        self.text_screen(lines, position=(0.005, 0.006))
 
     def _show_combat(self) -> None:
         for unit in self.api.bot.units:
@@ -298,7 +295,7 @@ class DebugManager(BotObject):
 
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.api.get_resource_collection_rates()
-        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.80, 0.05))
+        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.78, 0.05))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:
@@ -308,4 +305,4 @@ class DebugManager(BotObject):
         else:
             color = Color.RED
         self.text_screen(f"step time (ms): {last_step:.1f} (avg={avg_step:.1f}, min={min_step:.1f}"
-                         f", max={max_step:.1f})", position=(0.73, 0.7), color=color)
+                         f", max={max_step:.1f})", position=(0.73, 0.71), color=color)

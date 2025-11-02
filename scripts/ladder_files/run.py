@@ -5,10 +5,10 @@ import aiohttp
 from loguru import logger
 
 import sc2
-from sc2.data import Race
-from sc2.player import Bot
 from sc2.client import Client
 from sc2.protocol import ConnectionAlreadyClosedError
+
+from avocados import create_avocados
 
 
 # Run ladder game
@@ -76,8 +76,7 @@ async def join_ladder_game(host, port, players, realtime, portconfig, save_repla
 
 
 if __name__ == "__main__":
-    from avocados.core.botapi import BotApi
-    bot = Bot(Race.Terran, BotApi())
+    avocados = create_avocados()
     print("Starting ladder game...")
-    result, opponentid = run_ladder_game(bot)
+    result, opponentid = run_ladder_game(avocados)
     print(result, " against opponent ", opponentid)

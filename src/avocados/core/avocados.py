@@ -17,6 +17,7 @@ from avocados.core.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS
 from avocados.core.historymanager import HistoryManager
 from avocados.core.miningmanager import MiningManager
+from avocados.core.unitutil import get_unit_type_counts
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
@@ -73,7 +74,7 @@ class AvocaDOS:
     combat: CombatManager
     mining: MiningManager
     history: HistoryManager
-    debug: DebugManager
+    debug: Optional[DebugManager]
     micro_scenario: Optional[MicroScenarioManager]
     # Other
     previous_orders: dict[int, Optional[Order]]
@@ -81,6 +82,7 @@ class AvocaDOS:
     def __init__(self, api: 'BotApi', *,
                  name: str = 'AvocaDOS',
                  build: Optional[str] = None,
+                 debug: bool = True,
                  log_level: str = "DEBUG",
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
                  ) -> None:
@@ -108,7 +110,7 @@ class AvocaDOS:
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
         self.map = MapManager(self)
-        self.debug = DebugManager(self)
+        self.debug = DebugManager(self) if debug else None
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
         else:
@@ -148,7 +150,8 @@ class AvocaDOS:
 
         # TODO
         await self.other(step)
-        await self.debug.on_step(step)
+        if self.debug:
+            await self.debug.on_step(step)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         await self.debug.on_unit_took_damage(unit, amount_damage_taken)
@@ -198,10 +201,7 @@ class AvocaDOS:
         return self.units + self.structures
 
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
-        counter = Counter()
-        for unit in self.forces:
-            counter[unit.type_id] += 1
-        return counter
+        return get_unit_type_counts(self.forces)
 
     # --- Pick unit
 

@@ -1,4 +1,4 @@
-from typing import Optional, ClassVar, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.buff_id import BuffId
@@ -8,8 +8,9 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.util import squared_distance, get_closest_distance, lerp
-from avocados.micro.squad import Squad, SquadTask, SquadAttackTask, SquadDefendTask
+from avocados.core.util import lerp, squared_distance
+from avocados.core.unitutil import get_closest_distance, get_closest_sq_distance
+from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask
 from avocados.micro.weapons import Weapons
 
 if TYPE_CHECKING:
@@ -105,6 +106,10 @@ class CombatManager(BotObject):
             case UnitTypeId.MEDIVAC: return 0.75
             case UnitTypeId.SIEGETANKSIEGED: return 0.80
             # Zerg
+            case UnitTypeId.EGG: return 0.00
+            case UnitTypeId.LARVA: return 0.05
+            case UnitTypeId.BROODLING: return 0.35
+            case UnitTypeId.OVERLORD: return 0.45
             case UnitTypeId.DRONEBURROWED: return 0.50
             case UnitTypeId.DRONE: return 0.50
             case UnitTypeId.ROACHBURROWED : return 0.50
@@ -115,6 +120,7 @@ class CombatManager(BotObject):
             case UnitTypeId.QUEEN: return 0.60
             case UnitTypeId.HYDRALISKBURROWED: return 0.60
             case UnitTypeId.HYDRALISK: return 0.65
+            case UnitTypeId.BANELINGCOCOON: return 0.50
             case UnitTypeId.BANELINGBURROWED: return 0.90
             case UnitTypeId.BANELING: return 1.00
             # Protoss
@@ -122,8 +128,6 @@ class CombatManager(BotObject):
             case UnitTypeId.ZEALOT: return 0.55
             case UnitTypeId.PHOENIX: return 0.55
             case UnitTypeId.STALKER: return 0.60
-            case UnitTypeId.ADEPT: return 0.65
-            case UnitTypeId.ADEPTPHASESHIFT: return 0.30
             case UnitTypeId.VOIDRAY: return 0.65
             case UnitTypeId.SENTRY:
                 # TODO: detect if sentry is the actual caster
@@ -131,7 +135,13 @@ class CombatManager(BotObject):
                     return 0.80
                 else:
                     return 0.55
-            case UnitTypeId.IMMORTAL: return 0.70
+            case UnitTypeId.ADEPT: return 0.70
+            case UnitTypeId.ADEPTPHASESHIFT: return 0.30
+            case UnitTypeId.IMMORTAL:
+                if target.has_buff(BuffId.IMMORTALOVERLOAD):
+                    return 0.50
+                else:
+                    return 0.70
             case UnitTypeId.ORACLE: return 0.75
             case UnitTypeId.COLOSSUS: return 0.80
             case UnitTypeId.DISRUPTOR: return 0.85
@@ -150,13 +160,16 @@ class CombatManager(BotObject):
         All values are in [0, 1]
         """
         priorities: dict[Unit, float] = {}
-        min_distance = get_closest_distance(attacker, targets)
+        # TODO testing
+        #min_distance = get_closest_distance(attacker, targets)
+        min_sq_distance = get_closest_sq_distance(attacker, targets)
         for target in targets:
             floor, ceil = 0.0, 1.0
             base = self._get_attack_base_priority(target)
             # t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
             weakness = 1 - target.shield_health_percentage**2
-            distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
+            #distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
+            distance = min_sq_distance / (get_closest_sq_distance(attacker, target) + 1e-15)
             priority = (
                     self.attack_priority_base_weight * base
                     + self.attack_priority_weakness_weight * weakness
@@ -250,15 +263,16 @@ class CombatManager(BotObject):
         squad_attack_priorities = self.combat.get_attack_priorities(units, enemies)
         if squad_attack_priorities:
             squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
-            # DEBUG
-            for unit, priority in squad_attack_priorities.items():
-                if unit == squad_target:
-                    color = 'RED'
-                elif priority >= 0.5:
-                    color = 'YELLOW'
-                else:
-                    color = 'GREEN'
-                self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
+            # TODO DEBUG
+            if self.debug:
+                for unit, priority in squad_attack_priorities.items():
+                    if unit == squad_target:
+                        color = 'RED'
+                    elif priority >= 0.5:
+                        color = 'YELLOW'
+                    else:
+                        color = 'GREEN'
+                    self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
 
         else:
             squad_target = None

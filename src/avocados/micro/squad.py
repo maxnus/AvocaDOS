@@ -1,15 +1,17 @@
 import math
 from abc import ABC
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy
+from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-
+from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
 
 
 @dataclass
@@ -53,6 +55,9 @@ class Squad(BotObject):
         # TODO: better measure of strength
         return len(self)
 
+    def get_unit_type_counts(self) -> Counter[UnitTypeId]:
+        return get_unit_type_counts(self.units)
+
     def __contains__(self, tag: int) -> bool:
         return tag in self.tags
 
@@ -75,7 +80,7 @@ class Squad(BotObject):
     def get_max_spread_squared(self) -> float:
         if len(self) < 2:
             return 1
-        unit_sq_radius = sum(unit.radius*unit.radius for unit in self.units)
+        unit_sq_radius = sum(number * unit.radius**2 for unit, number in get_unique_unit_types(self.units).items())
         return 4 * self.spacing**2 * unit_sq_radius
 
     def get_max_spread(self) -> float:

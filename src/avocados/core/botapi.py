@@ -13,7 +13,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.avocados import AvocaDOS
-from avocados.core.util import UnitCost
+from avocados.core.unitutil import UnitCost
 
 
 class BotApi(BotAI):

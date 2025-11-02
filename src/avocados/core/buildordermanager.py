@@ -43,8 +43,9 @@ class BuildOrderManager(BotObject):
         # Units
         bot.tasks.add(UnitCountTask(UnitTypeId.MARINE, 100, reqs=UnitTypeId.BARRACKS))
 
-        bot.tasks.add(DefenseTask(target=bot.map.ramp_defense_location, strength=8))
-        bot.tasks.add(AttackTask(target=bot.map.enemy_start_locations[0].center, minimum_size=8, reqs=(UnitTypeId.MARINE, 8)))
+        bot.tasks.add(DefenseTask(target=bot.map.ramp_defense_location, strength=6))
+        bot.tasks.add(AttackTask(target=bot.map.enemy_start_locations[0].center, minimum_size=6,
+                                 reqs=(UnitTypeId.MARINE, 6)))
 
     def load_proxy_marine(self) -> None:
         bot = self.bot

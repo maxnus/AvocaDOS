@@ -4,6 +4,10 @@ from pathlib import Path
 from subprocess import run
 from typing import Optional
 
+from avocados import __version__
+
+
+REPO_PATH = Path(__file__).parents[1]
 PYTHON_SC2_GITHUB = 'https://github.com/BurnySc2/python-sc2'
 
 
@@ -27,9 +31,6 @@ def build_ladder_zip(scr_path: Path, zip_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    botname = 'AvocaDOS'
-    version = "0.0.1"
-    repo_root = Path(__file__).parents[1]
-    bot_path = repo_root / 'src'
-    zip_path = repo_root / f'build/{botname}_{version}'
+    bot_path = REPO_PATH / 'src'
+    zip_path = REPO_PATH / f'build/AvocaDOS_{__version__}'
     build_ladder_zip(bot_path, zip_path)

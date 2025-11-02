@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from loguru._logger import Logger
 
@@ -50,7 +50,7 @@ class BotObject(ABC):
         return self.bot.map
 
     @property
-    def debug(self) -> 'DebugManager':
+    def debug(self) -> Optional['DebugManager']:
         return self.bot.debug
 
     @property

@@ -19,7 +19,7 @@ class ResourceManager(BotObject):
     reserved_minerals: int
     reserved_vespene: int
 
-    def __init__(self, bot: 'AvocaDOS', *, minerals: int = 0, vespene: int = 0) -> None:
+    def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.spent_minerals = 0
         self.spent_vespene = 0
