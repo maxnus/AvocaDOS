@@ -1,11 +1,9 @@
 import math
-from abc import ABC
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Optional, Protocol, runtime_checkable
 
-import numpy
 from sc2.cache import property_cache_once_per_frame
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
@@ -165,11 +163,11 @@ class Squad(BotObject):
             return None
         return self.units.center
 
-    def get_position_covariance(self) -> Optional[numpy.ndarray]:
-        if self.units.empty:
-            return None
-        center = self.units.center
-        deltas = [unit.position - center for unit in self.units]
-        dx = sum(d[0] for d in deltas)
-        dy = sum(d[1] for d in deltas)
-        return numpy.asarray([[dx*dx, dx*dy], [dy*dx, dy*dy]])
+    # def get_position_covariance(self) -> Optional[numpy.ndarray]:
+    #     if self.units.empty:
+    #         return None
+    #     center = self.units.center
+    #     deltas = [unit.position - center for unit in self.units]
+    #     dx = sum(d[0] for d in deltas)
+    #     dy = sum(d[1] for d in deltas)
+    #     return numpy.asarray([[dx*dx, dx*dy], [dy*dx, dy*dy]])

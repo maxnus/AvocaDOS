@@ -84,6 +84,7 @@ class AvocaDOS:
                  build: Optional[str] = None,
                  debug: bool = True,
                  log_level: str = "DEBUG",
+                 log_file: Optional[str] = 'AvocaDOS_{time:YYYY-MM-DD_HH-mm-ss}.log',
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
                  ) -> None:
         super().__init__()
@@ -99,6 +100,15 @@ class AvocaDOS:
             filter=lambda record: record['extra'].get('bot') == self.name,
             format=LOG_FORMAT,
         )
+        if log_file:
+            self.logger.add(
+                f'data/{log_file}',
+                level=log_level,
+                filter=lambda record: record['extra'].get('bot') == self.name,
+                format=LOG_FORMAT,
+                rotation='1 day',
+                retention='14 days',
+            )
 
         # Manager
         self.build = BuildOrderManager(self, build=build)

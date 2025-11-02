@@ -10,8 +10,8 @@ from sc2.units import Units
 from avocados.core.botobject import BotObject
 from avocados.core.constants import TERRAN_TECHLAB, TERRAN_REACTOR
 from avocados.core.geomutil import lerp, squared_distance
-from avocados.core.unitutil import get_closest_distance, get_closest_sq_distance
-from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadTask
+from avocados.core.unitutil import get_closest_sq_distance
+from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus
 from avocados.micro.weapons import Weapons
 
 if TYPE_CHECKING:

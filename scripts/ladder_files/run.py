@@ -5,6 +5,7 @@ import aiohttp
 from loguru import logger
 
 import sc2
+from sc2.portconfig import Portconfig
 from sc2.client import Client
 from sc2.protocol import ConnectionAlreadyClosedError
 
@@ -43,7 +44,7 @@ def run_ladder_game(bot):
     else:
         ports = [lan_port + p for p in range(1, 6)]
 
-        portconfig = sc2.portconfig.Portconfig()
+        portconfig = Portconfig()
         portconfig.server = [ports[1], ports[2]]
         portconfig.players = [[ports[3], ports[4]]]
 
@@ -78,5 +79,5 @@ async def join_ladder_game(host, port, players, realtime, portconfig, save_repla
 if __name__ == "__main__":
     avocados = create_avocados()
     print("Starting ladder game...")
-    result, opponentid = run_ladder_game(avocados)
-    print(result, " against opponent ", opponentid)
+    game_result, opponentid = run_ladder_game(avocados)
+    print(game_result, " against opponent ", opponentid)

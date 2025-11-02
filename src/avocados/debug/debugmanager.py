@@ -2,7 +2,6 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, ClassVar
 
-
 from sc2.client import Client
 from sc2.ids.ability_id import AbilityId
 from sc2.position import Point3, Point2

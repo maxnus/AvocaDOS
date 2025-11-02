@@ -11,8 +11,8 @@ from avocados.core.constants import ALTERNATIVES, TRAINERS
 from avocados.core.botobject import BotObject
 from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
                                      BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
+from avocados.core.geomutil import squared_distance
 from avocados.micro.squad import SquadDefendTask, SquadAttackTask, SquadStatus
-from .geomutil import squared_distance
 
 if TYPE_CHECKING:
     from .avocados import AvocaDOS

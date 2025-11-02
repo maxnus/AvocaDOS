@@ -2,11 +2,10 @@ import asyncio
 import itertools
 import math
 import random
-from collections.abc import Callable, Iterable, Collection
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable, Optional
+from typing import Any, Protocol, runtime_checkable
 
-import numpy as np
 from sc2.position import Point2
 from sc2.unit import Unit
 
@@ -212,6 +211,10 @@ def get_circle_intersections(circle1: Circle, circle2: Circle) -> list[Point2]:
     return [Point2((x3, y3)), Point2((x4, y4))]
 
 
+def dot(a: Point2, b: Point2) -> float:
+    return a.x * b.x + a.y * b.y
+
+
 class LineSegment:
     start: Point2
     end: Point2
@@ -230,8 +233,8 @@ class LineSegment:
             point = point.position
         segment = self.end - self.start
         v = point - self.start
-        t = np.dot(v, segment) / np.dot(segment, segment)
-        t = np.clip(t, 0, 1)
+        t = dot(v, segment) / dot(segment, segment)
+        t = max(0.0, min(t, 1.0))
         q = self.start + t * segment
         distance = point.distance_to(q)
         return distance

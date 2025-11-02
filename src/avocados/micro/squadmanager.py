@@ -9,7 +9,7 @@ from sc2.units import Units
 from avocados.core.botobject import BotObject
 from avocados.core.geomutil import squared_distance
 from avocados.core.unitutil import normalize_tags
-from avocados.micro.squad import Squad, SquadAttackTask, SquadTask, SquadStatus
+from avocados.micro.squad import Squad, SquadTask
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
