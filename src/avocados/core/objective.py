@@ -9,7 +9,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.util import unique_id
+from avocados.core.geomutil import unique_id
 
 
 class TaskStatus(Enum):
@@ -172,12 +172,14 @@ class AttackOrDefenseObjective(Objective, ABC):
     target: Point2
     strength: Optional[float]
     minimum_size: int
+    duration: Optional[float]
 
     def __init__(self,
                  target: Point2,
                  strength: Optional[float] = None,
                  *,
                  minimum_size: int = 1,
+                 duration: Optional[float] = None,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
                  priority: int = 50,
@@ -187,6 +189,7 @@ class AttackOrDefenseObjective(Objective, ABC):
         self.target = target
         self.strength = strength
         self.minimum_size = minimum_size
+        self.duration = duration
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(target={self.target}, strength={self.strength}, priority={self.priority})"

@@ -67,16 +67,17 @@ def micro() -> GameRunner:
     return runner
 
 
-def macro() -> GameRunner:
+def macro(**kwargs) -> GameRunner:
     runner = GameRunner(
         bot=create_avocados(build='mass_marine', log_level='DEBUG'),
         #opponent=create_avocados(build='mass_marine'),
         realtime='--realtime' in sys.argv,
+        **kwargs
     )
     return runner
 
 
 if __name__ == "__main__":
     #runner = micro()
-    runner = macro()
+    runner = macro(map_='LastFantasyAIE')
     runner.run()

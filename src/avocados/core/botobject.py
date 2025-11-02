@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional, Any
 from loguru._logger import Logger
 from sc2.game_state import GameState
 
-from avocados.core.util import unique_id
+from avocados.core.geomutil import unique_id
 
 if TYPE_CHECKING:
     from avocados.core.botapi import BotApi

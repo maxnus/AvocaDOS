@@ -24,7 +24,7 @@ from avocados.mapdata.mapmanager import MapManager
 from avocados.core.orders import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
 from avocados.core.objectivemanager import ObjectiveManager
-from avocados.core.util import LineSegment
+from avocados.core.geomutil import LineSegment
 from avocados.micro.combat import CombatManager
 from avocados.micro.squadmanager import SquadManager
 
@@ -140,6 +140,7 @@ class AvocaDOS:
         # if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
 
+        await self.map.on_step(step)
         await self.resources.on_step(step)
         await self.history.on_step(step)
         await self.order.on_step(step)

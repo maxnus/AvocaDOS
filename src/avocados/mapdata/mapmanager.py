@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
@@ -7,6 +8,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
+from avocados.core.geomutil import Area, Circle, Rect
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -19,6 +21,7 @@ class MapManager(BotObject):
     expansions: list[ExpansionLocation]
     expansion_order: list[tuple[int, float]]
     enemy_start_locations: list[ExpansionLocation]
+    enemy_start_location: Optional[ExpansionLocation] # Only set once known
     enemy_expansion_order: list[list[tuple[int, float]]]
     ramp_defense_location: Point2
     placement_grid: PixelMap
@@ -39,14 +42,31 @@ class MapManager(BotObject):
         # Enemy
         self.enemy_start_locations = [ExpansionLocation(self.bot, loc) for loc in self.api.enemy_start_locations]
         self.enemy_expansion_order = []
-        for enemy_start_location in self.enemy_start_locations:
+        for loc in self.enemy_start_locations:
             self.enemy_expansion_order.append(sorted(
-                [(idx, enemy_start_location.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
+                [(idx, loc.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
                 key=lambda x: x[1]
             ))
+        self.enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
 
         self.ramp_defense_location = self.api.main_base_ramp.top_center
         self.placement_grid = self.api.game_info.placement_grid.copy()
+
+    async def on_step(self, step: int) -> None:
+        # check for enemy start location
+        # TODO: consider buildings on ramp or natural, if before ~3 min mark
+        if self.enemy_start_location is None and step % 16 == 0:
+            for loc in self.enemy_start_locations.copy():
+                if self.api.enemy_structures.closer_than(10, loc.center):
+                    self.logger.info("Found enemy start location at {}", loc)
+                    self.enemy_start_locations = [loc]
+                    break
+                if self.any_part_of_area_is_visible(Rect.from_center(loc.center, 5, 5)):
+                    self.logger.info("Enemy start location not at {}", loc)
+                    self.enemy_start_locations.remove(loc)
+            if len(self.enemy_start_locations) == 1:
+                self.enemy_start_location = self.enemy_start_locations[0]
+                self.logger.info("Enemy start location must be at {}", self.enemy_start_location)
 
     # async def can_place_building(self, utype: UnitTypeId, position: Point2) -> bool:
     #     footprint_size = int(2 * self.api.game_data.units[utype.value].footprint_radius)
@@ -56,6 +76,23 @@ class MapManager(BotObject):
     #         return False
     #
     #     return await self.api.can_place_single(utype, point)
+
+    def any_part_of_area_is_visible(self, area: Area) -> bool:
+        bounds = area.bounding_rect(integral=True)
+        for x in range(int(bounds.x), int(bounds.x + bounds.width)):
+            for y in range(int(bounds.y), int(bounds.y + bounds.width)):
+                if (point := Point2((x, y))) not in area:
+                    continue
+                if self.state.visibility[point] > 0:    # 0: Hidden, 1: Fog, 2: Visible
+                    return True
+        return False
+
+    def get_expansions(self, sort_by: Optional[Callable[[ExpansionLocation], float]] = None) -> list[ExpansionLocation]:
+        raise NotImplementedError
+
+    def get_enemy_expansions(self) -> list[ExpansionLocation]:
+        start_idx = 0
+        return [self.expansions[idx] for idx, _ in self.enemy_expansion_order[start_idx]]
 
     def get_proxy_location(self) -> Point2:
         idx = self.enemy_expansion_order[0][2][0]
@@ -92,7 +129,7 @@ class MapManager(BotObject):
                     return self.bot.map.start_base.center.closest(ramp_positions)
                 if await self.api.can_place_single(utype, self.api.main_base_ramp.depot_in_middle):
                     return self.api.main_base_ramp.depot_in_middle
-                return await self.api.find_placement(utype, near=self.map.start_base.base_center,
+                return await self.api.find_placement(utype, near=self.map.start_base.region_center,
                                                      random_alternative=False)
 
             case UnitTypeId.BARRACKS:
@@ -100,7 +137,7 @@ class MapManager(BotObject):
                     ramp_position = self.api.main_base_ramp.barracks_correct_placement
                     if await self.api.can_place_single(utype, ramp_position):
                         return ramp_position
-                    return await self.api.find_placement(utype, near=self.map.start_base.base_center,
+                    return await self.api.find_placement(utype, near=self.map.start_base.region_center,
                                                          addon_place=True, random_alternative=False)
                 else:
                     return await self.api.find_placement(utype, near=near, max_distance=max_distance,

@@ -9,7 +9,7 @@ from sc2.units import Units
 
 from avocados.core.botobject import BotObject
 from avocados.core.constants import TERRAN_TECHLAB, TERRAN_REACTOR
-from avocados.core.util import lerp, squared_distance
+from avocados.core.geomutil import lerp, squared_distance
 from avocados.core.unitutil import get_closest_distance, get_closest_sq_distance
 from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadTask
 from avocados.micro.weapons import Weapons
@@ -101,15 +101,17 @@ class CombatManager(BotObject):
             case UnitTypeId.MARINE: return 0.60
             case UnitTypeId.REAPER: return 0.65
             case UnitTypeId.CYCLONE: return 0.65
-            case UnitTypeId.VIKING: return 0.65
             case UnitTypeId.HELLION: return 0.68
             case UnitTypeId.HELLIONTANK: return 0.69
             case UnitTypeId.WIDOWMINE: return 0.70
             case UnitTypeId.WIDOWMINEBURROWED: return 0.70
             case UnitTypeId.SIEGETANK: return 0.70
             case UnitTypeId.GHOST: return 0.70
-            case UnitTypeId.MEDIVAC: return 0.75
             case UnitTypeId.SIEGETANKSIEGED: return 0.80
+            # Flying
+            case UnitTypeId.VIKING: return 0.53
+            case UnitTypeId.MEDIVAC: return 0.69
+            case UnitTypeId.BANSHEE: return 0.75
             # --- Zerg
             # Structures
             case UnitTypeId.SPORECRAWLERUPROOTED: return 0.01
@@ -220,6 +222,7 @@ class CombatManager(BotObject):
             case UnitTypeId.SIEGETANKSIEGED:
                 # TODO use facing (?)
                 return 1.0
+
             # --- Zerg
             case UnitTypeId.DRONE: return lerp(attack_distance, (0.5, 0.5), (3, 0))
             case UnitTypeId.ZERGLING: return lerp(attack_distance, (0.5, 0.8), (1.5, 0.5), (5.0, 0.2))
@@ -267,11 +270,11 @@ class CombatManager(BotObject):
 
     async def micro_squad(self, squad: Squad, *,
                           enemies: Optional[Units] = None) -> None:
-        units = squad.units
+        # TODO: Move parts into SquadManager?
         if enemies is None:
-            enemies = self.get_enemies(units)
+            enemies = self.get_enemies(squad.units)
 
-        squad_attack_priorities = self.combat.get_attack_priorities(units, enemies)
+        squad_attack_priorities = self.combat.get_attack_priorities(squad.units, enemies)
         if squad_attack_priorities:
             squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
             squad.set_status(SquadStatus.COMBAT)
@@ -289,16 +292,20 @@ class CombatManager(BotObject):
         else:
             squad_target = None
             squad_target_priority = 0
-            if (isinstance(squad.task, (SquadAttackTask, SquadDefendTask))
-                and squad.distance_to(squad.task.area) > (squad.task.area.characteristic_length + 2)):
-                squad.set_status(SquadStatus.MOVING)
+            if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
+                if sum(unit.position in squad.task.area for unit in squad.units) >= max(0.75 * len(squad), 1):
+                    squad.set_status(SquadStatus.AT_TARGET)
+                else:
+                    squad.set_status(SquadStatus.MOVING)
+            else:
+                squad.set_status(SquadStatus.IDLE)
 
         #if self.bot.state.game_loop % 20 == 0:
         #    abilities = await self.get_abilities(units)
         #else:
         #    abilities = [[] for _ in range(len(units))]
-        abilities = await self.get_abilities(units)
-        for unit, unit_abilities in zip(units, abilities):
+        abilities = await self.get_abilities(squad.units)
+        for unit, unit_abilities in zip(squad.units, abilities):
             self._micro_unit(
                 unit,
                 enemies=enemies,
@@ -359,9 +366,8 @@ class CombatManager(BotObject):
             return self.order.move(unit, squad.center)
 
         if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
-            # TODO
-            # if squared_distance(unit, squad.task.area.center) >= squad.task.area.characteristic_length:
-            #     return self.order.move(unit, squad.task.area.center)
+            if unit.position not in squad.task.area:
+                 return self.order.move(unit, squad.task.area.center)
             if unit.is_idle:
                 return self.order.move(unit, squad.task.area.random)
 

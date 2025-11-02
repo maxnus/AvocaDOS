@@ -7,12 +7,15 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.util import squared_distance
+from avocados.core.geomutil import squared_distance
 from avocados.core.unitutil import normalize_tags
 from avocados.micro.squad import Squad, SquadAttackTask, SquadTask, SquadStatus
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
+
+
+MAX_SQUAD_SIZE = 24
 
 
 class SquadManager(BotObject):
@@ -33,19 +36,18 @@ class SquadManager(BotObject):
         for squad in list(self._squads.values()):
             squad.tags &= self.api.alive_tags
             if len(squad) == 0:
-                self.logger.info("Removing empty {}", squad)
+                self.logger.debug("Removing empty {}", squad)
                 self._squads.pop(squad.id)
 
-
-        for squad in self:
-            squad.set_status(SquadStatus.NONE)
-
-        #     if isinstance(squad.task, SquadAttackTask):
-        #         self.order.attack(squad.units, squad.task.target)
-        #     elif squad.task is None:
-        #         pass
-        #     else:
-        #         self.logger.warning("Unknown squad task: {}", squad.task)
+        # TODO: Combine squads
+        # for squad1 in list(self._squads.values()):
+        #     for squad2 in list(self._squads.values()):
+        #         if len(squad1) == 0 or len(squad2) == 0:
+        #             continue
+        #         if len(squad1) + len(squad2) > MAX_SQUAD_SIZE:
+        #             continue
+        #         if type(squad1.task) != type(squad2.task):
+        #             continue
 
     def __len__(self) -> int:
         return len(self._squads)

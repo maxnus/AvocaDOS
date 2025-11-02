@@ -4,7 +4,7 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.util import get_circle_intersections, Circle
+from avocados.core.geomutil import get_circle_intersections, Circle
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -16,7 +16,7 @@ MINERAL_LINE_CENTER_DISTANCE = 4.5
 
 class ExpansionLocation(BotObject):
     center: Point2
-    base_center: Point2
+    region_center: Point2
     mineral_fields_tags: set[int]
     vespene_geyser_tags: set[int]
     mineral_field_center: Optional[Point2]
@@ -51,11 +51,11 @@ class ExpansionLocation(BotObject):
             self.mineral_field_center = (sum((mf.position for mf in self.mineral_fields), start=Point2((0, 0)))
                                         / len(self.mineral_fields))
             self.mineral_line_center = self.center.towards(self.mineral_field_center, MINERAL_LINE_CENTER_DISTANCE)
-            self.base_center = self.center.towards(self.mineral_field_center, -10)
+            self.region_center = self.center.towards(self.mineral_field_center, -10)
         else:
             self.mineral_field_center = None
             self.mineral_line_center = None
-            self.base_center = self.center
+            self.region_center = self.center
 
     @property
     def mineral_fields(self) -> Units:

@@ -11,8 +11,8 @@ from avocados.core.constants import ALTERNATIVES, TRAINERS
 from avocados.core.botobject import BotObject
 from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
                                      BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
-from avocados.micro.squad import SquadDefendTask, SquadAttackTask
-from .util import squared_distance
+from avocados.micro.squad import SquadDefendTask, SquadAttackTask, SquadStatus
+from .geomutil import squared_distance
 
 if TYPE_CHECKING:
     from .avocados import AvocaDOS
@@ -232,6 +232,14 @@ class ObjectiveManager(BotObject):
         squads_with_task = self.squads.with_task(squad_task_type,
                                                  filter_=lambda t: squared_distance(t.area.center, objective.target) <= 25)
 
+        if (objective.duration is not None and any(s.status == SquadStatus.AT_TARGET
+                                                   and self.time > s.status_changed + objective.duration
+                                                   for s in squads_with_task)):
+            # Objective complete
+            for s in squads_with_task:
+                s.task = None
+            return True
+
         total_strength = sum(s.strength for s in squads_with_task)
         if objective.strength is not None and total_strength >= objective.strength:
             return False
@@ -244,9 +252,8 @@ class ObjectiveManager(BotObject):
 
         if objective.strength is None:
             for squad in self.squads:
-                if squad in squads_with_task:
-                    continue
-                units += squad.units
+                if squad not in squads_with_task and squad.task is None or squad.task.priority < objective.priority/100:  # TODO
+                    units += squad.units
 
         if not units:
             return False
@@ -271,7 +278,7 @@ class ObjectiveManager(BotObject):
             squad.add(units)
 
         if isinstance(objective, AttackObjective):
-            squad.attack(objective.target)
+            squad.attack(objective.target, priority=objective.priority/100) # TODO
         else:
-            squad.defend(objective.target)
+            squad.defend(objective.target, priority=objective.priority/100) # TODO
         return False

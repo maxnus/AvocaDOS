@@ -3,7 +3,7 @@ from abc import ABC
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
 
 import numpy
 from sc2.cache import property_cache_once_per_frame
@@ -14,36 +14,32 @@ from sc2.units import Units
 
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
-from avocados.core.util import Area, Circle, squared_distance
+from avocados.core.geomutil import Area, Circle, squared_distance
 
 
-@dataclass
-class SquadTask(ABC):
-    pass
+@runtime_checkable
+class SquadTask(Protocol):
+    priority: float
 
 
 @dataclass
 class SquadAttackTask(SquadTask):
-    #target: Point2 | Unit
-    #radius: float = 16.0
     area: Area
     priority: float = field(default=0.5, compare=False)
 
 
 @dataclass
 class SquadDefendTask(SquadTask):
-    #target: Point2 | Unit
-    #radius: float = 16.0
     area: Area
     priority: float = field(default=0.5, compare=False)
 
 
 class SquadStatus(StrEnum):
-    NONE = "None"
-    IDLE = "Idle"
-    COMBAT = "Combat"
-    MOVING = "Moving"
-    GROUPING = "Grouping"
+    IDLE = "I"
+    MOVING = "M"
+    COMBAT = "C"
+    AT_TARGET= "T"
+    GROUPING = "G"
 
 
 class Squad(BotObject):
@@ -52,6 +48,7 @@ class Squad(BotObject):
     spacing: float
     leash: Optional[float]
     status: SquadStatus
+    status_changed: float
 
     def __init__(self, bot, tags: Optional[set[int]] = None, _code: bool = False) -> None:
         super().__init__(bot)
@@ -60,7 +57,8 @@ class Squad(BotObject):
         self.task = None
         self.spacing = 0.0
         self.leash = None
-        self.status = SquadStatus.NONE
+        self.status = SquadStatus.IDLE
+        self.status_changed = 0.0
 
     def __len__(self) -> int:
         return len(self.units)
@@ -75,6 +73,8 @@ class Squad(BotObject):
         return len(self)
 
     def set_status(self, status: SquadStatus) -> None:
+        if status != self.status:
+            self.status_changed = self.time
         self.status = status
         if status == SquadStatus.COMBAT:
             self.leash = 8
@@ -99,6 +99,9 @@ class Squad(BotObject):
 
     # --- Distance
 
+    def get_bounds(self) -> Circle:
+        raise NotImplementedError()
+
     def distance_to(self, target: Point2 | Unit | Area) -> float:
         if isinstance(target, Point2):
             point = target
@@ -110,16 +113,25 @@ class Squad(BotObject):
             raise TypeError(f'invalid target type: {type(target)}')
         return max(math.sqrt(squared_distance(self.center, point)) - math.sqrt(self.radius_squared), 0)
 
+    def closest_distance_to(self, target: Point2 | Unit | Area) -> float:
+        if len(self) == 0:
+            return float('inf')
+        if isinstance(target, Area):
+            return target.closest(self.units)[1]
+        if isinstance(target, Unit):
+            target = target.position
+        return target.distance_to_closest(self.units)
+
     # --- Orders
 
-    def attack(self, target: Point2, *, radius: float = 16.0) -> SquadAttackTask:
+    def attack(self, target: Point2, *, radius: float = 16.0, priority: float = 0.5) -> SquadAttackTask:
         area = Circle(target, radius)
-        self.task = SquadAttackTask(area)
+        self.task = SquadAttackTask(area, priority=priority)
         return self.task    # noqa
 
-    def defend(self, target: Point2, *, radius: float = 16.0) -> SquadDefendTask:
+    def defend(self, target: Point2, *, radius: float = 16.0, priority: float = 0.5) -> SquadDefendTask:
         area = Circle(target, radius)
-        self.task = SquadDefendTask(area)
+        self.task = SquadDefendTask(area, priority=priority)
         return self.task    # noqa
 
     # --- Position

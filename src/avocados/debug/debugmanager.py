@@ -256,14 +256,11 @@ class DebugManager(BotObject):
         lines = [repr(task) for task in self.api.bot.objectives]
         self.text_screen(lines, position=(0.005, 0.006))
 
-    def _show_combat(self) -> None:
+    def _show_combat(self, *, show_weapon_cooldown: bool = False) -> None:
         for unit in self.api.bot.units:
-            if unit.weapon_cooldown != 0:
-                # bar = f"{unit.weapon_cooldown:.3f}"
-                # bar = ";".join([str(w) for w in unit._weapons])
+            if show_weapon_cooldown and unit.weapon_cooldown != 0:
                 text = f'({math.ceil(unit.weapon_cooldown)})'
-                self.text_world(text, unit.position3d + Point3((0, 0, -0.5)),
-                                size=12, color=Color.CYAN)
+                self.text_world(text, unit.position3d + Point3((0, 0, -0.5)), size=12, color=Color.CYAN)
 
             if unit.orders:
                 order = unit.orders[0]
@@ -291,7 +288,7 @@ class DebugManager(BotObject):
     def _show_squads(self) -> None:
         for squad in self.squads:
             for unit in squad.units:
-                self.box_with_text(unit, f"{squad.id}", color=Color.PINK)
+                self.box_with_text(unit, f"{squad.id}[{squad.status}]", color=Color.PINK)
 
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.api.get_resource_collection_rates()

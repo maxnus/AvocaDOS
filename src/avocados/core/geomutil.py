@@ -2,10 +2,9 @@ import asyncio
 import itertools
 import math
 import random
-from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Collection
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable, Optional
 
 import numpy as np
 from sc2.position import Point2
@@ -39,28 +38,89 @@ def squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
     return dx * dx + dy * dy
 
 
+def get_best_score[T](values: Collection[T], score_func: Callable[[T], float]) -> tuple[T, float]:
+    return max([(value, score_func(value)) for value in values], key=lambda x: x[1])
+
+
+def closest_point(points: Collection[Point2], target: Point2) -> tuple[Point2, float]:
+    return get_best_score(points, score_func=lambda p: squared_distance(p, target))
+
+
+def furthest_point(points: Collection[Point2], target: Point2) -> tuple[Point2, float]:
+    return get_best_score(points, score_func=lambda p: -squared_distance(p, target))
+
+
 @runtime_checkable
 class Area(Protocol):
+    @property
+    def center(self) -> Point2: ...
+    @property
+    def size(self) -> float: ...
+    @property
+    def perimeter(self) -> float: ...
+    @property
+    def characteristic_length(self) -> float: ...
+    def __contains__(self, point: Point2) -> bool: ...
+    @property
+    def random(self) -> Point2: ...
+    def closest(self, points: Collection[Point2]) -> tuple[Point2, float]: ...
+    def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]: ...
+    def bounding_rect(self, *, integral: bool = False) -> 'Rect': ...
+
+
+@dataclass(frozen=True)
+class Rect:
+    x: float
+    y: float
+    width: float
+    height: float
+
+    @classmethod
+    def from_center(cls, center: Point2, width: float, height: float) -> 'Rect':
+        x = center.x - width / 2
+        y = center.y - height / 2
+        return Rect(x, y, width, height)
 
     @property
     def center(self) -> Point2:
-        pass
+        return Point2((self.x + self.width/2, self.y + self.height/2))
 
     @property
     def size(self) -> float:
-        pass
+        return self.width * self.height
 
     @property
     def perimeter(self) -> float:
-        pass
+        return 2 * (self.width + self.height)
 
     @property
     def characteristic_length(self) -> float:
-        pass
+        return math.sqrt(self.width * self.height)
+
+    def __contains__(self, point: Point2) -> bool:
+        return (self.x <= point.x < self.x + self.width ) and (self.y <= point.y < self.y + self.height)
 
     @property
     def random(self) -> Point2:
-        pass
+        x = self.x + random.uniform(0, self.width)
+        y = self.y + random.uniform(0, self.height)
+        return Point2((x, y))
+
+    def closest(self, points: Collection[Point2]) -> tuple[Point2, float]:
+        raise NotImplementedError
+
+    def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]:
+        raise NotImplementedError
+
+    def bounding_rect(self, integral: bool = False) -> 'Rect':
+        if integral:
+            x = int(math.floor(self.x))
+            y = int(math.floor(self.y))
+            width = int(math.ceil(self.x + self.width)) - x
+            height = int(math.ceil(self.y + self.height)) - y
+            return Rect(x, y, width, height)
+        else:
+            return self
 
 
 @dataclass(frozen=True)
@@ -92,6 +152,9 @@ class Circle:
     def characteristic_length(self) -> float:
         return 2/3 * self.radius
 
+    def __contains__(self, point: Point2) -> bool:
+        return squared_distance(self.center, point) <= self.radius**2
+
     @property
     def random(self) -> Point2:
         theta = random.uniform(0, 2 * math.pi)
@@ -99,6 +162,24 @@ class Circle:
         x = self.x + r * math.cos(theta)
         y = self.y + r * math.sin(theta)
         return Point2((x, y))
+
+    def closest(self, points: Collection[Point2]) -> tuple[Point2, float]:
+        return closest_point(points, self.center)
+
+    def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]:
+        return furthest_point(points, self.center)
+
+    def bounding_rect(self, *, integral: bool = False) -> Rect:
+        x = self.center.x - self.radius
+        y = self.center.y - self.radius
+        if integral:
+            x = int(math.floor(x))
+            y = int(math.floor(y))
+            width = int(math.ceil(self.center.x + self.radius)) - x
+            height = int(math.ceil(self.center.y + self.radius)) - y
+        else:
+            width = height = 2 * self.radius
+        return Rect(x, y, width, height)
 
 
 def get_circle_intersections(circle1: Circle, circle2: Circle) -> list[Point2]:
