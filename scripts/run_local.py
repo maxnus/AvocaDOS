@@ -69,8 +69,7 @@ def micro() -> GameRunner:
 
 def macro(**kwargs) -> GameRunner:
     runner = GameRunner(
-        bot=create_avocados(build='mass_marine', log_level='DEBUG'),
-        #opponent=create_avocados(build='mass_marine'),
+        bot=create_avocados(log_level='DEBUG', debug=True),
         realtime='--realtime' in sys.argv,
         **kwargs
     )
@@ -79,6 +78,5 @@ def macro(**kwargs) -> GameRunner:
 
 if __name__ == "__main__":
     #runner = micro()
-    #runner = macro(map_='LastFantasyAIE')
-    runner = macro(map_='PylonAIE_v4')
+    runner = macro(map_='PylonAIE_v4', opponent=Race.Terran)
     runner.run()

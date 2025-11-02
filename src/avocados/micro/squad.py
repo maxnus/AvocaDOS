@@ -48,7 +48,8 @@ class Squad(BotObject):
     status: SquadStatus
     status_changed: float
 
-    def __init__(self, bot, tags: Optional[set[int]] = None, _code: bool = False) -> None:
+    def __init__(self, bot, tags: Optional[set[int]] = None, *,
+                 _code: bool = False) -> None:
         super().__init__(bot)
         assert _code, "Squads should only be created by the SquadManager"
         self.tags = tags or set()
@@ -75,9 +76,9 @@ class Squad(BotObject):
             self.status_changed = self.time
         self.status = status
         if status == SquadStatus.COMBAT:
-            self.leash = 6.0
+            self.leash = 5.0
         elif status == SquadStatus.MOVING:
-            self.leash = 4.0
+            self.leash = 2.5
         #elif status == SquadStatus.GROUPING:
         #    self.leash = 2.0
         else:
@@ -122,12 +123,12 @@ class Squad(BotObject):
 
     # --- Orders
 
-    def attack(self, target: Point2, *, radius: float = 16.0, priority: float = 0.5) -> SquadAttackTask:
+    def attack(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5) -> SquadAttackTask:
         area = Circle(target, radius)
         self.task = SquadAttackTask(area, priority=priority)
         return self.task    # noqa
 
-    def defend(self, target: Point2, *, radius: float = 16.0, priority: float = 0.5) -> SquadDefendTask:
+    def defend(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5) -> SquadDefendTask:
         area = Circle(target, radius)
         self.task = SquadDefendTask(area, priority=priority)
         return self.task    # noqa

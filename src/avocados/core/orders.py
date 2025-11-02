@@ -246,7 +246,7 @@ class OrderManager(BotObject):
         #prev_orders = self.orders_prev.get(unit.tag)
 
         # These orders should always be considered new:
-        if isinstance(order, TrainOrder):
+        if isinstance(order, (AbilityOrder, TrainOrder)):
             return True
 
         prev_orders = self.orders_last.get(unit.tag)

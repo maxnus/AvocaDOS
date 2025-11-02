@@ -82,7 +82,7 @@ class AvocaDOS:
     def __init__(self, api: 'BotApi', *,
                  name: str = 'AvocaDOS',
                  build: Optional[str] = None,
-                 debug: bool = True,
+                 debug: bool = False,
                  log_level: str = "DEBUG",
                  log_file: Optional[str] = None,
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
@@ -331,18 +331,22 @@ class AvocaDOS:
 
     # --- Callbacks
 
-    async def other(self, iteration: int) -> None:
+    async def other(self, step: int) -> None:
 
-        if iteration % 8 == 0:
-            for unit in self.structures((UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED)).ready.idle:
-                raise_depot = self.api.enemy_units.closer_than(2, unit)
-                self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE
-                                         if raise_depot else AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+        if step % 8 == 0:
+            for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
+                if not self.api.enemy_units.closer_than(4.5, unit):
+                    self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+            for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
+                if self.api.enemy_units.closer_than(3.5, unit):
+                    self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
-        if iteration % 8 == 0:
+        if step % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
                 if orbital.energy >= 50:
-                    mineral_fields = self.api.mineral_field.in_distance_between(orbital.position, 0, 8)
-                    if mineral_fields:
-                        mineral_field = mineral_fields.closest_to(orbital.position)
-                        self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, mineral_field)
+                    mineral_fields = self.api.mineral_field.closer_than(8, orbital.position)
+                    if not mineral_fields:
+                        continue
+                    mineral_field = mineral_fields.closest_to(orbital.position)
+                    self.logger.debug("Dropping mule at {}", mineral_field)
+                    self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)

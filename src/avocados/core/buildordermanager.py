@@ -26,36 +26,38 @@ class BuildOrderManager(BotObject):
 
     def load_mass_marine(self) -> None:
         bot = self.bot
+        obj = bot.objectives
 
         # SCV
-        bot.objectives.add(UnitCountObjective(UnitTypeId.SCV, 19))
+        obj.add(UnitCountObjective(UnitTypeId.SCV, 19))
 
         # Buildings
-        bot.objectives.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 1, reqs=(UnitTypeId.SCV, 13)))
+        obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 1, reqs=(UnitTypeId.SCV, 13)))
 
-        rax123 = bot.objectives.add(UnitCountObjective(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 14)))
-        rax456 = bot.objectives.add(UnitCountObjective(UnitTypeId.BARRACKS, 6, reqs=('S', 23)))
+        rax123 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 14)))
+        rax456 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 6, reqs=('S', 23)))
 
-        bot.objectives.add(UnitCountObjective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS))
+        obj.add(UnitCountObjective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS))
 
         # --- Supply
-        bot.objectives.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18)))
+        obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18)))
         for number in range(3, 30):
-            bot.objectives.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, number, reqs=('S', number * 8 + 2)))
+            obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, number, reqs=('S', number * 8 + 2)))
 
         # Units
-        bot.objectives.add(UnitCountObjective(UnitTypeId.MARINE, 100, reqs=UnitTypeId.BARRACKS))
+        obj.add(UnitCountObjective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS))
 
-        bot.objectives.add(DefenseObjective(target=bot.map.start_base.region_center))
+        obj.add(DefenseObjective(target=bot.map.start_base.region_center))
 
+        squad_size = 8
         prev = None
         for loc in bot.map.enemy_start_locations:
-            prev = bot.objectives.add(AttackObjective(target=loc.center,
-                                                      minimum_size=6, duration=5, reqs=(UnitTypeId.MARINE, 6),
-                                                      deps=prev, priority=70))
+            prev = obj.add(AttackObjective(target=loc.center, minimum_size=squad_size, duration=5,
+                                           reqs=(UnitTypeId.MARINE, squad_size),
+                                           deps=prev, priority=70))
         for loc in bot.map.get_enemy_expansions(0):
-            prev = bot.objectives.add(AttackObjective(target=loc.center, minimum_size=6, duration=5, deps=prev,
-                                                      priority=70))
+            prev = obj.add(AttackObjective(target=loc.center, minimum_size=squad_size, duration=5, deps=prev,
+                                           priority=70))
 
     def load_proxy_marine(self) -> None:
         bot = self.bot

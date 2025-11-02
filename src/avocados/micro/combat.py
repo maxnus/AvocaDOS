@@ -215,13 +215,13 @@ class CombatManager(BotObject):
             case UnitTypeId.SCV: return lerp(attack_distance, (0.5, 0.5), (3, 0))
             case UnitTypeId.MARINE: return lerp(attack_distance, (5, 0.2), (6, 0.1))
             case UnitTypeId.REAPER: return lerp(attack_distance, (5, 0.2), (6, 0.1))
-            case UnitTypeId.HELLION: return 1.0
-            case UnitTypeId.HELLIONTANK: return 1.0
-            case UnitTypeId.WIDOWMINE: return 1.0
+            case UnitTypeId.HELLION: return lerp(attack_distance, (4, 0.7), (5, 0.2))
+            case UnitTypeId.HELLIONTANK: return lerp(attack_distance, (3, 0.8), (5, 0.2))
+            case UnitTypeId.WIDOWMINE: return lerp(attack_distance, (4.5, 0.9), (5, 0.2))
             case UnitTypeId.SIEGETANK: return lerp(attack_distance, (7, 0.3))
             case UnitTypeId.SIEGETANKSIEGED:
                 # TODO use facing (?)
-                return 1.0
+                return lerp(attack_distance, (2, 0), (2, 0.8), (11, 0.8), (13, 0.2))
 
             # --- Zerg
             case UnitTypeId.DRONE: return lerp(attack_distance, (0.5, 0.5), (3, 0))
@@ -233,8 +233,9 @@ class CombatManager(BotObject):
             case UnitTypeId.ADEPTPHASESHIFT: return 0.7 if attack_distance <= 4 else 0.1
             case UnitTypeId.ADEPT: return lerp(attack_distance, (2, 0.7), (4, 0.5), (5, 0.2))
             case UnitTypeId.ARCHON: return 0.8 if attack_distance <= 3 else 0.2
-            case UnitTypeId.DISRUPTOR: return 1.0
-            case UnitTypeId.COLOSSUS: return 1.0
+            case UnitTypeId.DISRUPTOR: return 0.0
+            case UnitTypeId.DISRUPTORPHASED: return lerp(distance, (1.5, 1.0), (3.5, 0))
+            case UnitTypeId.COLOSSUS: return lerp(attack_distance, (6, 0.75), (0.8, 0.2))
             case _ if (threat.is_structure and threat.can_attack):
                 return 0.20
             case _ if threat.is_structure:
@@ -258,12 +259,12 @@ class CombatManager(BotObject):
     #
     #     return damage, attackers
 
-    def get_enemies(self, units: Units, *, max_distance: float = 12) -> Units:
+    def get_enemies(self, units: Units, *, scan_range: float = 5.0) -> Units:
         enemies = []
-        max_distance_sq = max_distance**2
         for enemy in self.api.all_enemy_units:
             for unit in units:
-                if squared_distance(unit, enemy) <= max_distance_sq:
+                max_dist = (unit.ground_range + scan_range)**2
+                if squared_distance(unit, enemy) <= max_dist:
                     enemies.append(enemy)
                     break
         return Units(enemies, self.api)
@@ -324,17 +325,10 @@ class CombatManager(BotObject):
                     squad_target_priority: float,
                     squad_target: Optional[Unit]) -> bool:
 
-        # --- Defense
-        defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
-
-        if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
-            return self.order.move(unit, defense_position)
-
         # --- Offense
-
         weapon_ready = self.weapon_ready(unit)
         if weapon_ready and squad_attack_priorities:
-            attack_prio, target = self._evaluate_offense(unit, group_attack_priorities=squad_attack_priorities)
+            attack_prio, target = self._evaluate_offense(unit, squad_attack_priorities=squad_attack_priorities)
         else:
             attack_prio = 0
             target = None
@@ -348,6 +342,12 @@ class CombatManager(BotObject):
                 unit, abilities=abilities, group_attack_priorities=squad_attack_priorities)
             if ability_prio > 0.5:
                 return self.order.ability(unit, ability_id, ability_target)
+
+        # --- Defense
+        defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
+
+        if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
+            return self.order.move(unit, defense_position)
 
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
             dist_sq = (unit.ground_range + unit.radius + squad_target.radius + unit.distance_to_weapon_ready)**2
@@ -401,14 +401,14 @@ class CombatManager(BotObject):
         return defense_prio, defense_position
 
     def _evaluate_offense(self, unit: Unit, *,
-                          group_attack_priorities: dict[Unit, float]) -> tuple[float, Optional[Unit]]:
+                          squad_attack_priorities: dict[Unit, float]) -> tuple[float, Optional[Unit]]:
 
-        scan_range = self.get_scan_range(unit)
-        attack_priorities_scan_range = {target: priority for target, priority
-                                        in group_attack_priorities.items()
-                                        if squared_distance(unit, target) <= scan_range ** 2}
+        # scan_range = self.get_scan_range(unit)
+        # attack_priorities_scan_range = {target: priority for target, priority
+        #                                 in group_attack_priorities.items()
+        #                                 if squared_distance(unit, target) <= scan_range ** 2}
         attack_priorities_attack_range = {target: priority for target, priority
-                                          in attack_priorities_scan_range.items()
+                                          in squad_attack_priorities.items()
                                           if unit.target_in_range(target)}
 
         if not attack_priorities_attack_range:
