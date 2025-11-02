@@ -165,7 +165,8 @@ class AvocaDOS:
             await self.debug.on_step(step)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
-        await self.debug.on_unit_took_damage(unit, amount_damage_taken)
+        if self.debug:
+            await self.debug.on_unit_took_damage(unit, amount_damage_taken)
 
     async def on_unit_created(self, unit: Unit) -> None:
         pass
