@@ -25,14 +25,14 @@ class TaskRequirementType(StrEnum):
     VESPENE = "G"
 
 
-TaskDependencies = dict[int, TaskStatus]
+ObjectiveDependencies = dict[int, TaskStatus]
 TaskRequirements = list[tuple[TaskRequirementType | UnitTypeId | UpgradeId, int | bool]]
 
 
-class Task(ABC):
+class Objective(ABC):
     id: int
     reqs: TaskRequirements
-    deps: TaskDependencies
+    deps: ObjectiveDependencies
     priority: int
     repeat: bool = False
     status: TaskStatus
@@ -40,7 +40,7 @@ class Task(ABC):
 
     def __init__(self,
                  reqs: Optional[TaskRequirements | UnitTypeId | UpgradeId] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
+                 deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  status: TaskStatus = TaskStatus.NOT_STARTED,
@@ -90,7 +90,7 @@ class Task(ABC):
         return copied_task
 
 
-class BuildingCountTask(Task):
+class BuildingCountObjective(Objective):
     utype: UnitTypeId
     number: int
     position: Point2
@@ -101,7 +101,7 @@ class BuildingCountTask(Task):
                  number: int = 1,
                  *,
                  reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
+                 deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -116,7 +116,7 @@ class BuildingCountTask(Task):
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
 
 
-class UnitCountTask(Task):
+class UnitCountObjective(Objective):
     utype: UnitTypeId
     number: int
     position: Optional[Point2 | Unit]
@@ -127,7 +127,7 @@ class UnitCountTask(Task):
                  number: int = 1,
                  *,
                  reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] = None,
+                 deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -143,7 +143,7 @@ class UnitCountTask(Task):
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
 
 
-class ResearchTask(Task):
+class ResearchObjective(Objective):
     upgrade: UpgradeId
     position: Point2
     max_distance: float
@@ -152,7 +152,7 @@ class ResearchTask(Task):
                  upgrade: UpgradeId,
                  *,
                  reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] =  None,
+                 deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
                  priority: int = 50,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -168,7 +168,7 @@ class ResearchTask(Task):
 
 
 
-class AttackOrDefenseTask(Task, ABC):
+class AttackOrDefenseObjective(Objective, ABC):
     target: Point2
     strength: Optional[float]
     minimum_size: int
@@ -179,7 +179,7 @@ class AttackOrDefenseTask(Task, ABC):
                  *,
                  minimum_size: int = 1,
                  reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[TaskDependencies | TaskStatus | int] = None,
+                 deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
                  priority: int = 50,
                  repeat: bool = False,
                  ) -> None:
@@ -192,9 +192,9 @@ class AttackOrDefenseTask(Task, ABC):
         return f"{self.__class__.__name__}(target={self.target}, strength={self.strength}, priority={self.priority})"
 
 
-class AttackTask(AttackOrDefenseTask):
+class AttackObjective(AttackOrDefenseObjective):
     pass
 
 
-class DefenseTask(AttackOrDefenseTask):
+class DefenseObjective(AttackOrDefenseObjective):
     pass

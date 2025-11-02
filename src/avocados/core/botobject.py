@@ -1,7 +1,8 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 from loguru._logger import Logger
+from sc2.game_state import GameState
 
 from avocados.core.util import unique_id
 
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from avocados.core.orders import OrderManager
     from avocados.core.miningmanager import MiningManager
     from avocados.core.resourcemanager import ResourceManager
-    from avocados.core.taskmanager import TaskManager
+    from avocados.core.objectivemanager import ObjectiveManager
     from avocados.micro.squadmanager import SquadManager
     from avocados.micro.combat import CombatManager
 
@@ -22,11 +23,13 @@ if TYPE_CHECKING:
 class BotObject(ABC):
     id: int
     bot: 'AvocaDOS'
+    cache: dict[str, Any]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__()
         self.id = unique_id()
         self.bot = bot
+        self.cache: dict[str, Any] = {}
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(id={self.id})"
@@ -34,6 +37,10 @@ class BotObject(ABC):
     @property
     def api(self) -> 'BotApi':
         return self.bot.api
+
+    @property
+    def state(self) -> GameState:
+        return self.api.state
 
     @property
     def time(self) -> float:
@@ -66,8 +73,8 @@ class BotObject(ABC):
         return self.bot.resources
 
     @property
-    def tasks(self) -> 'TaskManager':
-        return self.bot.tasks
+    def objectives(self) -> 'ObjectiveManager':
+        return self.bot.objectives
 
     @property
     def mining(self) -> 'MiningManager':

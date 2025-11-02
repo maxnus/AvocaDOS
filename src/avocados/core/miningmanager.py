@@ -97,7 +97,10 @@ class MiningManager(BotObject):
         return False
 
     def get_townhall(self, expansion: ExpansionLocation) -> Optional[Unit]:
-        return self.api.townhalls.closest_to(expansion.center)
+        townhalls = self.api.townhalls
+        if not townhalls:
+            return None
+        return townhalls.closest_to(expansion.center)
 
     async def assign_miners_at_expansion(self, expansion: ExpansionLocation) -> None:
         if expansion not in self.assignments:

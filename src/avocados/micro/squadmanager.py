@@ -1,5 +1,5 @@
 import random
-from collections.abc import Iterator
+from collections.abc import Iterator, Callable
 from typing import TYPE_CHECKING, Optional
 
 from sc2.position import Point2
@@ -9,7 +9,7 @@ from sc2.units import Units
 from avocados.core.botobject import BotObject
 from avocados.core.util import squared_distance
 from avocados.core.unitutil import normalize_tags
-from avocados.micro.squad import Squad, SquadAttackTask, SquadTask
+from avocados.micro.squad import Squad, SquadAttackTask, SquadTask, SquadStatus
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -35,6 +35,10 @@ class SquadManager(BotObject):
             if len(squad) == 0:
                 self.logger.info("Removing empty {}", squad)
                 self._squads.pop(squad.id)
+
+
+        for squad in self:
+            squad.set_status(SquadStatus.NONE)
 
         #     if isinstance(squad.task, SquadAttackTask):
         #         self.order.attack(squad.units, squad.task.target)
@@ -129,5 +133,9 @@ class SquadManager(BotObject):
                 smallest_squad = squad
         return smallest_squad
 
-    def with_task(self, task: SquadTask) -> list[Squad]:
-        return [squad for squad in self if squad.task == task and len(squad) > 0]
+    def with_task(self, task_type: type[SquadTask], filter_: Optional[Callable[[SquadTask], bool]] = None) -> list[Squad]:
+        squads = []
+        for squad in self:
+            if isinstance(squad.task, task_type) and len(squad) > 0 and (filter_ is None or filter_(squad.task)):
+                squads.append(squad)
+        return squads

@@ -253,7 +253,7 @@ class DebugManager(BotObject):
         raise TypeError(f"invalid argument: {point}")
 
     def _show_tasks(self) -> None:
-        lines = [repr(task) for task in self.api.bot.tasks]
+        lines = [repr(task) for task in self.api.bot.objectives]
         self.text_screen(lines, position=(0.005, 0.006))
 
     def _show_combat(self) -> None:

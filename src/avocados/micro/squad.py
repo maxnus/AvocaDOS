@@ -2,9 +2,11 @@ import math
 from abc import ABC
 from collections import Counter
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Optional
 
 import numpy
+from sc2.cache import property_cache_once_per_frame
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -12,6 +14,7 @@ from sc2.units import Units
 
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
+from avocados.core.util import Area, Circle, squared_distance
 
 
 @dataclass
@@ -21,27 +24,43 @@ class SquadTask(ABC):
 
 @dataclass
 class SquadAttackTask(SquadTask):
-    target: Point2 | Unit
+    #target: Point2 | Unit
+    #radius: float = 16.0
+    area: Area
     priority: float = field(default=0.5, compare=False)
 
 
 @dataclass
 class SquadDefendTask(SquadTask):
-    target: Point2 | Unit
+    #target: Point2 | Unit
+    #radius: float = 16.0
+    area: Area
     priority: float = field(default=0.5, compare=False)
+
+
+class SquadStatus(StrEnum):
+    NONE = "None"
+    IDLE = "Idle"
+    COMBAT = "Combat"
+    MOVING = "Moving"
+    GROUPING = "Grouping"
 
 
 class Squad(BotObject):
     tags: set[int]
     task: Optional[SquadTask]
     spacing: float
+    leash: Optional[float]
+    status: SquadStatus
 
     def __init__(self, bot, tags: Optional[set[int]] = None, _code: bool = False) -> None:
         super().__init__(bot)
         assert _code, "Squads should only be created by the SquadManager"
         self.tags = tags or set()
         self.task = None
-        self.spacing = 1.0
+        self.spacing = 0.0
+        self.leash = None
+        self.status = SquadStatus.NONE
 
     def __len__(self) -> int:
         return len(self.units)
@@ -50,10 +69,21 @@ class Squad(BotObject):
     def units(self) -> Units:
         return self.bot.units.tags_in(self.tags)
 
-    @property
+    @property_cache_once_per_frame
     def strength(self) -> float:
         # TODO: better measure of strength
         return len(self)
+
+    def set_status(self, status: SquadStatus) -> None:
+        self.status = status
+        if status == SquadStatus.COMBAT:
+            self.leash = 8
+        elif status == SquadStatus.MOVING:
+            self.leash = 6
+        elif status == SquadStatus.GROUPING:
+            self.leash = 2
+        else:
+            self.leash = None
 
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.units)
@@ -67,29 +97,60 @@ class Squad(BotObject):
     def remove(self, units: Unit | int | Units | set[int]) -> None:
         self.squads.remove_units(self, units)
 
+    # --- Distance
+
+    def distance_to(self, target: Point2 | Unit | Area) -> float:
+        if isinstance(target, Point2):
+            point = target
+        elif isinstance(target, Unit):
+            point = target.position
+        elif isinstance(target, Area):
+            point = target.center
+        else:
+            raise TypeError(f'invalid target type: {type(target)}')
+        return max(math.sqrt(squared_distance(self.center, point)) - math.sqrt(self.radius_squared), 0)
+
     # --- Orders
 
-    def attack(self, target: Unit | Point2) -> None:
-        self.task = SquadAttackTask(target)
+    def attack(self, target: Point2, *, radius: float = 16.0) -> SquadAttackTask:
+        area = Circle(target, radius)
+        self.task = SquadAttackTask(area)
+        return self.task    # noqa
 
-    def defend(self, target: Unit | Point2) -> None:
-        self.task = SquadDefendTask(target)
+    def defend(self, target: Point2, *, radius: float = 16.0) -> SquadDefendTask:
+        area = Circle(target, radius)
+        self.task = SquadDefendTask(area)
+        return self.task    # noqa
 
     # --- Position
 
-    def get_max_spread_squared(self) -> float:
-        if len(self) < 2:
-            return 1
-        unit_sq_radius = sum(number * unit.radius**2 for unit, number in get_unique_unit_types(self.units).items())
-        return 4 * self.spacing**2 * unit_sq_radius
+    @property_cache_once_per_frame
+    def radius_squared(self) -> float:
+        """Caching may not be correct, as units can change during frame."""
+        if len(self) == 0:
+            return 0.0
+        if len(self) == 1:
+            return self.units.first.radius**2
+        unit_sq_radius = sum(number * (unit.radius + self.spacing)**2
+                             for unit, number in get_unique_unit_types(self.units).items())
+        return unit_sq_radius
 
-    def get_max_spread(self) -> float:
-        if len(self) < 2:
-            return 1
-        return math.sqrt(self.get_max_spread_squared())
+    @property_cache_once_per_frame
+    def leash_range(self) -> float:
+        if self.leash is None:
+            return float('inf')
+        return math.sqrt(self.radius_squared) + self.leash
 
-    @property
+    # @property_cache_once_per_frame
+    # def max_spread(self) -> float:
+    #     """Caching may not be correct, as units can change during frame."""
+    #     if len(self) < 2:
+    #         return 1
+    #     return math.sqrt(self.max_spread_squared)
+
+    @property_cache_once_per_frame
     def center(self) -> Optional[Point2]:
+        """Caching may not be correct, as units can change during frame."""
         if self.units.empty:
             return None
         return self.units.center

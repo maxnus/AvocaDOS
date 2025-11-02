@@ -9,62 +9,63 @@ from sc2.position import Point2
 
 from avocados.core.constants import ALTERNATIVES, TRAINERS
 from avocados.core.botobject import BotObject
-from avocados.core.tasks import (Task, TaskStatus, TaskRequirementType, TaskRequirements, TaskDependencies,
-                                 BuildingCountTask, UnitCountTask, ResearchTask, AttackTask, DefenseTask)
+from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
+                                     BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
 from avocados.micro.squad import SquadDefendTask, SquadAttackTask
+from .util import squared_distance
 
 if TYPE_CHECKING:
     from .avocados import AvocaDOS
 
 
-class TaskManager(BotObject):
-    completed: dict[int, Task]
-    current: dict[int, Task]
-    future: dict[int, Task]
+class ObjectiveManager(BotObject):
+    completed: dict[int, Objective]
+    current: dict[int, Objective]
+    future: dict[int, Objective]
 
-    def __init__(self, bot: 'AvocaDOS', tasks: Optional[dict[int, Task]] = None) -> None:
+    def __init__(self, bot: 'AvocaDOS', objectives: Optional[dict[int, Objective]] = None) -> None:
         super().__init__(bot)
         self.completed = {}
         self.current = {}
-        self.future = tasks or {}
+        self.future = objectives or {}
 
-    def add(self, task: Task) -> int:
-        self.future[task.id] = task
-        return task.id
+    def add(self, objective: Objective) -> int:
+        self.future[objective.id] = objective
+        return objective.id
 
     def __bool__(self) -> bool:
         return bool(self.current)
 
-    def __iter__(self) -> Iterator[Task]:
-        yield from sorted(self.current.values(), key=lambda task: task.priority, reverse=True)
+    def __iter__(self) -> Iterator[Objective]:
+        yield from sorted(self.current.values(), key=lambda obj: obj.priority, reverse=True)
 
     async def on_step(self, step: int) -> None:
-        for task in self:
-            await self._dispatch_task(task)
+        for obj in self:
+            await self._dispatch_objective(obj)
 
-        for task in self.current.copy().values():
-            if task.status == TaskStatus.COMPLETED:
-                self.current.pop(task.id)
-                self.completed[task.id] = task
-                self.logger.debug("Completed {}", task)
-                if task.repeat:
-                    self.add(task.copy(status=TaskStatus.NOT_STARTED))
+        for obj in self.current.copy().values():
+            if obj.status == TaskStatus.COMPLETED:
+                self.current.pop(obj.id)
+                self.completed[obj.id] = obj
+                self.logger.debug("Completed {}", obj)
+                if obj.repeat:
+                    self.add(obj.copy(status=TaskStatus.NOT_STARTED))
 
-        for task in self.future.copy().values():
-            if self._task_ready(task):
-                task = self.future.pop(task.id)
-                task.status = TaskStatus.STARTED
-                self.current[task.id] = task
-                self.logger.debug("Started {}", task)
+        for obj in self.future.copy().values():
+            if self._task_ready(obj):
+                obj = self.future.pop(obj.id)
+                obj.status = TaskStatus.STARTED
+                self.current[obj.id] = obj
+                self.logger.debug("Started {}", obj)
 
-    def get_status(self, task_id: int) -> Optional[TaskStatus]:
-        if task_id in self.current:
-            return self.current[task_id].status
-        if task_id in self.future:
-            return self.future[task_id].status
-        if task_id in self.completed:
-            return self.completed[task_id].status
-        self.logger.warning(f"Unknown task id: {task_id}")
+    def get_status(self, objective_id: int) -> Optional[TaskStatus]:
+        if objective_id in self.current:
+            return self.current[objective_id].status
+        if objective_id in self.future:
+            return self.future[objective_id].status
+        if objective_id in self.completed:
+            return self.completed[objective_id].status
+        self.logger.warning(f"Unknown objective ID: {objective_id}")
         return None
 
     def _requirements_fulfilled(self, requirements: TaskRequirements) -> bool:
@@ -91,36 +92,36 @@ class TaskManager(BotObject):
                 fulfilled = value >= req_value and fulfilled
         return fulfilled
 
-    def _dependencies_fulfilled(self, dependencies: TaskDependencies) -> bool:
+    def _dependencies_fulfilled(self, dependencies: ObjectiveDependencies) -> bool:
         return all(self.get_status(dep) in {status, None} for dep, status in dependencies.items())
 
-    def _task_ready(self, task: Task) -> bool:
-        return self._dependencies_fulfilled(task.deps) and self._requirements_fulfilled(task.reqs)
+    def _task_ready(self, objective: Objective) -> bool:
+        return self._dependencies_fulfilled(objective.deps) and self._requirements_fulfilled(objective.reqs)
 
-    async def _dispatch_task(self, task: Task) -> bool:
+    async def _dispatch_objective(self, objective: Objective) -> bool:
         t0 = perf_counter()
-        if isinstance(task, UnitCountTask):
-            completed = await self._on_unit_count_task(task)
-        elif isinstance(task, ResearchTask):
-            completed = self._on_research_task(task)
-        elif isinstance(task, (AttackTask, DefenseTask)):
-            completed = self._on_squad_task(task)
+        if isinstance(objective, UnitCountObjective):
+            completed = await self._on_unit_count_objective(objective)
+        elif isinstance(objective, ResearchObjective):
+            completed = self._on_research_objective(objective)
+        elif isinstance(objective, (AttackObjective, DefenseObjective)):
+            completed = self._on_squad_objective(objective)
         else:
-            self.logger.error("Not implemented: {}", task)
+            self.logger.error("Not implemented: {}", objective)
             completed = False
         #if (time_ms := 1000 * (perf_counter() - t0)) > 5:
         #    self.logger.warning("{} took {:.3f} ms", task, time_ms)
         if completed:
-            task.mark_complete()
+            objective.mark_complete()
         return completed
 
-    async def _on_build_task(self, task: BuildingCountTask) -> bool:
-        assigned = self.bot.units.tags_in(task.assigned)
+    async def _on_build_objective(self, objective: BuildingCountObjective) -> bool:
+        assigned = self.bot.units.tags_in(objective.assigned)
         if assigned:
             return False
 
-        target = await self.map.get_building_location(task.utype, near=task.position,
-                                                      max_distance=int(task.max_distance))
+        target = await self.map.get_building_location(objective.utype, near=objective.position,
+                                                      max_distance=int(objective.max_distance))
         if target is None:
             return False
         position = target if isinstance(target, Point2) else target.position
@@ -130,47 +131,47 @@ class TaskManager(BotObject):
         if not worker:
             return False
 
-        if self.bot.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
-            self.order.build(worker, task.utype, target)
+        if self.bot.resources.can_afford(objective.utype) and worker.distance_to(target) <= 2.5:
+            self.order.build(worker, objective.utype, target)
             self.mining.unassign_worker(worker)  # TODO
         else:
-            resource_time = self.bot.resources.can_afford_in(task.utype, excluded_workers=worker)
+            resource_time = self.bot.resources.can_afford_in(objective.utype, excluded_workers=worker)
             if resource_time <= travel_time:
                 self.order.move(worker, position)
                 self.mining.unassign_worker(worker)  # TODO
-                self.resources.reserve(task.utype)
-        task.assigned.add(worker.tag)
+                self.resources.reserve(objective.utype)
+        objective.assigned.add(worker.tag)
         return False
 
-    async def _on_unit_count_task(self, task: UnitCountTask) -> bool:
-        utype = ALTERNATIVES.get(task.utype, task.utype)
+    async def _on_unit_count_objective(self, objective: UnitCountObjective) -> bool:
+        utype = ALTERNATIVES.get(objective.utype, objective.utype)
         units = self.bot.forces(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
         #self.logger.trace("units for {}: {}", task, units)
-        if task.position is not None:
-            units = units.closer_than(task.max_distance, task.position)
+        if objective.position is not None:
+            units = units.closer_than(objective.max_distance, objective.position)
             #self.logger.trace("Have {} units of type {} within range of {}",
             #                  units.amount, task.utype.name, task.max_distance)
         #self.logger.trace("units for {} within {}: {}", task, task.position, units)
-        if units.amount >= task.number:
+        if units.amount >= objective.number:
             return True
 
         # TODO: only pending for commander
-        pending = int(self.api.already_pending(task.utype))
-        to_build = task.number - units.amount - pending
+        pending = int(self.api.already_pending(objective.utype))
+        to_build = objective.number - units.amount - pending
 
-        trainer_utype = TRAINERS.get(task.utype)
+        trainer_utype = TRAINERS.get(objective.utype)
         if trainer_utype is None:
-            self.logger.error("No trainer for {}", task.utype)
+            self.logger.error("No trainer for {}", objective.utype)
 
         if trainer_utype == UnitTypeId.SCV:
-            if self.api.tech_requirement_progress(task.utype) < 1:
+            if self.api.tech_requirement_progress(objective.utype) < 1:
                 #self.logger.debug("Tech requirements for {} not fulfilled", task.utype)
                 return False
 
             for _ in range(to_build):
-                target = await self.map.get_building_location(task.utype, near=task.position,
-                                                              max_distance=task.max_distance)
+                target = await self.map.get_building_location(objective.utype, near=objective.position,
+                                                              max_distance=objective.max_distance)
                 #position = task.position
                 if target is None:
                     break
@@ -181,68 +182,67 @@ class TaskManager(BotObject):
                     break
                 #worker = self.commander.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.resources.can_afford(task.utype) and worker.distance_to(target) <= 2.5:
+                if self.resources.can_afford(objective.utype) and worker.distance_to(target) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                    self.order.build(worker, task.utype, target)
+                    self.order.build(worker, objective.utype, target)
                     self.mining.unassign_worker(worker)     # TODO
                 else:
-                    resource_time = self.resources.can_afford_in(task.utype, excluded_workers=worker)
+                    resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker)
                     #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
                         self.order.move(worker, position)
                         self.mining.unassign_worker(worker)  # TODO
-                        self.resources.reserve(task.utype)
+                        self.resources.reserve(objective.utype)
 
         else:
             for _ in range(to_build):
-                trainer = self.bot.pick_trainer(task.utype)
+                trainer = self.bot.pick_trainer(objective.utype)
                 if trainer is None:
                     break
-                if self.resources.can_afford(task.utype):
-                    self.order.train(trainer, task.utype)
+                if self.resources.can_afford(objective.utype):
+                    self.order.train(trainer, objective.utype)
                 else:
-                    self.resources.reserve(task.utype)
+                    self.resources.reserve(objective.utype)
         return False
 
-    def _on_research_task(self, task: ResearchTask) -> bool:
-        if task.upgrade in self.api.state.upgrades:
-            self.logger.trace("Upgrade {} complete", task.upgrade)
+    def _on_research_objective(self, objective: ResearchObjective) -> bool:
+        if objective.upgrade in self.api.state.upgrades:
+            self.logger.trace("Upgrade {} complete", objective.upgrade)
             return True
         try:
-            if self.api.already_pending_upgrade(task.upgrade) > 0:
+            if self.api.already_pending_upgrade(objective.upgrade) > 0:
                 #self.logger.trace("Upgrade {} already pending", task.upgrade)
                 return False
         except Exception as exc:
             self.logger.error("EXCEPTION {}", str(exc))
-        if not self.resources.can_afford(task.upgrade):
+        if not self.resources.can_afford(objective.upgrade):
             #self.logger.trace("Cannot afford {}", task.upgrade)
             return False
-        researcher = self.bot.pick_researcher(task.upgrade)
+        researcher = self.bot.pick_researcher(objective.upgrade)
         if researcher is not None:
-            self.order.upgrade(researcher, task.upgrade)
-            self.logger.info("Starting {} at {}", task.upgrade.name, researcher)
+            self.order.upgrade(researcher, objective.upgrade)
+            self.logger.info("Starting {} at {}", objective.upgrade.name, researcher)
         #else:
         #    self.logger.trace("No researcher for {}", task.upgrade)
         return False
 
-    def _on_squad_task(self, task: AttackTask | DefenseTask) -> bool:
-        if isinstance(task, AttackTask):
-            squads_with_task = self.squads.with_task(SquadAttackTask(task.target))
-        else:
-            squads_with_task = self.squads.with_task(SquadDefendTask(task.target))
+    def _on_squad_objective(self, objective: AttackObjective | DefenseObjective) -> bool:
+        squad_task_type = SquadAttackTask if isinstance(objective, AttackObjective) else SquadDefendTask
+        squads_with_task = self.squads.with_task(squad_task_type,
+                                                 filter_=lambda t: squared_distance(t.area.center, objective.target) <= 25)
 
         total_strength = sum(s.strength for s in squads_with_task)
-        if task.strength is not None and total_strength >= task.strength:
+        if objective.strength is not None and total_strength >= objective.strength:
             return False
 
         units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
 
-        if task.strength is not None and units:
-            units_to_add = int(math.ceil(task.strength - total_strength))
-            units = units.closest_n_units(task.target, units_to_add)
+        if objective.strength is not None and units:
+            units_to_add = int(math.ceil(objective.strength - total_strength))
+            units = units.closest_n_units(objective.target, units_to_add)
 
-        if task.strength is None:
+        if objective.strength is None:
             for squad in self.squads:
                 if squad in squads_with_task:
                     continue
@@ -261,7 +261,7 @@ class TaskManager(BotObject):
                 squad = closest_squad
 
         if squad is None:
-            if len(units) < task.minimum_size:
+            if len(units) < objective.minimum_size:
                 #self.logger.info("Squad size of {} is required but only {} units found", task.minimum_size, len(units))
                 return False
             self.squads.remove_from_squads(units)
@@ -270,8 +270,8 @@ class TaskManager(BotObject):
             self.squads.remove_from_squads(units)
             squad.add(units)
 
-        if isinstance(task, AttackTask):
-            squad.attack(task.target)
+        if isinstance(objective, AttackObjective):
+            squad.attack(objective.target)
         else:
-            squad.defend(task.target)
+            squad.defend(objective.target)
         return False

@@ -1,9 +1,11 @@
 import asyncio
 import itertools
 import math
+import random
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 from sc2.position import Point2
@@ -37,7 +39,31 @@ def squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
     return dx * dx + dy * dy
 
 
-@dataclass
+@runtime_checkable
+class Area(Protocol):
+
+    @property
+    def center(self) -> Point2:
+        pass
+
+    @property
+    def size(self) -> float:
+        pass
+
+    @property
+    def perimeter(self) -> float:
+        pass
+
+    @property
+    def characteristic_length(self) -> float:
+        pass
+
+    @property
+    def random(self) -> Point2:
+        pass
+
+
+@dataclass(frozen=True)
 class Circle:
     center: Point2
     radius: float
@@ -53,6 +79,26 @@ class Circle:
     @property
     def r(self) -> float:
         return self.radius
+
+    @property
+    def size(self) -> float:
+        return math.pi * self.r**2
+
+    @property
+    def perimeter(self) -> float:
+        return 2 * math.pi * self.r
+
+    @property
+    def characteristic_length(self) -> float:
+        return 2/3 * self.radius
+
+    @property
+    def random(self) -> Point2:
+        theta = random.uniform(0, 2 * math.pi)
+        r = self.r * math.sqrt(random.random())
+        x = self.x + r * math.cos(theta)
+        y = self.y + r * math.sin(theta)
+        return Point2((x, y))
 
 
 def get_circle_intersections(circle1: Circle, circle2: Circle) -> list[Point2]:
@@ -109,15 +155,16 @@ class LineSegment:
         distance = point.distance_to(q)
         return distance
 
-def lerp(distance, points: list[tuple[float, float]]) -> float:
+
+def lerp(x, /, *points: tuple[float, float]) -> float:
     # Flat extrapolation
-    if distance <= points[0][0]:
+    if x <= points[0][0]:
         return points[0][1]
-    if distance > points[-1][0]:
+    if x > points[-1][0]:
         return points[-1][1]
     # LERP
-    for (d1, t1), (d2, t2) in zip(points, points[1:]):
-        if distance <= d2:
-            p = (d2 - distance) / (d2 - d1)
-            return p * t1 + (1 - p) * t2
+    for (x1, y1), (x2, y2) in zip(points, points[1:]):
+        if x <= x2:
+            r = (x2 - x) / (x2 - x1)
+            return r * y1 + (1 - r) * y2
     raise ValueError

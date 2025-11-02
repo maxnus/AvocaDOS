@@ -61,3 +61,22 @@ ALTERNATIVES: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
     UnitTypeId.SUPPLYDEPOT: (UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED),
     UnitTypeId.SUPPLYDEPOTLOWERED: (UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED),
 }
+
+
+TERRAN_REACTOR: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.REACTOR,
+    UnitTypeId.BARRACKSREACTOR,
+    UnitTypeId.FACTORYREACTOR,
+    UnitTypeId.STARPORTREACTOR,
+})
+
+
+TERRAN_TECHLAB: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.TECHLAB,
+    UnitTypeId.BARRACKSTECHLAB,
+    UnitTypeId.FACTORYTECHLAB,
+    UnitTypeId.STARPORTREACTOR,
+})
+
+
+TERRAN_ADDONS: frozenset[UnitTypeId] = frozenset({*TERRAN_REACTOR, *TERRAN_TECHLAB})

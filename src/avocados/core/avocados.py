@@ -23,7 +23,7 @@ from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
 from avocados.core.orders import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
-from avocados.core.taskmanager import TaskManager
+from avocados.core.objectivemanager import ObjectiveManager
 from avocados.core.util import LineSegment
 from avocados.micro.combat import CombatManager
 from avocados.micro.squadmanager import SquadManager
@@ -69,7 +69,7 @@ class AvocaDOS:
     build: BuildOrderManager
     order: OrderManager
     resources: ResourceManager
-    tasks: TaskManager
+    objectives: ObjectiveManager
     squads: SquadManager
     combat: CombatManager
     mining: MiningManager
@@ -104,7 +104,7 @@ class AvocaDOS:
         self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
         self.resources = ResourceManager(self)
-        self.tasks = TaskManager(self)
+        self.objectives = ObjectiveManager(self)
         self.squads = SquadManager(self)
         self.combat = CombatManager(self)
         self.mining = MiningManager(self)
@@ -143,7 +143,7 @@ class AvocaDOS:
         await self.resources.on_step(step)
         await self.history.on_step(step)
         await self.order.on_step(step)
-        await self.tasks.on_step(step)
+        await self.objectives.on_step(step)
         await self.mining.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
