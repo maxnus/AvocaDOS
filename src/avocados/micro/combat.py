@@ -116,7 +116,7 @@ class CombatManager(BotObject):
             # --- Terran
             # Structures
             case UnitTypeId.MISSILETURRET: return 0.01
-            case UnitTypeId.SUPPLYDEPOT: return 0.10
+            case UnitTypeId.SUPPLYDEPOT | UnitTypeId.SUPPLYDEPOTLOWERED: return 0.10
             case _ if target.type_id in REACTOR_TYPE_IDS: return 0.12
             case _ if target.type_id in TECHLAB_TYPE_IDS: return 0.13
             case UnitTypeId.PLANETARYFORTRESS: return 0.15

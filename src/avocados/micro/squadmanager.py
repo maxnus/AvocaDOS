@@ -49,11 +49,29 @@ class SquadManager(BotObject):
         #         if type(squad1.task) != type(squad2.task):
         #             continue
 
-        # Dump status
+        # Remove far units
+        for squad in list(self._squads.values()):
+            far_units = squad.units.further_than(14.0, squad.center)
+            self.remove_units(squad, far_units)
+
         if step % 1000 == 0:
-            self.logger.debug("Dump:")
-            for squad in self:
-                self.logger.debug("{}", squad)
+            self.status_dump()
+
+    def status_dump(self):
+        self.logger.debug("{} Status Dump:", self)
+        known_unit_ids = set()
+        for squad in self:
+            self.logger.debug("{}", squad)
+            already_known = squad.tags & known_unit_ids
+            if already_known:
+                self.log.error("Units in more than one squad")
+            already_known.update(squad.tags)
+            for unit in squad.units:
+                s = self._tag_to_squad.get(unit.tag, None)
+                if s is None:
+                    self.log.error("tag_to_squad is missing tag")
+                if s != squad.id:
+                    self.log.error("tag_to_squad pointing to wrong squad id")
 
     def __len__(self) -> int:
         return len(self._squads)

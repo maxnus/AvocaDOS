@@ -137,7 +137,8 @@ class Squad(BotObject):
 
     # --- Position
 
-    @property_cache_once_per_frame
+    #@property_cache_once_per_frame
+    @property
     def radius_squared(self) -> float:
         """Caching may not be correct, as units can change during frame."""
         if len(self) == 0:
@@ -148,18 +149,29 @@ class Squad(BotObject):
                              for unit, number in get_unique_unit_types(self.units).items())
         return 2 * unit_sq_radius
 
-    @property_cache_once_per_frame
+    #@property_cache_once_per_frame
+    @property
     def leash_range(self) -> float:
         if self.status == SquadStatus.COMBAT:
-            leash = 5.0
+            leash = 4
         elif self.status == SquadStatus.MOVING:
-            leash = 2.5
+            leash = 2
         else:
-            leash = 10.0
+            leash = 10
         return math.sqrt(self.radius_squared) + leash
 
-    @property_cache_once_per_frame
+    #@property_cache_once_per_frame
+    @property
     def center(self) -> Optional[Point2]:
+        """Caching may not be correct, as units can change during frame."""
+        if self.units.empty:
+            return None
+        if len(self) == 2:
+            return self.units.first.position if self.units.first.tag < self.units[-1].tag else self.units[-1].position
+        return self.units.closest_to(self.geometric_center).position
+
+    @property
+    def geometric_center(self) -> Optional[Point2]:
         """Caching may not be correct, as units can change during frame."""
         if self.units.empty:
             return None

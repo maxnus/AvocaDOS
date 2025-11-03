@@ -141,6 +141,8 @@ class AvocaDOS:
         return f"{type(self).__name__}({__version__})"
 
     async def on_start(self) -> None:
+        self.log.tag(f"{self.name} v{__version__}", add_time=False)
+
         await self.map.on_start()
         await self.build.on_start()
 
