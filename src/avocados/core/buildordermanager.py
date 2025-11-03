@@ -12,9 +12,11 @@ if TYPE_CHECKING:
 class BuildOrderManager(BotObject):
     build: Optional[str]
 
-    def __init__(self, bot: 'AvocaDOS', build: Optional[str] = None) -> None:
+    def __init__(self, bot: 'AvocaDOS', build: Optional[str] = 'default') -> None:
         super().__init__(bot)
-        self.build = build or 'mass_marine'
+        if build == 'default':
+            build = 'mass_marine'
+        self.build = build
 
     async def on_start(self) -> None:
         self.logger.debug("on_start started")

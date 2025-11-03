@@ -49,6 +49,10 @@ class MicroScenarioManager(BotObject):
 
     async def on_start(self, *, number_scenarios: int = 64) -> None:
 
+        # number_scenarios = 1
+        # self.api.slowdown = 100
+        # await self.api.client.debug_god()
+
         self.locations = self.get_locations()
         self.free_locations = self.locations.copy()
 

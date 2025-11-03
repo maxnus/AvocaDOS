@@ -229,7 +229,7 @@ class CombatManager(BotObject):
             case UnitTypeId.SIEGETANK: return lerp(attack_distance, (7, 0.3))
             case UnitTypeId.SIEGETANKSIEGED:
                 # TODO use facing (?)
-                return lerp(attack_distance, (2, 0), (2, 0.8), (11, 0.8), (13, 0.2))
+                return lerp(attack_distance, (1.5, 0), (2, 0.8), (11, 0.8), (13, 0.2))
 
             # --- Zerg
             case UnitTypeId.DRONE: return lerp(attack_distance, (0.5, 0.5), (3, 0))
@@ -351,18 +351,18 @@ class CombatManager(BotObject):
             if ability_prio > 0.5:
                 return self.order.ability(unit, ability_id, ability_target)
 
-        # --- Defense
-        defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
-
-        if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
-            return self.order.move(unit, defense_position)
-
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
             dist_sq = (unit.ground_range + unit.radius + squad_target.radius + unit.distance_to_weapon_ready)**2
             if unit.distance_to_squared(squad_target) >= dist_sq:
                 return self.order.attack(unit, squad_target)
                 #intercept_point = self.bot.intercept_unit(unit, squad_target)
                 #return self.order.attack(unit, intercept_point)
+
+        # --- Defense
+        defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
+
+        if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
+            return self.order.move(unit, defense_position)
 
         if defense_position and unit.shield_health_percentage < 0.8:
             return self.order.move(unit, defense_position)
@@ -407,10 +407,24 @@ class CombatManager(BotObject):
             return 0, None
         threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])
         # TODO
-        defense_position = unit.position.towards(threat, distance=-3 * unit.distance_per_step)
+        if threat.type_id == UnitTypeId.SIEGETANKSIEGED and unit.distance_to(threat) <= 6:
+            step = 3
+        else:
+            step = -3
+
+        defense_position = unit.position.towards(threat, distance=step * unit.distance_per_step)
         # if not self.bot.game_info.pathing_grid[(int(defense_position.x), int(defense_position.y))]:
         #    defense_position = marine.position.towards_with_random_angle(threat.position, distance=-2)
         return defense_prio, defense_position
+
+    def _target_in_range(self, unit: Unit, target: Unit) -> bool:
+        # TODO
+        return unit.target_in_range(target)
+        # if target.type_id == UnitTypeId.SIEGETANKSIEGED:
+        #     bonus_distance = 0
+        # else:
+        #     bonus_distance = 0
+        # return unit.target_in_range(target, bonus_distance=bonus_distance)
 
     def _evaluate_offense(self, unit: Unit, *,
                           squad_attack_priorities: dict[Unit, float]) -> tuple[float, Optional[Unit]]:
@@ -421,7 +435,7 @@ class CombatManager(BotObject):
         #                                 if squared_distance(unit, target) <= scan_range ** 2}
         attack_priorities_attack_range = {target: priority for target, priority
                                           in squad_attack_priorities.items()
-                                          if unit.target_in_range(target)}
+                                          if self._target_in_range(unit, target)}
 
         if not attack_priorities_attack_range:
             return 0, None

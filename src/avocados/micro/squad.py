@@ -37,14 +37,12 @@ class SquadStatus(StrEnum):
     MOVING = "M"
     COMBAT = "C"
     AT_TARGET= "T"
-    #GROUPING = "G"
 
 
 class Squad(BotObject):
     tags: set[int]
     task: Optional[SquadTask]
     spacing: float
-    leash: float
     status: SquadStatus
     status_changed: float
 
@@ -55,12 +53,11 @@ class Squad(BotObject):
         self.tags = tags or set()
         self.task = None
         self.spacing = 0.0
-        self.leash = 10.0
         self.status = SquadStatus.IDLE
         self.status_changed = 0.0
 
     def __repr__(self) -> str:
-        return (f"{type(self).__name__}(id={self.id}, size={self.size}, spacing={self.spacing}, leash={self.leash},"
+        return (f"{type(self).__name__}(id={self.id}, size={self.size}, spacing={self.spacing},"
                 f" status={self.status}, status_changed={self.status_changed})")
 
     def __len__(self) -> int:
@@ -83,14 +80,6 @@ class Squad(BotObject):
         if status != self.status:
             self.status_changed = self.time
         self.status = status
-        if status == SquadStatus.COMBAT:
-            self.leash = 5.0
-        elif status == SquadStatus.MOVING:
-            self.leash = 2.5
-        #elif status == SquadStatus.GROUPING:
-        #    self.leash = 2.0
-        else:
-            self.leash = 10.0
 
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.units)
@@ -161,14 +150,13 @@ class Squad(BotObject):
 
     @property_cache_once_per_frame
     def leash_range(self) -> float:
-        return math.sqrt(self.radius_squared) + self.leash
-
-    # @property_cache_once_per_frame
-    # def max_spread(self) -> float:
-    #     """Caching may not be correct, as units can change during frame."""
-    #     if len(self) < 2:
-    #         return 1
-    #     return math.sqrt(self.max_spread_squared)
+        if self.status == SquadStatus.COMBAT:
+            leash = 5.0
+        elif self.status == SquadStatus.MOVING:
+            leash = 2.5
+        else:
+            leash = 10.0
+        return math.sqrt(self.radius_squared) + leash
 
     @property_cache_once_per_frame
     def center(self) -> Optional[Point2]:

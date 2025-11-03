@@ -84,7 +84,8 @@ class SquadManager(BotObject):
         squad = self._squads.pop(id_, None)
         if squad is None:
             self.log.warning("Squad {} not found", id_)
-        self.remove_units(squad, squad.tags)
+        else:
+            self.remove_units(squad, squad.tags)
 
     def add_units(self, squad: Squad, units: Unit | Units | int | set[int], *,
                   remove_from_squads: bool = False) -> None:

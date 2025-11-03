@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 
+from sc2.game_info import Ramp
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.pixel_map import PixelMap
 from sc2.position import Point2
@@ -23,7 +24,7 @@ class MapManager(BotObject):
     enemy_start_locations: list[ExpansionLocation]
     enemy_start_location: Optional[ExpansionLocation] # Only set once known
     enemy_expansion_order: list[list[tuple[int, float]]]
-    ramp_defense_location: Point2
+    ramp_defense_location: Optional[Point2]
     placement_grid: PixelMap
 
     def __init__(self, bot: 'AvocaDOS') -> None:
@@ -50,7 +51,7 @@ class MapManager(BotObject):
             ))
         self.enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
 
-        self.ramp_defense_location = self.api.main_base_ramp.top_center
+        self.ramp_defense_location = self.main_base_ramp.top_center if self.main_base_ramp else None
         self.placement_grid = self.api.game_info.placement_grid.copy()
         self.logger.debug("on_start finished")
 
@@ -69,6 +70,13 @@ class MapManager(BotObject):
             if len(self.enemy_start_locations) == 1:
                 self.enemy_start_location = self.enemy_start_locations[0]
                 self.logger.info("Enemy start location must be at {}", self.enemy_start_location)
+
+    @property
+    def main_base_ramp(self) -> Optional[Ramp]:
+        try:
+            return self.api.main_base_ramp
+        except ValueError:
+            return None
 
     # async def can_place_building(self, utype: UnitTypeId, position: Point2) -> bool:
     #     footprint_size = int(2 * self.api.game_data.units[utype.value].footprint_radius)
@@ -111,7 +119,7 @@ class MapManager(BotObject):
         match utype:
             case UnitTypeId.REFINERY:
                 if near is None:
-                    near = self.map.start_base.center
+                    near = self.start_base.center
                 geysers = self.api.vespene_geyser.closer_than(10.0, near).filter(lambda g: g.has_vespene)
                 if not geysers:
                     return None
@@ -124,21 +132,23 @@ class MapManager(BotObject):
                 return geysers.closest_to(near)
 
             case UnitTypeId.SUPPLYDEPOT:
-                ramp_positions = [p for p in self.api.main_base_ramp.corner_depots
-                             if await self.api.can_place_single(utype, p)]
-                if ramp_positions:
-                    return self.bot.map.start_base.center.closest(ramp_positions)
-                if await self.api.can_place_single(utype, self.api.main_base_ramp.depot_in_middle):
-                    return self.api.main_base_ramp.depot_in_middle
-                return await self.api.find_placement(utype, near=self.map.start_base.region_center,
+                if self.main_base_ramp:
+                    ramp_positions = [p for p in self.main_base_ramp.corner_depots
+                                 if await self.api.can_place_single(utype, p)]
+                    if ramp_positions:
+                        return self.start_base.center.closest(ramp_positions)
+                    if await self.api.can_place_single(utype, self.main_base_ramp.depot_in_middle):
+                        return self.main_base_ramp.depot_in_middle
+                return await self.api.find_placement(utype, near=self.start_base.region_center,
                                                      random_alternative=False)
 
             case UnitTypeId.BARRACKS:
                 if near is None:
-                    ramp_position = self.api.main_base_ramp.barracks_correct_placement
-                    if await self.api.can_place_single(utype, ramp_position):
-                        return ramp_position
-                    return await self.api.find_placement(utype, near=self.map.start_base.region_center,
+                    if self.main_base_ramp:
+                        ramp_position = self.main_base_ramp.barracks_correct_placement
+                        if await self.api.can_place_single(utype, ramp_position):
+                            return ramp_position
+                    return await self.api.find_placement(utype, near=self.start_base.region_center,
                                                          addon_place=True, random_alternative=False)
                 else:
                     return await self.api.find_placement(utype, near=near, max_distance=max_distance,

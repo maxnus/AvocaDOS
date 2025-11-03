@@ -187,30 +187,30 @@ class MiningManager(BotObject):
 
         townhall = self.get_townhall(expansion)
         if townhall is None:
-            self.logger.error("No townhall at {}", expansion)
+            self.log.error("No townhall at {}", expansion)
             return
 
         for worker_tag, mineral_tag in assignment.items():
             worker = self.bot.workers.find_by_tag(worker_tag)
             if worker is None:
-                self.logger.error("Invalid worker tag: {}", worker_tag)
+                self.log.error("Invalid worker tag: {}", worker_tag)
                 continue
 
             mineral_field = expansion.mineral_fields.find_by_tag(mineral_tag)
             if mineral_field is None:
-                self.logger.error("Invalid mineral field tag: {}", mineral_tag)
+                self.log.error("Invalid mineral field tag: {}", mineral_tag)
                 continue
 
             if worker.is_carrying_minerals:
                 target_point = expansion.mining_return_targets.get(mineral_tag)
                 if target_point is None:
-                    self.logger.error("Invalid mining return target for: {}", mineral_tag)
+                    self.log.error("Invalid mining return target for: {}", mineral_tag)
                     continue
                 target = townhall
             else:
                 target_point = expansion.mining_gather_targets.get(mineral_tag)
                 if target_point is None:
-                    self.logger.error("Invalid mining gather target for: {}", mineral_tag)
+                    self.log.error("Invalid mining gather target for: {}", mineral_tag)
                     continue
                 target = mineral_field
 

@@ -16,6 +16,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados.__about__ import __version__
 from avocados.core.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
 from avocados.core.historymanager import HistoryManager
@@ -61,8 +62,8 @@ class RetreatCommand(Command):
     target: Point2
 
 
-LOG_FORMAT = ("<level>[{level}]</level>"
-              "<green>[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}]</green>"
+LOG_FORMAT = ("<level>[{level:8}]</level>"
+              "<green>[{extra[step]}|{extra[time]}|{extra[prefix]}]</green>"
               " <level>{message}</level>")
 
 
@@ -89,7 +90,7 @@ class AvocaDOS:
 
     def __init__(self, api: 'BotApi', *,
                  name: str = 'AvocaDOS',
-                 build: Optional[str] = None,
+                 build: Optional[str] = 'default',
                  debug: bool = False,
                  log_level: str = "DEBUG",
                  log_file: Optional[str] = None,
@@ -119,6 +120,7 @@ class AvocaDOS:
 
         # Manager
         self.log = LogManager(self)
+        self.logger.debug("Initializing {}...", self)
         self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
         self.resources = ResourceManager(self)
@@ -128,18 +130,15 @@ class AvocaDOS:
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
         self.map = MapManager(self)
-        self.debug = DebugManager(self) if debug else None
+        self.debug = DebugManager(self) if (debug or micro_scenario) else None
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
         else:
             self.micro_scenario = None
-        self.logger.debug("Initialized {}", self)
+        self.logger.debug("{} initialized", self)
 
     def __repr__(self) -> str:
-        unit_info = [f'{count} {utype.name}' for utype, count in sorted(
-            sorted(self.get_unit_type_counts().items(), key=lambda item: item[0].name),
-            key=lambda item: item[1], reverse=True)]
-        return f"{type(self).__name__}({', '.join(unit_info)})"
+        return f"{type(self).__name__}({__version__})"
 
     async def on_start(self) -> None:
         await self.map.on_start()
@@ -151,7 +150,7 @@ class AvocaDOS:
         await self.mining.add_expansion(self.map.start_base)
 
     async def on_step(self, step: int):
-        self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time)
+        self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
 
         await self.log.on_step(step)
         if self.micro_scenario is not None and self.micro_scenario.running:

@@ -81,6 +81,7 @@ class MicroScenario(BotObject):
         # if units_in_arena:
         #     await self.client.debug_kill_unit(units_in_arena)
 
+
         for player in self.api.game_info.players:
             await self.api.client.debug_create_unit(
                 [[utype, number, self.spawns[player.id - 1], player.id]

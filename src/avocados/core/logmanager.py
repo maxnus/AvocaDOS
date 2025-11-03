@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Callable, Hashable
 from enum import StrEnum
 from typing import Optional, Any, TYPE_CHECKING
@@ -26,13 +27,13 @@ warning_codes: dict[WarningLevel, str] = {
 class LogManager(BotObject):
     _tags_to_send: set[str]
     _tags_sent: set[str]
-    _warnings_sent: set[Hashable]
+    _warnings_sent: Counter[Hashable]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self._tags_to_send = set()
         self._tags_sent = set()
-        self._warnings_sent = set()
+        self._warnings_sent = Counter()
 
     # --- Public
 
@@ -70,11 +71,11 @@ class LogManager(BotObject):
         if key is None:
             key = message
         if key not in self._warnings_sent:
-            self._warnings_sent.add(key)
+            self._warnings_sent[key] += 1
             logfunc = self._get_log_function(level)
             logfunc(message)
             if tag:
-                self.tag(f"[{warning_codes[level]}]{message[:80]}")
+                self.tag(f"{warning_codes[level]}_{message[:80]}")
 
     def _get_log_function(self, level: WarningLevel) -> Callable:
         match level:

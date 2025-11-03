@@ -214,7 +214,6 @@ class DebugManager(BotObject):
     async def _handle_chat(self):
         cheats = {'!control_enemy', '!food', '!free', '!all_resources', '!god', '!minerals', '!gas',
                   '!cooldown', '!tech_tree', '!upgrade', '!fast_build'}
-
         for chat_message in self.api.state.chat:
             self.logger.debug("Chat message: {}", chat_message.message)
             if chat_message.message.startswith('!'):
@@ -294,8 +293,7 @@ class DebugManager(BotObject):
         for squad in self.squads:
             radius = math.sqrt(squad.radius_squared)
             self.sphere(squad.center, radius, color=color)
-            if squad.leash is not None:
-                self.sphere(squad.center, squad.leash_range, color=color)
+            self.sphere(squad.center, squad.leash_range, color=color)
             self.text_world(f"{squad.id}|{len(squad)}|{squad.status}", squad.center, color=color)
             for unit in squad.units:
                 self.text_world(f"{squad.id}", unit, color=color)
