@@ -8,7 +8,8 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.constants import TERRAN_TECHLAB, TERRAN_REACTOR
+from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS, \
+    UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
 from avocados.core.geomutil import lerp, squared_distance
 from avocados.core.unitutil import get_closest_sq_distance
 from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus
@@ -80,19 +81,46 @@ class CombatManager(BotObject):
         # TODO
         return self.get_scan_range(unit)
 
-    def _get_attack_base_priority(self, target: Unit, *,
-                                  default_structure: float = 0.01,
-                                  default_unit: float = 0.5) -> float:
+    def _get_powering_pylons(self, structure: Unit) -> Units:
+        return self.api.enemy_structures.of_type(UnitTypeId.PYLON).closer_than(6.5, structure)
+
+    def _get_pylon_attack_base_priority(self, target: Unit, *, floor: float = 0.15, ceiling: float = 0.80) -> float:
+        priority = 0
+        for structure in self.api.enemy_structures.closer_than(6.5, target):
+            powering = self._get_powering_pylons(structure)
+            match len(powering):
+                case 1:
+                    weight = 1.0
+                case 2:
+                    weight = 0.2
+                case _:
+                    weight = 0.0
+            if structure.type_id == UnitTypeId.STARGATE:
+                factor = 0.4
+            elif structure.type_id == UnitTypeId.ROBOTICSBAY:
+                factor = 0.35
+            elif structure.type_id in {UnitTypeId.GATEWAY, UnitTypeId.WARPGATE}:
+                factor = 0.30
+            elif structure.type_id in TECH_BUILDING_TYPE_IDS:
+                factor = 0.10
+            elif structure.type_id in UPGRADE_BUILDING_TYPE_IDS:
+                factor = 0.05
+            else:
+                factor = 0
+            priority += weight * factor * min(2 * structure.shield_health_percentage, 1)
+        return max(floor, min(priority, ceiling))
+
+    def _get_attack_base_priority(self, target: Unit) -> float:
 
         match target.type_id:
             # --- Terran
             # Structures
             case UnitTypeId.MISSILETURRET: return 0.01
-            case UnitTypeId.AUTOTURRET: return 0.01
             case UnitTypeId.SUPPLYDEPOT: return 0.10
-            case _ if target.type_id in TERRAN_REACTOR: return 0.12
-            case _ if target.type_id in TERRAN_TECHLAB: return 0.13
+            case _ if target.type_id in REACTOR_TYPE_IDS: return 0.12
+            case _ if target.type_id in TECHLAB_TYPE_IDS: return 0.13
             case UnitTypeId.PLANETARYFORTRESS: return 0.15
+            case UnitTypeId.AUTOTURRET: return 0.20
             case UnitTypeId.BUNKER: return 0.25
             # Units
             case UnitTypeId.SCV: return 0.50
@@ -120,7 +148,7 @@ class CombatManager(BotObject):
             case UnitTypeId.SPINECRAWLER: return 0.20
             # Units
             case UnitTypeId.EGG: return 0.00
-            case UnitTypeId.LARVA: return 0.05
+            case UnitTypeId.LARVA: return 0.01
             case UnitTypeId.CHANGELING: return 0.10
             case UnitTypeId.CHANGELINGMARINE | UnitTypeId.CHANGELINGZEALOT | UnitTypeId.CHANGELINGZERGLING: return 0.11
             case UnitTypeId.BROODLING: return 0.35
@@ -141,7 +169,7 @@ class CombatManager(BotObject):
             case UnitTypeId.BANELING: return 1.00
             # --- Protoss
             # Structures
-            case UnitTypeId.PYLON: return 0.15  # TODO consider powered structures
+            case UnitTypeId.PYLON: return self._get_pylon_attack_base_priority(target)
             case UnitTypeId.PHOTONCANNON: return 0.20
             case UnitTypeId.SHIELDBATTERY:
                 return lerp(target.energy_percentage, (0, 0.10), (1, 0.30))
@@ -175,11 +203,21 @@ class CombatManager(BotObject):
             case UnitTypeId.ORACLE: return 0.75
             case UnitTypeId.CARRIER: return 0.80
 
-            case _ if target.is_structure:
-                return default_structure
+
+            case _ if target.type_id in PRODUCTION_BUILDING_TYPE_IDS:
+                return 0.08
+            case _ if target.type_id in TECHLAB_TYPE_IDS:
+                return 0.07
+            case _ if target.type_id in TOWNHALL_TYPE_IDS:
+                return 0.06
+            case _ if target.type_id in UPGRADE_BUILDING_TYPE_IDS:
+                return 0.04
+            case _ if target.type_id in GAS_TYPE_IDS:
+                return 0.03
+
             case _:
                 self.log.warning("Missing attack base priority for {}", target.type_id.name)
-                return default_unit
+                return 0.05 if target.is_structure else 0.50
 
     def get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
         """Attack priority is based on:

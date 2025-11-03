@@ -173,8 +173,7 @@ class DebugManager(BotObject):
                    text: str,
                    position: Unit | Point3 | Point2,
                    *,
-                   size: int = 16, color: tuple[int, int, int] = Color.YELLOW,
-                   max_lines: int = 10,
+                   size: int = 18, color: tuple[int, int, int] = Color.YELLOW,
                    duration: float = 0):
         position = self._normalize_point3(position)
         item = DebugWorldText(position, text, size=size, color=color, created=self.api.time, duration=duration)
@@ -294,7 +293,7 @@ class DebugManager(BotObject):
             radius = math.sqrt(squad.radius_squared)
             self.sphere(squad.center, radius, color=color)
             self.sphere(squad.center, squad.leash_range, color=color)
-            self.text_world(f"{squad.id}|{len(squad)}|{squad.status}", squad.center, color=color)
+            self.text_world(f"{squad.id}  {len(squad)}  {squad.status}", squad.center, color=color)
             for unit in squad.units:
                 self.text_world(f"{squad.id}", unit, color=color)
 

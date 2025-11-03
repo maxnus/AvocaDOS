@@ -80,7 +80,71 @@ RESOURCE_COLLECTOR_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
 })
 
 
-TERRAN_REACTOR: frozenset[UnitTypeId] = frozenset({
+TOWNHALL_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.COMMANDCENTER,
+    UnitTypeId.COMMANDCENTERFLYING,
+    UnitTypeId.ORBITALCOMMAND,
+    UnitTypeId.ORBITALCOMMANDFLYING,
+    UnitTypeId.PLANETARYFORTRESS,
+    UnitTypeId.HATCHERY,
+    UnitTypeId.LAIR,
+    UnitTypeId.HIVE,
+    UnitTypeId.NEXUS
+})
+
+
+GAS_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.ASSIMILATOR,
+    UnitTypeId.ASSIMILATORRICH,
+    UnitTypeId.REFINERY,
+    UnitTypeId.REFINERYRICH,
+    UnitTypeId.EXTRACTOR,
+    UnitTypeId.EXTRACTORRICH,
+})
+
+
+PRODUCTION_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.BARRACKS,
+    UnitTypeId.BARRACKSFLYING,
+    UnitTypeId.FACTORY,
+    UnitTypeId.FACTORYFLYING,
+    UnitTypeId.STARPORT,
+    UnitTypeId.STARPORTFLYING,
+    UnitTypeId.GATEWAY,
+    UnitTypeId.WARPGATE,
+    UnitTypeId.STARGATE,
+    UnitTypeId.ROBOTICSFACILITY
+})
+
+
+UPGRADE_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.ENGINEERINGBAY,
+    UnitTypeId.ARMORY,
+    UnitTypeId.EVOLUTIONCHAMBER,
+    UnitTypeId.SPIRE,
+    UnitTypeId.FORGE,
+    UnitTypeId.CYBERNETICSCORE
+})
+
+
+TECH_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.ARMORY,
+    UnitTypeId.GHOSTACADEMY,
+    UnitTypeId.FUSIONCORE,
+    UnitTypeId.SPAWNINGPOOL,
+    UnitTypeId.ROACHWARREN,
+    UnitTypeId.HYDRALISKDEN,
+    UnitTypeId.LURKERDEN,
+    UnitTypeId.SPIRE,
+    UnitTypeId.INFESTATIONPIT,
+    UnitTypeId.ULTRALISKCAVERN,
+    UnitTypeId.CYBERNETICSCORE,
+    UnitTypeId.ROBOTICSBAY,
+    UnitTypeId.FLEETBEACON
+})
+
+
+REACTOR_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.REACTOR,
     UnitTypeId.BARRACKSREACTOR,
     UnitTypeId.FACTORYREACTOR,
@@ -88,7 +152,7 @@ TERRAN_REACTOR: frozenset[UnitTypeId] = frozenset({
 })
 
 
-TERRAN_TECHLAB: frozenset[UnitTypeId] = frozenset({
+TECHLAB_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.TECHLAB,
     UnitTypeId.BARRACKSTECHLAB,
     UnitTypeId.FACTORYTECHLAB,
@@ -96,4 +160,8 @@ TERRAN_TECHLAB: frozenset[UnitTypeId] = frozenset({
 })
 
 
-TERRAN_ADDONS: frozenset[UnitTypeId] = frozenset({*TERRAN_REACTOR, *TERRAN_TECHLAB})
+ADDON_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    *REACTOR_TYPE_IDS,
+    *TECHLAB_TYPE_IDS
+})
+
