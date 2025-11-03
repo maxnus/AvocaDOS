@@ -164,16 +164,21 @@ class CombatManager(BotObject):
                     return 0.50
                 else:
                     return 0.70
-            case UnitTypeId.ORACLE: return 0.75
             case UnitTypeId.COLOSSUS: return 0.80
             case UnitTypeId.DISRUPTOR: return 0.85
             case UnitTypeId.HIGHTEMPLAR: return 0.90
             case UnitTypeId.WARPPRISM: return 0.90
+            # Flying
+            case UnitTypeId.INTERCEPTOR: return 0.40
+            case UnitTypeId.OBSERVER: return 0.55
+            case UnitTypeId.TEMPEST: return 0.70
+            case UnitTypeId.ORACLE: return 0.75
+            case UnitTypeId.CARRIER: return 0.80
 
             case _ if target.is_structure:
                 return default_structure
             case _:
-                self.logger.warning("No attack base priority for {}", target.type_id.name)
+                self.log.warning("Missing attack base priority for {}", target.type_id.name)
                 return default_unit
 
     def get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
@@ -356,12 +361,16 @@ class CombatManager(BotObject):
             dist_sq = (unit.ground_range + unit.radius + squad_target.radius + unit.distance_to_weapon_ready)**2
             if unit.distance_to_squared(squad_target) >= dist_sq:
                 return self.order.attack(unit, squad_target)
+                #intercept_point = self.bot.intercept_unit(unit, squad_target)
+                #return self.order.attack(unit, intercept_point)
 
         if defense_position and unit.shield_health_percentage < 0.8:
             return self.order.move(unit, defense_position)
 
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
             return self.order.attack(unit, squad_target)
+            #intercept_point = self.bot.intercept_unit(unit, squad_target)
+            #return self.order.attack(unit, intercept_point)
 
         # Regroup
         #scan_sq = self.get_scan_range(unit)**2

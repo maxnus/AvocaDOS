@@ -59,7 +59,15 @@ class Squad(BotObject):
         self.status = SquadStatus.IDLE
         self.status_changed = 0.0
 
+    def __repr__(self) -> str:
+        return (f"{type(self).__name__}(id={self.id}, size={self.size}, spacing={self.spacing}, leash={self.leash},"
+                f" status={self.status}, status_changed={self.status_changed})")
+
     def __len__(self) -> int:
+        return self.size
+
+    @property
+    def size(self) -> int:
         return len(self.units)
 
     @property
@@ -121,16 +129,21 @@ class Squad(BotObject):
             target = target.position
         return target.distance_to_closest(self.units)
 
-    # --- Orders
+    # --- Task
+
+    def _set_task(self, task: SquadTask) -> None:
+        if task != self.task:
+            self.logger.info("Setting new task {} for {}", task, self)
+        self.task = task
 
     def attack(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5) -> SquadAttackTask:
         area = Circle(target, radius)
-        self.task = SquadAttackTask(area, priority=priority)
+        self._set_task(SquadAttackTask(area, priority=priority))
         return self.task    # noqa
 
     def defend(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5) -> SquadDefendTask:
         area = Circle(target, radius)
-        self.task = SquadDefendTask(area, priority=priority)
+        self._set_task(SquadDefendTask(area, priority=priority))
         return self.task    # noqa
 
     # --- Position

@@ -156,7 +156,6 @@ class ObjectiveManager(BotObject):
         if units.amount >= objective.number:
             return True
 
-        # TODO: only pending for commander
         pending = int(self.api.already_pending(objective.utype))
         to_build = objective.number - units.amount - pending
 
@@ -262,8 +261,10 @@ class ObjectiveManager(BotObject):
             units = units.closest_n_units(objective.target, units_to_add)
 
         # Add units from squads with lower priority tasks
+        info = []
         for squad in self.squads:
             if squad not in squads_with_task and squad.task is None or squad.task.priority < objective.priority/100:  # TODO
+                info.append(("Assigning units of squad {} for {}", squad, objective))
                 units += squad.units
                 total_strength += squad.strength
                 if total_strength >= objective.strength:
@@ -278,7 +279,7 @@ class ObjectiveManager(BotObject):
             # TODO
             closest_squad, distance = min([(s, s.center.distance_to(units.center)) for s in squads_with_task],
                                   key=lambda x: x[1])
-            if distance <= 10:
+            if distance <= 12:
                 squad = closest_squad
 
         if squad is None:
@@ -287,6 +288,9 @@ class ObjectiveManager(BotObject):
             squad = self.squads.create(units, remove_from_squads=True)
         else:
             squad.add(units, remove_from_squads=True)
+
+        for entry in info:
+            self.logger.debug(*entry)
 
         # Always create a new squad - we can always merge later
         # if len(units) < max(objective.minimum_size, 1):

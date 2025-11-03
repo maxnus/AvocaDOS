@@ -1,4 +1,5 @@
 import heapq
+import math
 from collections import Counter
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING, Any
@@ -20,13 +21,14 @@ from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TY
 from avocados.core.historymanager import HistoryManager
 from avocados.core.miningmanager import MiningManager
 from avocados.core.unitutil import get_unit_type_counts
+from avocados.core.logmanager import LogManager
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
 from avocados.core.orders import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
 from avocados.core.objectivemanager import ObjectiveManager
-from avocados.core.geomutil import LineSegment, get_best_score
+from avocados.core.geomutil import LineSegment, get_best_score, dot
 from avocados.micro.combat import CombatManager
 from avocados.micro.squadmanager import SquadManager
 
@@ -59,7 +61,9 @@ class RetreatCommand(Command):
     target: Point2
 
 
-LOG_FORMAT = "<green>[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}]</green> <level>{message}</level>"
+LOG_FORMAT = ("<level>[{level}]</level>"
+              "<green>[{extra[step]}|{extra[time]:.3f}|{extra[prefix]}]</green>"
+              " <level>{message}</level>")
 
 
 class AvocaDOS:
@@ -68,6 +72,7 @@ class AvocaDOS:
     logger: Logger
     cache: dict[str, Any]
     # Manager
+    log: LogManager
     map: Optional[MapManager]
     build: BuildOrderManager
     order: OrderManager
@@ -113,6 +118,7 @@ class AvocaDOS:
         self.cache = {}
 
         # Manager
+        self.log = LogManager(self)
         self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
         self.resources = ResourceManager(self)
@@ -146,6 +152,8 @@ class AvocaDOS:
 
     async def on_step(self, step: int):
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time)
+
+        await self.log.on_step(step)
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.on_step(step)
 
@@ -229,6 +237,44 @@ class AvocaDOS:
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.forces)
 
+    # --- Utility
+
+    def intercept_unit(self, unit: Unit, target: Unit, *,
+                       max_intercept_distance: float = 10.0) -> Point2:
+        """TODO: friendly units"""
+        d = target.position - unit.position
+        dsq = dot(d, d)
+        # if dsq > 200:
+        #     # Far away, don't try to intercept
+        #     return target.position
+
+        v = self.api.get_unit_velocity_vector(target)
+        if v is None:
+            self.logger.debug("No target velocity")
+            return target.position
+        s = 1.4 * unit.real_speed
+        vsq = dot(v, v)
+        ssq = s * s
+        denominator = vsq - ssq
+        if abs(denominator) < 1e-8:
+            self.logger.debug("Linear case")
+            # TODO: linear case
+            return target.position
+
+        dv = dot(d, v)
+        disc = dv*dv - denominator * dsq
+        if disc < 0:
+            self.logger.debug("No real solution")
+            # no real solution
+            return target.position
+        sqrt = math.sqrt(disc)
+        tau1 = (-dv + sqrt) / denominator
+        tau2 = (-dv - sqrt) / denominator
+        tau = min(tau1, tau2)
+        intercept = target.position + tau * v
+        self.logger.debug("{} intercepting {} at {}", unit.position, target.position, intercept)
+        return intercept
+
     # --- Pick unit
 
     async def pick_workers(self, location: Point2 | LineSegment, *,
@@ -298,7 +344,7 @@ class AvocaDOS:
     def pick_trainer(self, utype: UnitTypeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
         trainer_utype = TRAINERS.get(utype)
         if trainer_utype is None:
-            self.logger.error("No trainer for {}", utype)
+            self.log.error("No trainer for {}", utype)
             return None
 
         free_trainers = self.structures(trainer_utype).ready.idle.filter(lambda x: not self.order.has_order(x))
@@ -328,7 +374,7 @@ class AvocaDOS:
             case UnitTypeId.BARRACKSTECHLAB | UnitTypeId.BARRACKSREACTOR:
                 trainers = free_trainers.filter(lambda x: not x.has_add_on)
             case _:
-                self.logger.warning("Trainer for {} not implemented", utype)
+                self.log.warning("Trainer for {} not implemented", utype)
                 return None
         if not trainers:
             return None
@@ -352,10 +398,10 @@ class AvocaDOS:
 
         if step % 8 == 0:
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
-                if not self.api.enemy_units.closer_than(4.5, unit):
+                if not self.api.enemy_units.not_flying.closer_than(4.5, unit):
                     self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
             for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
-                if self.api.enemy_units.closer_than(3.5, unit):
+                if self.api.enemy_units.not_flying.closer_than(3.5, unit):
                     self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
         if step % 8 == 0:

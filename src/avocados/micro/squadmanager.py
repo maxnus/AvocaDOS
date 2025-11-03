@@ -49,6 +49,12 @@ class SquadManager(BotObject):
         #         if type(squad1.task) != type(squad2.task):
         #             continue
 
+        # Dump status
+        if step % 1000 == 0:
+            self.logger.debug("Dump:")
+            for squad in self:
+                self.logger.debug("{}", squad)
+
     def __len__(self) -> int:
         return len(self._squads)
 
@@ -63,7 +69,7 @@ class SquadManager(BotObject):
         # TODO: use _tags_to_squad
         for squad in self:
             if common_tags := tags & squad.tags:
-                self.logger.warning("Tags {} are already assigned to {}", common_tags, squad)
+                self.log.warning("Tags {} are already assigned to {}", common_tags, squad)
                 tags_filtered -= common_tags
         return tags_filtered
 
@@ -77,7 +83,7 @@ class SquadManager(BotObject):
         id_ = squad.id if isinstance(squad, Squad) else squad
         squad = self._squads.pop(id_, None)
         if squad is None:
-            self.logger.warning("Squad {} not found", id_)
+            self.log.warning("Squad {} not found", id_)
         self.remove_units(squad, squad.tags)
 
     def add_units(self, squad: Squad, units: Unit | Units | int | set[int], *,
@@ -96,7 +102,7 @@ class SquadManager(BotObject):
             if self._tag_to_squad.get(tag) == squad.id:
                 self._tag_to_squad.pop(tag)
             else:
-                self.logger.warning("Tag {} was not assigned to {}", tag, squad)
+                self.log.warning("Tag {} was not assigned to {}", tag, squad)
         squad.tags.difference_update(tags)
 
     def get_squad_of_unit(self, unit: Unit | int) -> Optional[Squad]:

@@ -9,6 +9,7 @@ from sc2.constants import CREATION_ABILITY_FIX
 from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
@@ -90,6 +91,17 @@ class BotApi(BotAI):
         mineral_rate = self.state.score.collection_rate_minerals / 60
         vespene_rate = self.state.score.collection_rate_vespene / 60
         return mineral_rate, vespene_rate
+
+    def get_unit_velocity_vector(self, unit: Unit | int) -> Optional[Point2]:
+        tag = unit.tag if isinstance(unit, Unit) else unit
+        unit_prev = self._all_units_previous_map.get(tag)
+        if unit_prev is None:
+            return None
+        unit_now = unit if isinstance(unit, Unit) else self.all_units.find_by_tag(tag)
+        if unit_now is None:
+            return None
+        delta = unit_now.position - unit_prev.position
+        return delta / 22.4
 
     def get_creation_ability(self, utype: UnitTypeId) -> AbilityId:
         try:

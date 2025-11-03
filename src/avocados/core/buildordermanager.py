@@ -28,16 +28,19 @@ class BuildOrderManager(BotObject):
         bot = self.bot
         obj = bot.objectives
 
+        scv1 = obj.add(UnitCountObjective(UnitTypeId.SCV, 13, priority=100))
+        obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 1, priority=90))
+
         # SCV
-        obj.add(UnitCountObjective(UnitTypeId.SCV, 19))
+        scv2 = obj.add(UnitCountObjective(UnitTypeId.SCV, 16, priority=70, deps=scv1))
+        obj.add(UnitCountObjective(UnitTypeId.SCV, 19, priority=40, deps=scv2))
 
         # Buildings
-        obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 1))#, reqs=(UnitTypeId.SCV, 13)))
 
-        rax123 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 14)))
+        rax123 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 3))
         rax456 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 6, reqs=('S', 23)))
 
-        obj.add(UnitCountObjective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS))
+        obj.add(UnitCountObjective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, priority=80))
 
         # --- Supply
         obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18)))
@@ -56,8 +59,8 @@ class BuildOrderManager(BotObject):
                                            reqs=(UnitTypeId.MARINE, squad_size),
                                            deps=prev, priority=70))
         for loc in bot.map.get_enemy_expansions(0):
-            prev = obj.add(AttackObjective(target=loc.center, minimum_size=squad_size, duration=5, deps=prev,
-                                           priority=70))
+            prev = obj.add(AttackObjective(target=loc.center, strength=24, minimum_size=squad_size, duration=5,
+                                           deps=prev, priority=70))
 
     def load_proxy_marine(self) -> None:
         bot = self.bot
