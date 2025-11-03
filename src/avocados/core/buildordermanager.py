@@ -32,7 +32,7 @@ class BuildOrderManager(BotObject):
         obj.add(UnitCountObjective(UnitTypeId.SCV, 19))
 
         # Buildings
-        obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 1, reqs=(UnitTypeId.SCV, 13)))
+        obj.add(UnitCountObjective(UnitTypeId.SUPPLYDEPOT, 1))#, reqs=(UnitTypeId.SCV, 13)))
 
         rax123 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 3, reqs=(UnitTypeId.SCV, 14)))
         rax456 = obj.add(UnitCountObjective(UnitTypeId.BARRACKS, 6, reqs=('S', 23)))

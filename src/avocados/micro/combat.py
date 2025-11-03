@@ -121,8 +121,11 @@ class CombatManager(BotObject):
             # Units
             case UnitTypeId.EGG: return 0.00
             case UnitTypeId.LARVA: return 0.05
+            case UnitTypeId.CHANGELING: return 0.10
+            case UnitTypeId.CHANGELINGMARINE | UnitTypeId.CHANGELINGZEALOT | UnitTypeId.CHANGELINGZERGLING: return 0.11
             case UnitTypeId.BROODLING: return 0.35
-            case UnitTypeId.OVERLORD: return 0.45
+            case UnitTypeId.OVERLORD: return 0.40
+            case UnitTypeId.OVERSEER: return 0.45
             case UnitTypeId.DRONEBURROWED: return 0.50
             case UnitTypeId.DRONE: return 0.50
             case UnitTypeId.ROACHBURROWED : return 0.50

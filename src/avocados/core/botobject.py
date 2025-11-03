@@ -41,7 +41,11 @@ class BotObject(ABC):
 
     @property
     def state(self) -> GameState:
-        return self.api.state
+        return self.bot.state
+
+    @property
+    def step(self) -> float:
+        return self.bot.step
 
     @property
     def time(self) -> float:

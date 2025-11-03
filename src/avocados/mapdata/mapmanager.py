@@ -153,7 +153,7 @@ class MapManager(BotObject):
         #distances = [d if d is not None else float('inf') for d in await self.get_travel_distances(units, destination)]
         #distances = await self.get_travel_distances(units, destination)
         # Too expensive at the moment, use euclidean distance instead
-        distances = [1.2 * unit.distance_to(destination) for unit in units]
+        distances = [1.4 * unit.distance_to(destination) for unit in units]
         times = [max(d - target_distance, 0) / (1.4 * unit.real_speed) for (unit, d) in zip(units, distances)]
         return times
 

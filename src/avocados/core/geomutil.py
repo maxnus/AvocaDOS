@@ -37,8 +37,10 @@ def squared_distance(pos1: Unit | Point2, pos2: Unit | Point2) -> float:
     return dx * dx + dy * dy
 
 
-def get_best_score[T](values: Collection[T], score_func: Callable[[T], float]) -> tuple[T, float]:
-    return max([(value, score_func(value)) for value in values], key=lambda x: x[1])
+def get_best_score[T](values: Collection[T], score_func: Callable[[T], float], *,
+                      highest: bool = True) -> tuple[T, float]:
+    minmax = max if highest else min
+    return minmax([(value, score_func(value)) for value in values], key=lambda x: x[1])
 
 
 def closest_point(points: Collection[Point2], target: Point2) -> tuple[Point2, float]:

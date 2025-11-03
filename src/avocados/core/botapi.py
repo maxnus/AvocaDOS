@@ -84,6 +84,9 @@ class BotApi(BotAI):
     # --- Extra utility
 
     def get_resource_collection_rates(self) -> tuple[float, float]:
+        if self.state.game_loop < 100:
+            # The properties below return 0 for first 100 steps
+            return 10.0, 0.0
         mineral_rate = self.state.score.collection_rate_minerals / 60
         vespene_rate = self.state.score.collection_rate_vespene / 60
         return mineral_rate, vespene_rate

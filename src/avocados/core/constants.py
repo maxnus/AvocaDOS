@@ -63,6 +63,23 @@ ALTERNATIVES: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
 }
 
 
+# --- UnitTypeId sets
+
+
+WORKER_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.DRONE,
+    UnitTypeId.DRONEBURROWED,
+    UnitTypeId.SCV,
+    UnitTypeId.PROBE
+})
+
+
+RESOURCE_COLLECTOR_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    *WORKER_TYPE_IDS,
+    UnitTypeId.MULE,
+})
+
+
 TERRAN_REACTOR: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.REACTOR,
     UnitTypeId.BARRACKSREACTOR,

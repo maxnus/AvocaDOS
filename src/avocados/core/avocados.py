@@ -1,11 +1,13 @@
 import heapq
 from collections import Counter
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Any
 import sys
 
 from loguru import logger as _logger
 from loguru._logger import Logger
+from sc2.cache import property_cache_once_per_frame
+from sc2.game_state import GameState
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -14,7 +16,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.buildordermanager import BuildOrderManager
-from avocados.core.constants import TRAINERS, RESEARCHERS
+from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
 from avocados.core.historymanager import HistoryManager
 from avocados.core.miningmanager import MiningManager
 from avocados.core.unitutil import get_unit_type_counts
@@ -24,7 +26,7 @@ from avocados.mapdata.mapmanager import MapManager
 from avocados.core.orders import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
 from avocados.core.objectivemanager import ObjectiveManager
-from avocados.core.geomutil import LineSegment
+from avocados.core.geomutil import LineSegment, get_best_score
 from avocados.micro.combat import CombatManager
 from avocados.micro.squadmanager import SquadManager
 
@@ -64,6 +66,7 @@ class AvocaDOS:
     api: 'BotApi'
     name: str
     logger: Logger
+    cache: dict[str, Any]
     # Manager
     map: Optional[MapManager]
     build: BuildOrderManager
@@ -90,8 +93,6 @@ class AvocaDOS:
         super().__init__()
         self.api = api
         self.name = name
-
-        # Logging
         self.logger = _logger.bind(bot=name, prefix=name, step=0, time=0)
         self.logger.remove()
         self.logger.add(
@@ -109,6 +110,7 @@ class AvocaDOS:
                 rotation='1 day',
                 retention='14 days',
             )
+        self.cache = {}
 
         # Manager
         self.build = BuildOrderManager(self, build=build)
@@ -183,8 +185,16 @@ class AvocaDOS:
     # --- Properties
 
     @property
+    def step(self) -> int:
+        return self.state.game_loop
+
+    @property
     def time(self) -> float:
         return self.api.time
+
+    @property
+    def state(self) -> GameState:
+        return self.api.state
 
     # --- Units
 
@@ -196,9 +206,13 @@ class AvocaDOS:
     def workers(self) -> Units:
         return self.api.workers
 
-    @property
+    @property_cache_once_per_frame
     def army(self) -> Units:
-        return self.units - self.workers
+        def army_filter(unit: Unit) -> bool:
+            if unit.type_id in RESOURCE_COLLECTOR_TYPE_IDS:
+                return False
+            return True
+        return self.units.filter(army_filter)
 
     @property
     def structures(self) -> Units:
@@ -252,7 +266,7 @@ class AvocaDOS:
             travel_times = await self.map.get_travel_times(workers, location, target_distance=target_distance)
             workers_and_dist = {
                 unit: travel_time
-                      + carrying_resource_penalty if unit.is_carrying_resource else 0
+                      + (carrying_resource_penalty if unit.is_carrying_resource else 0)
                       + construction_time_discount * self.api.get_remaining_construction_time(unit)
                 for unit, travel_time in zip(workers, travel_times)
             }
@@ -261,7 +275,8 @@ class AvocaDOS:
         else:
             raise TypeError(f"unknown location type: {type(location)}")
 
-        result = heapq.nsmallest(number, workers_and_dist.items(), key=lambda item: item[1])
+        #result = heapq.nsmallest(number, workers_and_dist.items(), key=lambda item: item[1])
+        result = sorted(workers_and_dist.items(), key=lambda x: x[1])[:number]
         return result
 
     async def pick_worker(self, position: Point2, *,
@@ -333,6 +348,7 @@ class AvocaDOS:
     # --- Callbacks
 
     async def other(self, step: int) -> None:
+        # TODO: find the right location in the code
 
         if step % 8 == 0:
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
@@ -348,6 +364,7 @@ class AvocaDOS:
                     mineral_fields = self.api.mineral_field.closer_than(8, orbital.position)
                     if not mineral_fields:
                         continue
-                    mineral_field = mineral_fields.closest_to(orbital.position)
-                    self.logger.debug("Dropping mule at {}", mineral_field)
+                    #mineral_field = mineral_fields.closest_to(orbital.position)
+                    mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
+                    self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
                     self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)

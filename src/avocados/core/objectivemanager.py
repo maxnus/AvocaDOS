@@ -188,7 +188,7 @@ class ObjectiveManager(BotObject):
                     self.mining.unassign_worker(worker)     # TODO
                 else:
                     resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker)
-                    #self.logger.trace("{}: resource_time={:.2f}, travel_time={:.2f}", task, resource_time, travel_time)
+                    #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
                         self.order.move(worker, position)
