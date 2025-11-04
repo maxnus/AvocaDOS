@@ -154,6 +154,11 @@ class AvocaDOS:
     async def on_step(self, step: int):
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
 
+        # TODO: somewhere else
+        if self.time > 15 * 60:
+            self.log.tag('GG')
+            await self.api.client.leave()
+
         await self.log.on_step(step)
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.on_step(step)
