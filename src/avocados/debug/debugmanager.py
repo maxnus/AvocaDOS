@@ -4,10 +4,13 @@ from typing import TYPE_CHECKING, Optional, ClassVar
 
 from sc2.client import Client
 from sc2.ids.ability_id import AbilityId
+from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
 from avocados.core.botobject import BotObject
+from avocados.core.geomutil import Circle
+from avocados.micro.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -74,11 +77,13 @@ class DebugManager(BotObject):
     # Frame data
     damage_taken: dict[Unit, float]
     # Config
+    show_grid: bool
     show_orders: bool
     show_tasks: bool
     show_combat: bool
     show_squads: bool
     show_extra: bool
+    show_expansions: bool
     # Temporary displays
     debug_items: list[DebugWorldText]
 
@@ -89,11 +94,13 @@ class DebugManager(BotObject):
         self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
+        self.show_grid = False
         self.show_orders = False
         self.show_tasks = True
         self.show_combat = True
         self.show_squads = True
         self.show_extra = True
+        self.show_expansions = False
         self.debug_items = []
 
     @property
@@ -124,13 +131,10 @@ class DebugManager(BotObject):
 
     # Callbacks
 
-    async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
-        #assert unit not in self.damage_taken
-        #self.damage_taken[unit] = amount_damage_taken
-        pass
-
     async def on_step(self, step: int) -> None:
         await self._handle_chat()
+        if self.show_grid:
+            self._show_grid()
         if self.show_tasks:
             self._show_tasks()
         if self.show_extra:
@@ -141,6 +145,8 @@ class DebugManager(BotObject):
             self._show_squads()
         if self.show_combat:
             self._show_combat()
+        if self.show_expansions:
+            self.map.on_debug()
         #self.damage_taken.clear()
 
         for item in reversed(self.debug_items):
@@ -173,10 +179,12 @@ class DebugManager(BotObject):
                    text: str,
                    position: Unit | Point3 | Point2,
                    *,
-                   size: int = 18, color: tuple[int, int, int] = Color.YELLOW,
+                   size: Optional[int] = None,
+                   color: tuple[int, int, int] = Color.YELLOW,
                    duration: float = 0):
         position = self._normalize_point3(position)
-        item = DebugWorldText(position, text, size=size, color=color, created=self.api.time, duration=duration)
+        item = DebugWorldText(position, text, size=size or self.text_size, color=color, created=self.api.time,
+                              duration=duration)
         self.debug_items.append(item)
 
     def box(self, center: Unit | Point3 | Point2, size: Optional[float] = None, *,
@@ -192,11 +200,20 @@ class DebugManager(BotObject):
                 size = 0.5
         self.client.debug_box2_out(center, half_vertex_length=size, color=color)
 
-    def sphere(self, center: Unit | Point3 | Point2, radius: float, *,
+    def sphere(self, center: Unit | Point3 | Point2 | Circle, radius: Optional[float] = None, *,
                color: tuple[int, int, int] | str = Color.YELLOW) -> None:
+        if isinstance(center, Circle):
+            radius = center.radius
+            center = center.center
         center = self._normalize_point3(center)
         color = normalize_color(color)
         self.client.debug_sphere_out(center, radius, color=color)
+
+    def sphere_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
+                         color: tuple[int, int, int] | str = Color.YELLOW) -> None:
+        color = normalize_color(color)
+        self.sphere(center, size, color=color)
+        self.text_world(text, center, color=color)
 
     def box_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
                       color: tuple[int, int, int] | str = Color.YELLOW) -> None:
@@ -205,14 +222,34 @@ class DebugManager(BotObject):
         self.text_world(text, center, color=color)
 
     def line(self, start: Point2 | Point3 | Unit | int, end: Point2 | Point3 | Unit | int, *,
-             color: tuple[int, int, int] = Color.YELLOW) -> None:
+             text_center: Optional[str] = None,
+             text_start: Optional[str] = None,
+             text_end: Optional[str] = None,
+             text_offset: int = 5,
+             text_size: Optional[int] = None,
+             color: tuple[int, int, int] | str = Color.YELLOW) -> None:
         start = self._normalize_point3(start)
         end = self._normalize_point3(end)
+        color = normalize_color(color)
         self.client.debug_line_out(start, end, color=color)
+        if text_center:
+            added = (start + end)
+            mid = Point3((added.x/2, added.y/2, added.z/2))
+            self.text_world(text_center, mid, color=color, size=text_size)
+        if text_start:
+            self.text_world(text_start, start.towards(end, text_offset), color=color, size=text_size)
+        if text_end:
+            self.text_world(text_end, end.towards(start, text_offset), color=color, size=text_size)
+
+    def arrow(self, start: Point2 | Point3 | Unit | int, end: Point2 | Point3 | Unit | int, *,
+              color: tuple[int, int, int] = Color.YELLOW) -> None:
+        self.line(start, end, color=color)
+        # TODO
+        #self.line(end, end, color=color)
 
     async def _handle_chat(self):
         cheats = {'!control_enemy', '!food', '!free', '!all_resources', '!god', '!minerals', '!gas',
-                  '!cooldown', '!tech_tree', '!upgrade', '!fast_build'}
+                  '!cooldown', '!tech_tree', '!upgrade', '!fast_build', '!show_map', '!create_unit'}
         for chat_message in self.api.state.chat:
             self.logger.debug("Chat message: {}", chat_message.message)
             if chat_message.message.startswith('!'):
@@ -220,6 +257,9 @@ class DebugManager(BotObject):
 
                 if cmd == '!log' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_log = bool(int(args[0]))
+
+                if cmd == '!grid' and len(args) == 1 and args[0] in {'0', '1'}:
+                    self.show_grid = bool(int(args[0]))
 
                 elif cmd == '!cmd' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_tasks = bool(int(args[0]))
@@ -232,8 +272,17 @@ class DebugManager(BotObject):
 
                 elif cmd in cheats:
                     func = getattr(self.client, f'debug_{cmd[1:]}', None)
-                    if func is not None:
-                        await func()
+                    if func is None:
+                        continue
+                    try:
+                        if cmd[1:] == 'create_unit':
+                                func_args = ([[UnitTypeId(int(args[0])), 1,
+                                               Point2((float(args[1]), float(args[2]))), int(args[3])]],)
+                        else:
+                            func_args = ()
+                        await func(*func_args)
+                    except Exception as exc:
+                        self.logger.error("Exception: {}", exc)
 
                 elif cmd == '!slow':
                     if len(args) == 0:
@@ -254,6 +303,11 @@ class DebugManager(BotObject):
         if isinstance(point, Point2):
             return Point3((point[0], point[1], self.api.get_terrain_z_height(point) + z_offset))
         raise TypeError(f"invalid argument: {point}")
+
+    def _show_grid(self) -> None:
+        for x in range(0, self.map.width):
+            for y in range(0, self.map.height):
+                self.box_with_text(Point2((x, y)), f'({x:.1f}, {y:.1f})', color='GREEN')
 
     def _show_tasks(self) -> None:
         lines = [repr(task) for task in self.api.bot.objectives]
@@ -290,12 +344,34 @@ class DebugManager(BotObject):
 
     def _show_squads(self, color: tuple[int, int, int] | str = Color.PINK) -> None:
         for squad in self.squads:
+            if len(squad) == 0:
+                continue
             radius = math.sqrt(squad.radius_squared)
             self.sphere(squad.center, radius, color=color)
             self.sphere(squad.center, squad.leash_range, color=color)
-            self.text_world(f"{squad.id}  {len(squad)}  {squad.status}", squad.center, color=color)
+            if isinstance(squad.task, SquadAttackTask):
+                task_code = 'ATK'
+                self.sphere(squad.task.target, color='RED')
+                self.line(squad.center, squad.task.target.center, color='RED')
+            elif isinstance(squad.task, SquadDefendTask):
+                task_code = 'DEF'
+                self.sphere(squad.task.target, color='BLUE')
+                self.line(squad.center, squad.task.target.center, color='BLUE')
+            elif isinstance(squad.task, SquadJoinTask):
+                task_code = 'JOI'
+                self.sphere(squad.task.target.center, radius=1, color='GREEN')
+                self.line(squad.center, squad.task.target.center, color='GREEN')
+            elif isinstance(squad.task, SquadRetreatTask):
+                task_code = 'RET'
+                self.sphere(squad.task.target, color='RED')
+                self.line(squad.center, squad.task.target.center, color='RED')
+            else:
+                task_code = 'NON'
+            self.text_world(f"{squad.id}  {len(squad)}  {squad.status}  {squad.strength:.1f}  {task_code}"
+                            f"  {squad.damage_taken_percentage:.1%}", squad.center, color=color)
             for unit in squad.units:
-                self.text_world(f"{squad.id}", unit, color=color)
+                #self.text_world(f"{squad.id}", unit, color=color)
+                self.line(unit, squad.center, color=color)
 
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.api.get_resource_collection_rates()

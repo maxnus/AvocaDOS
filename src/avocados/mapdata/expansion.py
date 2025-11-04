@@ -78,3 +78,8 @@ class ExpansionLocation(BotObject):
         if isinstance(other, ExpansionLocation):
             return self.center == other.center
         return NotImplemented
+
+    # --- debug
+
+    def on_debug(self) -> None:
+        self.debug.sphere_with_text(self.center, repr(self))

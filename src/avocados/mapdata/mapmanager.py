@@ -1,6 +1,10 @@
+import itertools
+import math
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 
+import numpy
+from numpy import ndarray
 from sc2.game_info import Ramp
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.pixel_map import PixelMap
@@ -19,7 +23,10 @@ if TYPE_CHECKING:
 class MapManager(BotObject):
     center: Point2
     start_base: ExpansionLocation
+    base: ExpansionLocation
     expansions: list[ExpansionLocation]
+    expansion_distance_matrix: ndarray
+    expansion_path_distance_matrix: ndarray
     expansion_order: list[tuple[int, float]]
     enemy_start_locations: list[ExpansionLocation]
     enemy_start_location: Optional[ExpansionLocation] # Only set once known
@@ -29,13 +36,31 @@ class MapManager(BotObject):
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
+        # Initialization of variables happens in on_start
+
+    @property
+    def width(self) -> int:
+        return self.api.game_info.playable_area.width
+
+    @property
+    def height(self) -> int:
+        return self.api.game_info.playable_area.height
+
+    @property
+    def number_expansions(self) -> int:
+        return len(self.expansions)
 
     async def on_start(self) -> None:
         self.logger.debug("on_start started")
         self.center = self.api.game_info.map_center
         self.start_base = ExpansionLocation(self.bot, self.api.start_location)
+        self.base = self.start_base # TODO: use later in case we lose the start_base
 
         self.expansions = [ExpansionLocation(self.bot, location) for location in self._get_expansion_list()]
+
+        self.expansion_distance_matrix, self.expansion_path_distance_matrix = \
+            await self._calculate_expansion_distances()
+
         self.expansion_order = sorted(
             [(idx, self.start_base.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
             key=lambda x: x[1]
@@ -57,6 +82,7 @@ class MapManager(BotObject):
 
     async def on_step(self, step: int) -> None:
         # check for enemy start location
+
         # TODO: consider buildings on ramp or natural, if before ~3 min mark
         if self.enemy_start_location is None and step % 16 == 0:
             for loc in self.enemy_start_locations.copy():
@@ -76,6 +102,25 @@ class MapManager(BotObject):
         try:
             return self.api.main_base_ramp
         except ValueError:
+            return None
+
+    def nearest_pathable(self, point: Point2) -> Optional[Point2]:
+        if self.api.in_pathing_grid(point):
+            return point
+
+        # TODO: This can be improved
+
+        def cells_by_distance(center: Point2, width: int, height: int) -> list[Point2]:
+            cells = [Point2((center.x + x, center.y + y))
+                     for x, y in itertools.product(range(-width, width+1), range(-height, height+1))]
+            cells.sort(key=lambda c: (c.x - 2*center.x) ** 2 + (c.y - 2*center.y) ** 2)
+            return cells
+
+        for size in range(3, 21, 2):
+            for point in cells_by_distance(point, size, size):
+                if self.api.in_pathing_grid(point):
+                    return point
+        else:
             return None
 
     # async def can_place_building(self, utype: UnitTypeId, position: Point2) -> bool:
@@ -109,9 +154,12 @@ class MapManager(BotObject):
 
     def _get_expansion_list(self) -> list[Point2]:
         try:
-            return self.api.expansion_locations_list
+            expansion_list = self.api.expansion_locations_list
         except AssertionError:
             return []
+        # Sort bottom-left to top-right
+        expansion_list.sort(key=lambda exp: 5*exp.y + exp.x)
+        return expansion_list
 
     async def get_building_location(self, utype: UnitTypeId, *,
                                     near: Optional[Point2] = None,
@@ -195,3 +243,41 @@ class MapManager(BotObject):
         distance = max(distance - target_distance, 0)
         speed = 1.4 * unit.real_speed
         return distance / speed
+
+    # --- Private
+
+    async def _calculate_expansion_distances(self, *, pathing_query_radius: float = 2.6) -> tuple[ndarray, ndarray]:
+        distance_matrix = numpy.zeros((self.number_expansions, self.number_expansions))
+        path_distance_matrix = numpy.zeros((self.number_expansions, self.number_expansions))
+        for idx1, exp1 in enumerate(self.expansions):
+            for idx2, exp2 in enumerate(self.expansions[:idx1]):
+                dist = exp1.center.distance_to(exp2.center)
+                distance_matrix[idx1, idx2] = dist
+                distance_matrix[idx2, idx1] = dist
+                p1 = exp1.center.towards(exp2.center, pathing_query_radius)
+                p2 = exp2.center.towards(exp1.center, pathing_query_radius)
+                path_dist = await self.api.client.query_pathing(p1, p2)
+                if path_dist is None:
+                    self.logger.warning("Cannot determine pathing distance between {} and {} (distance={:.2f})",
+                                        exp1, exp2, dist)
+                    path_dist = -1
+                else:
+                    path_dist += 2 * pathing_query_radius
+                path_distance_matrix[idx1, idx2] = path_dist
+                path_distance_matrix[idx2, idx1] = path_dist
+                #self.logger.debug("Distances {} to {}: direct={:.2f}, path={:.2f}", exp1, exp2, dist, path_dist)
+        return distance_matrix, path_distance_matrix
+
+    # --- debug
+
+    def on_debug(self) -> None:
+        for exp in self.expansions:
+            exp.on_debug()
+        for idx1, exp1 in enumerate(self.expansions):
+            for idx2, exp2 in enumerate(self.expansions[:idx1]):
+                text = (f"d={self.expansion_distance_matrix[idx1, idx2]:.2f}, "
+                        f"D={self.expansion_path_distance_matrix[idx1, idx2]:.2f}")
+                self.debug.line(exp1.center, exp2.center, text_start=text)
+                text = (f"d={self.expansion_distance_matrix[idx2, idx1]:.2f}, "
+                        f"D={self.expansion_path_distance_matrix[idx2, idx1]:.2f}")
+                self.debug.line(exp2.center, exp1.center, text_start=text)

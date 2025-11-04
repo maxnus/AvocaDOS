@@ -6,12 +6,13 @@ from typing import Optional, TYPE_CHECKING
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
+from sc2.units import Units
 
 from avocados.core.constants import ALTERNATIVES, TRAINERS
 from avocados.core.botobject import BotObject
 from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
                                      BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
-from avocados.core.geomutil import squared_distance
+from avocados.core.geomutil import squared_distance, get_best_score
 from avocados.micro.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
 if TYPE_CHECKING:
@@ -32,6 +33,18 @@ class ObjectiveManager(BotObject):
     def add(self, objective: Objective) -> int:
         self.future[objective.id] = objective
         return objective.id
+
+    def add_unit_count_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
+        objective = UnitCountObjective(self.bot, utype, number, **kwargs)
+        return self.add(objective)
+
+    def add_attack_objective(self, target: Point2, strength: float = 100, **kwargs) -> int:
+        objective = AttackObjective(self.bot, target, strength, **kwargs)
+        return self.add(objective)
+
+    def add_defense_objective(self, target: Point2, strength: float = 100, **kwargs) -> int:
+        objective = DefenseObjective(self.bot, target, strength, **kwargs)
+        return self.add(objective)
 
     def __bool__(self) -> bool:
         return bool(self.current)
@@ -226,10 +239,10 @@ class ObjectiveManager(BotObject):
         #    self.logger.trace("No researcher for {}", task.upgrade)
         return False
 
-    def _on_squad_objective(self, objective: AttackObjective | DefenseObjective) -> bool:
+    def _on_squad_objective_old(self, objective: AttackObjective | DefenseObjective) -> bool:
         squad_task_type = SquadAttackTask if isinstance(objective, AttackObjective) else SquadDefendTask
         squads_with_task = self.squads.with_task(squad_task_type,
-                                                 filter_=lambda t: squared_distance(t.area.center, objective.target) <= 25)
+                                                 filter_=lambda t: squared_distance(t.target.center, objective.target) <= 25)
 
         if (objective.duration is not None and any(s.status == SquadStatus.AT_TARGET
                                                    and self.time > s.status_changed + objective.duration
@@ -237,7 +250,7 @@ class ObjectiveManager(BotObject):
             # Objective complete
             for s in squads_with_task:
                 # This belongs in the SquadManager...
-                s.task = None
+                s.remove_task()
             return True
 
         total_strength = sum(s.strength for s in squads_with_task)
@@ -246,16 +259,16 @@ class ObjectiveManager(BotObject):
 
         # Send idle squads
         for squad in self.squads:
-            if squad.task is None:
+            if not squad.has_task():
                 if isinstance(objective, AttackObjective):
-                    squad.attack(objective.target, priority=objective.priority / 100)  # TODO
+                    squad.attack(objective.target, priority=objective.priority)
                 else:
-                    squad.defend(objective.target, priority=objective.priority / 100)  # TODO
+                    squad.defend(objective.target, priority=objective.priority)
                 total_strength += squad.strength
                 if total_strength >= objective.strength:
                     return False
 
-        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of_unit(u) is None)
+        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of(u) is None)
         if units:
             units_to_add = int(math.ceil(objective.strength - total_strength))
             units = units.closest_n_units(objective.target, units_to_add)
@@ -263,7 +276,7 @@ class ObjectiveManager(BotObject):
         # Add units from squads with lower priority tasks
         info = []
         for squad in self.squads:
-            if squad not in squads_with_task and squad.task is None or squad.task.priority < objective.priority/100:  # TODO
+            if squad not in squads_with_task and not squad.has_task() or squad.task.priority < objective.priority:
                 info.append(("Assigning units of squad {} for {}", squad, objective))
                 units += squad.units
                 total_strength += squad.strength
@@ -299,7 +312,54 @@ class ObjectiveManager(BotObject):
         # squad = self.squads.create(units)
 
         if isinstance(objective, AttackObjective):
-            squad.attack(objective.target, priority=objective.priority/100) # TODO
+            squad.attack(objective.target, priority=objective.priority)
         else:
-            squad.defend(objective.target, priority=objective.priority/100) # TODO
+            squad.defend(objective.target, priority=objective.priority)
+        return False
+
+    def _on_squad_objective(self, objective: AttackObjective | DefenseObjective) -> bool:
+        task_type = SquadAttackTask if isinstance(objective, AttackObjective) else SquadDefendTask
+        squads_with_task = self.squads.with_task(
+            task_type, filter_=lambda t: squared_distance(t.target.center, objective.target) <= 1)
+
+        if (objective.duration is not None and any(s.status == SquadStatus.AT_TARGET
+                                                   and self.time > s.status_changed + objective.duration
+                                                   for s in squads_with_task)):
+            # Objective complete
+            for s in squads_with_task:
+                s.remove_task()
+            return True
+
+        total_strength = sum(s.strength for s in squads_with_task)
+        missing_strength = objective.strength - total_strength
+        # Enough squad(s) working on it
+        if missing_strength <= 0:
+            return False
+
+        # Find best squad or create new
+        if squads_with_task:
+            closest_squad = get_best_score(squads_with_task, lambda s: s.center.distance_to(objective.target),
+                                           highest=False)[0]
+            # Create new squad and order to join
+            units = self.bot.pick_army(strength=missing_strength, position=closest_squad.center,
+                                       max_priority=objective.priority)
+            if len(units) < objective.minimum_size:
+                return False
+            squad = self.squads.create(units, remove_from_squads=True)
+            squad.join(closest_squad, priority=objective.priority)
+        else:
+            # Create new squad
+            units = self.bot.pick_army(strength=missing_strength, position=objective.target,
+                                       max_priority=objective.priority)
+            if len(units) < objective.minimum_size:
+                return False
+            squad = self.squads.create(units, remove_from_squads=True)
+            if isinstance(objective, AttackObjective):
+                squad.attack(objective.target, priority=objective.priority)
+            elif isinstance(objective, DefenseObjective):
+                squad.defend(objective.target, priority=objective.priority)
+            else:
+                self.log.error("Unknown objective type: {}", objective)
+                return False
+
         return False

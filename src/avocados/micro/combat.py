@@ -12,7 +12,7 @@ from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE
     UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
 from avocados.core.geomutil import lerp, squared_distance
 from avocados.core.unitutil import get_closest_sq_distance
-from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus
+from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
 from avocados.micro.weapons import Weapons
 
 if TYPE_CHECKING:
@@ -49,6 +49,12 @@ class CombatManager(BotObject):
             await self.micro_squad(squad)
 
     # ---
+
+    def get_strength(self, units: Units | Unit) -> float:
+        # TODO
+        if isinstance(units, Unit):
+            return 0.7 * units.shield_health_percentage + 0.3
+        return 0.7 * sum(u.shield_health_percentage for u in units) + 0.3 * len(units)
 
     def weapon_ready(self, unit: Unit) -> bool:
         if unit.type_id == UnitTypeId.REAPER:
@@ -123,13 +129,14 @@ class CombatManager(BotObject):
             case UnitTypeId.AUTOTURRET: return 0.20
             case UnitTypeId.BUNKER: return 0.25
             # Units
+            case UnitTypeId.MULE: return 0.35
             case UnitTypeId.SCV: return 0.50
-            case UnitTypeId.MULE: return 0.52
             case UnitTypeId.MARAUDER: return 0.55
             case UnitTypeId.MARINE: return 0.60
             case UnitTypeId.REAPER: return 0.65
             case UnitTypeId.CYCLONE: return 0.65
             case UnitTypeId.HELLION: return 0.68
+            case UnitTypeId.VIKINGASSAULT: return 0.67
             case UnitTypeId.HELLIONTANK: return 0.69
             case UnitTypeId.WIDOWMINE: return 0.70
             case UnitTypeId.WIDOWMINEBURROWED: return 0.70
@@ -137,7 +144,7 @@ class CombatManager(BotObject):
             case UnitTypeId.GHOST: return 0.70
             case UnitTypeId.SIEGETANKSIEGED: return 0.80
             # Flying
-            case UnitTypeId.VIKING: return 0.53
+            case UnitTypeId.VIKINGFIGHTER: return 0.53
             case UnitTypeId.MEDIVAC: return 0.69
             case UnitTypeId.BANSHEE: return 0.75
             # --- Zerg
@@ -150,11 +157,15 @@ class CombatManager(BotObject):
             case UnitTypeId.EGG: return 0.00
             case UnitTypeId.LARVA: return 0.01
             case UnitTypeId.CHANGELING: return 0.10
+            case UnitTypeId.CREEPTUMOR: return 0.12 # Which one is which?
+            case UnitTypeId.CREEPTUMORBURROWED: return 0.13
+            case UnitTypeId.CREEPTUMORQUEEN: return 0.14
             case UnitTypeId.CHANGELINGMARINE | UnitTypeId.CHANGELINGZEALOT | UnitTypeId.CHANGELINGZERGLING: return 0.11
             case UnitTypeId.BROODLING: return 0.35
             case UnitTypeId.OVERLORD: return 0.40
+            case UnitTypeId.OVERLORDCOCOON: return 0.42
             case UnitTypeId.OVERSEER: return 0.45
-            case UnitTypeId.DRONEBURROWED: return 0.50
+            case UnitTypeId.DRONEBURROWED: return 0.49
             case UnitTypeId.DRONE: return 0.50
             case UnitTypeId.ROACHBURROWED : return 0.50
             case UnitTypeId.ROACH: return 0.55
@@ -163,6 +174,7 @@ class CombatManager(BotObject):
             case UnitTypeId.QUEENBURROWED: return 0.55
             case UnitTypeId.QUEEN: return 0.60
             case UnitTypeId.HYDRALISKBURROWED: return 0.60
+            case UnitTypeId.RAVAGER: return 0.62
             case UnitTypeId.HYDRALISK: return 0.65
             case UnitTypeId.BANELINGCOCOON: return 0.50
             case UnitTypeId.BANELINGBURROWED: return 0.90
@@ -206,7 +218,7 @@ class CombatManager(BotObject):
 
             case _ if target.type_id in PRODUCTION_BUILDING_TYPE_IDS:
                 return 0.08
-            case _ if target.type_id in TECHLAB_TYPE_IDS:
+            case _ if target.type_id in TECH_BUILDING_TYPE_IDS:
                 return 0.07
             case _ if target.type_id in TOWNHALL_TYPE_IDS:
                 return 0.06
@@ -267,7 +279,7 @@ class CombatManager(BotObject):
             case UnitTypeId.SIEGETANK: return lerp(attack_distance, (7, 0.3))
             case UnitTypeId.SIEGETANKSIEGED:
                 # TODO use facing (?)
-                return lerp(attack_distance, (1.5, 0), (2, 0.8), (11, 0.8), (13, 0.2))
+                return lerp(attack_distance, (2, 0.8), (11, 0.8), (13, 0.2))
 
             # --- Zerg
             case UnitTypeId.DRONE: return lerp(attack_distance, (0.5, 0.5), (3, 0))
@@ -282,12 +294,8 @@ class CombatManager(BotObject):
             case UnitTypeId.DISRUPTOR: return 0.0
             case UnitTypeId.DISRUPTORPHASED: return lerp(distance, (1.5, 1.0), (3.5, 0))
             case UnitTypeId.COLOSSUS: return lerp(attack_distance, (6, 0.75), (0.8, 0.2))
-            case _ if (threat.is_structure and threat.can_attack):
-                return 0.20
-            case _ if threat.is_structure:
-                return 0
-
-        return 0.0
+            case _ if threat.can_attack: return 0.20
+            case _: return 0
 
     def get_defense_priorities(self, defender: Unit, threats: Units) -> dict[Unit, float]:
         return {threat: self.get_defense_priority(defender, threat) for threat in threats}
@@ -339,11 +347,14 @@ class CombatManager(BotObject):
         else:
             squad_target = None
             squad_target_priority = 0
-            if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
-                if sum(unit.position in squad.task.area for unit in squad.units) >= max(0.75 * len(squad), 1):
+            if isinstance(squad.task, (SquadAttackTask, SquadDefendTask, SquadRetreatTask)):
+                # TODO: all units?
+                if sum(unit.position in squad.task.target for unit in squad.units) >= max(0.75 * len(squad), 1):
                     squad.set_status(SquadStatus.AT_TARGET)
                 else:
                     squad.set_status(SquadStatus.MOVING)
+            elif isinstance(squad.task, SquadJoinTask):
+                squad.set_status(SquadStatus.MOVING)
             else:
                 squad.set_status(SquadStatus.IDLE)
 
@@ -389,6 +400,9 @@ class CombatManager(BotObject):
             if ability_prio > 0.5:
                 return self.order.ability(unit, ability_id, ability_target)
 
+        if isinstance(squad.task, SquadRetreatTask):
+            return self.order.move(unit, squad.task.target.center)
+
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
             dist_sq = (unit.ground_range + unit.radius + squad_target.radius + unit.distance_to_weapon_ready)**2
             if unit.distance_to_squared(squad_target) >= dist_sq:
@@ -416,11 +430,12 @@ class CombatManager(BotObject):
             return self.order.move(unit, squad.center)
 
         if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
-            if unit.position not in squad.task.area:
-                 return self.order.move(unit, squad.task.area.center)
+            if unit.position not in squad.task.target:
+                 return self.order.move(unit, squad.task.target.center)
             if unit.is_idle:
-                return self.order.move(unit, squad.task.area.random)
-
+                return self.order.move(unit, squad.task.target.random)
+        elif isinstance(squad.task, SquadJoinTask):
+            return self.order.move(unit, squad.task.target.center)
 
             ## Move to task location
             #if squared_distance(unit, squad.task.target) > scan_sq:
@@ -445,7 +460,7 @@ class CombatManager(BotObject):
             return 0, None
         threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])
         # TODO
-        if threat.type_id == UnitTypeId.SIEGETANKSIEGED and unit.distance_to(threat) <= 6:
+        if threat.type_id == UnitTypeId.SIEGETANKSIEGED and unit.distance_to(threat) <= 9:
             step = 3
         else:
             step = -3

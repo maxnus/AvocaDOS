@@ -141,7 +141,7 @@ class AvocaDOS:
         return f"{type(self).__name__}({__version__})"
 
     async def on_start(self) -> None:
-        self.log.tag(f"{self.name} v{__version__}", add_time=False)
+        self.log.tag(f"{self.name} v{__version__.replace('.', '-')}", add_time=False)
 
         await self.map.on_start()
         await self.build.on_start()
@@ -176,8 +176,7 @@ class AvocaDOS:
             await self.debug.on_step(step)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
-        if self.debug:
-            await self.debug.on_unit_took_damage(unit, amount_damage_taken)
+        pass
 
     async def on_unit_created(self, unit: Unit) -> None:
         pass
@@ -391,6 +390,39 @@ class AvocaDOS:
         if position is None:
             return researchers.random
         return researchers.closest_to(position)
+
+    def pick_army(self, *, strength: Optional[float] = None, position: Optional[Point2] = None,
+                  max_priority: float = 0.0) -> Units:
+
+        if not self.army:
+            return self.army
+
+        def army_filter(unit: Unit) -> bool:
+            squad = self.squads.get_squad_of(unit.tag)
+            if squad is None:
+                return True
+            if not squad.has_task():
+                return True
+            return squad.task_priority < max_priority
+
+        units = self.army.filter(army_filter)
+        if not units:
+            return units
+
+        if position is None:
+            units.sorted(lambda u: squad.task_priority if (squad := self.squads.get_squad_of(u.tag)) is not None else 0)
+        else:
+            # Pick units with smallest distance / priority difference
+            units.sorted(lambda u: u.distance_to(position)
+                / (max_priority - (squad.task_priority if (squad := self.squads.get_squad_of(u.tag)) is not None else 0)))
+        if strength is not None:
+            units_strength = 0.0
+            for index, unit in enumerate(units):
+                units_strength += self.combat.get_strength(unit)
+                if units_strength >= strength:
+                    units = units.take(index + 1)
+                    break
+        return units
 
     # --- Callbacks
 

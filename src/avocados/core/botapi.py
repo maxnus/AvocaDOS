@@ -1,5 +1,6 @@
 import asyncio
 import random
+from collections import defaultdict
 from enum import Enum
 from time import perf_counter
 from typing import Optional
@@ -24,6 +25,7 @@ class BotApi(BotAI):
     # Tag memory
     dead_tags: set[int]
     alive_tags: set[int]
+    damage_received: dict[int, float]
 
     def __init__(self, *,
                  seed: int = 0,
@@ -39,6 +41,7 @@ class BotApi(BotAI):
         #
         self.alive_tags = set() # Initialized correctly in on_start
         self.dead_tags = set()
+        self.damage_received = defaultdict(float)
 
     # --- Callbacks
 
@@ -54,12 +57,14 @@ class BotApi(BotAI):
         self.dead_tags.update(self.state.dead_units)
         self.alive_tags.difference_update(self.dead_tags)
         await self.bot.on_step(step)
+        self.damage_received.clear()
         if self.slowdown:
             sleep = self.slowdown / 1000 - (perf_counter() - frame_start)
             if sleep > 0:
                 await asyncio.sleep(sleep)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
+        self.damage_received[unit.tag] += amount_damage_taken
         await self.bot.on_unit_took_damage(unit, amount_damage_taken)
 
     async def on_unit_created(self, unit: Unit) -> None:

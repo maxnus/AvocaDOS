@@ -53,8 +53,7 @@ def furthest_point(points: Collection[Point2], target: Point2) -> tuple[Point2, 
 
 @runtime_checkable
 class Area(Protocol):
-    @property
-    def center(self) -> Point2: ...
+    center: Point2
     @property
     def size(self) -> float: ...
     @property
@@ -66,7 +65,7 @@ class Area(Protocol):
     def random(self) -> Point2: ...
     def closest(self, points: Collection[Point2]) -> tuple[Point2, float]: ...
     def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]: ...
-    def bounding_rect(self, *, integral: bool = False) -> 'Rect': ...
+    def bounding_rect(self, integral: bool) -> 'Rect': ...
 
 
 @dataclass(frozen=True)
@@ -170,7 +169,7 @@ class Circle:
     def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]:
         return furthest_point(points, self.center)
 
-    def bounding_rect(self, *, integral: bool = False) -> Rect:
+    def bounding_rect(self, integral: bool = False) -> 'Rect':
         x = self.center.x - self.radius
         y = self.center.y - self.radius
         if integral:

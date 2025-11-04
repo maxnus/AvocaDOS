@@ -1,7 +1,7 @@
 import copy
 from abc import ABC, abstractmethod
 from enum import Enum, StrEnum
-from typing import Optional, Self
+from typing import Optional, Self, TYPE_CHECKING
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -9,7 +9,11 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados.core.botobject import BotObject
 from avocados.core.geomutil import unique_id
+
+if TYPE_CHECKING:
+    from avocados.core.avocados import AvocaDOS
 
 
 class TaskStatus(Enum):
@@ -25,27 +29,30 @@ class TaskRequirementType(StrEnum):
     VESPENE = "G"
 
 
+DEFAULT_PRIORITY = 0.5
+
+
 ObjectiveDependencies = dict[int, TaskStatus]
 TaskRequirements = list[tuple[TaskRequirementType | UnitTypeId | UpgradeId, int | bool]]
 
 
-class Objective(ABC):
-    id: int
+class Objective(BotObject, ABC):
     reqs: TaskRequirements
     deps: ObjectiveDependencies
-    priority: int
+    priority: float
     repeat: bool = False
     status: TaskStatus
     assigned: set[int]
 
     def __init__(self,
+                 bot: 'AvocaDOS',
                  reqs: Optional[TaskRequirements | UnitTypeId | UpgradeId] = None,
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
+                 priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  status: TaskStatus = TaskStatus.NOT_STARTED,
                  ) -> None:
-        self.id = unique_id()
+        super().__init__(bot)
         self.reqs = self._normalize_reqs(reqs)
         if deps is None:
             deps = {}
@@ -54,6 +61,9 @@ class Objective(ABC):
         elif isinstance(deps, TaskStatus):
             deps = {self.id - 1: deps} if self.id > 0 else {}
         self.deps = deps
+        if not (0 <= priority <= 1):
+            self.log.error("Priority must be between 0 and 1")
+            priority = 0 if priority < 0 else 1
         self.priority = priority
         self.repeat = repeat
         self.status = status
@@ -68,10 +78,6 @@ class Objective(ABC):
         if isinstance(reqs, tuple) and len(reqs) == 2:
             return [reqs]
         return reqs
-
-    @abstractmethod
-    def __repr__(self) -> str:
-        pass
 
     def mark_complete(self) -> None:
         self.status = TaskStatus.COMPLETED
@@ -97,17 +103,18 @@ class BuildingCountObjective(Objective):
     max_distance: float
 
     def __init__(self,
+                 bot: 'AvocaDOS',
                  utype: UnitTypeId,
                  number: int = 1,
                  *,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
+                 priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
                  max_distance: Optional[float] = 5,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
         self.position = position
         self.max_distance = max_distance
@@ -123,17 +130,18 @@ class UnitCountObjective(Objective):
     max_distance: int
 
     def __init__(self,
+                 bot: 'AvocaDOS',
                  utype: UnitTypeId,
                  number: int = 1,
                  *,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
-                 priority: int = 50,
+                 priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
                  distance: Optional[int] = 10,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
         self.number = number
         self.position = position
@@ -149,23 +157,23 @@ class ResearchObjective(Objective):
     max_distance: float
 
     def __init__(self,
+                 bot: 'AvocaDOS',
                  upgrade: UpgradeId,
                  *,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
-                 priority: int = 50,
+                 priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
                  max_distance: Optional[float] = 10,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.upgrade = upgrade
         self.position = position
         self.max_distance = max_distance
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(utype={self.upgrade.name}, position={self.position}, priority={self.priority})"
-
 
 
 class AttackOrDefenseObjective(Objective, ABC):
@@ -175,17 +183,18 @@ class AttackOrDefenseObjective(Objective, ABC):
     duration: Optional[float]
 
     def __init__(self,
+                 bot: 'AvocaDOS',
                  target: Point2,
-                 strength: float = 100,
+                 strength: float = 100.0,
                  *,
                  minimum_size: int = 1,
                  duration: Optional[float] = None,
                  reqs: Optional[TaskRequirements] = None,
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
-                 priority: int = 50,
+                 priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  ) -> None:
-        super().__init__(reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.target = target
         self.strength = strength
         self.minimum_size = minimum_size
