@@ -9,7 +9,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -168,7 +168,7 @@ class ReturnResourceOrder(Order):
         unit.return_resource(queue=queue)
 
 
-class OrderManager(BotObject):
+class OrderManager(BotManager):
     orders: dict[int, list[Order]]
     """Orders of the current step"""
     orders_prev: dict[int, list[Order]]

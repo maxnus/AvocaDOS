@@ -2,13 +2,13 @@ from typing import Optional, TYPE_CHECKING
 
 from sc2.unit import Unit
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class HistoryManager(BotObject):
+class HistoryManager(BotManager):
     resource_history: list[tuple[int, int]]
     units_last_seen: dict[int, tuple[int, Unit]]
     #enemy_units: dict[int, tuple[int, Unit]]

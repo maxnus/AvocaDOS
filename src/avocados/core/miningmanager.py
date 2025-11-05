@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING, Optional
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class MiningManager(BotObject):
+class MiningManager(BotManager):
     assignments: dict[ExpansionLocation, dict[int, int]]
     """location, worker_tag -> mineral_tag"""
 

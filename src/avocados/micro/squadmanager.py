@@ -6,7 +6,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.core.geomutil import squared_distance, Circle
 from avocados.core.unitutil import normalize_tags
 from avocados.micro.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
@@ -22,7 +22,7 @@ RETREAT_DISTANCE = 30.0
 RETREAT_HEALTH_PERCENTAGE = 0.25
 
 
-class SquadManager(BotObject):
+class SquadManager(BotManager):
     _squads: dict[int, Squad]
     _tag_to_squad: dict[int, int]
 

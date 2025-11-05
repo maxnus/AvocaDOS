@@ -7,7 +7,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS, \
     UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
 from avocados.core.geomutil import lerp, squared_distance
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class CombatManager(BotObject):
+class CombatManager(BotManager):
     # Parameters
     attack_priority_base_weight: float
     attack_priority_weakness_weight: float

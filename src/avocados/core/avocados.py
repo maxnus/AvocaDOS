@@ -1,4 +1,3 @@
-import heapq
 import math
 from collections import Counter
 from dataclasses import dataclass

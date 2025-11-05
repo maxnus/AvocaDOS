@@ -7,13 +7,13 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class ResourceManager(BotObject):
+class ResourceManager(BotManager):
     spent_minerals: int
     spent_vespene: int
     reserved_minerals: int

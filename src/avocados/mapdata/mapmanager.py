@@ -12,7 +12,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.core.geomutil import Area, Circle, Rect
 from avocados.mapdata.expansion import ExpansionLocation
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class MapManager(BotObject):
+class MapManager(BotManager):
     center: Point2
     start_base: ExpansionLocation
     base: ExpansionLocation

@@ -8,7 +8,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.core.geomutil import Circle
 from avocados.micro.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
@@ -69,7 +69,7 @@ class DebugWorldText:
     duration: float
 
 
-class DebugManager(BotObject):
+class DebugManager(BotManager):
     text_size: ClassVar[int] = 16
     # State
     map_revealed: bool

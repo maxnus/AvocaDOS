@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.core.unitutil import UnitCost
 from avocados.debug.micro_scenario import MicroScenario, MicroScenarioResults
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class MicroScenarioManager(BotObject):
+class MicroScenarioManager(BotManager):
     bot: 'AvocaDOS'
     units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     running: bool

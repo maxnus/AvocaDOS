@@ -9,7 +9,7 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from avocados.core.constants import ALTERNATIVES, TRAINERS
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
                                      BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
 from avocados.core.geomutil import squared_distance, get_best_score
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .avocados import AvocaDOS
 
 
-class ObjectiveManager(BotObject):
+class ObjectiveManager(BotManager):
     completed: dict[int, Objective]
     current: dict[int, Objective]
     future: dict[int, Objective]

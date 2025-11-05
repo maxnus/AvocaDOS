@@ -2,13 +2,13 @@ from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class BuildOrderManager(BotObject):
+class BuildOrderManager(BotManager):
     build: Optional[str]
 
     def __init__(self, bot: 'AvocaDOS', build: Optional[str] = 'default') -> None:

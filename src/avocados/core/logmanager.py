@@ -3,7 +3,7 @@ from collections.abc import Callable, Hashable
 from enum import StrEnum
 from typing import Optional, Any, TYPE_CHECKING
 
-from avocados.core.botobject import BotObject
+from avocados.core.botobject import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -24,7 +24,7 @@ warning_codes: dict[WarningLevel, str] = {
 }
 
 
-class LogManager(BotObject):
+class LogManager(BotManager):
     _tags_to_send: set[str]
     _tags_sent: set[str]
     _warnings_sent: Counter[Hashable]

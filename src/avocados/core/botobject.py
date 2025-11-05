@@ -31,7 +31,6 @@ class BotObject(ABC):
         self.id = unique_id()
         self.bot = bot
         self.cache: dict[str, Any] = {}
-        self.logger.debug("Initializing {}", type(self).__name__)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(id={self.id})"
@@ -105,6 +104,13 @@ class BotObject(ABC):
     @property
     def combat(self) -> 'CombatManager':
         return self.bot.combat
+
+
+class BotManager(BotObject, ABC):
+
+    def __init__(self, bot: 'AvocaDOS') -> None:
+        super().__init__(bot)
+        self.logger.debug("Initializing {}", type(self).__name__)
 
     # --- Callbacks
 
