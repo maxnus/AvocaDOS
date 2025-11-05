@@ -61,18 +61,19 @@ class MapManager(BotObject):
         self.expansion_distance_matrix, self.expansion_path_distance_matrix = \
             await self._calculate_expansion_distances()
 
-        self.expansion_order = sorted(
-            [(idx, self.start_base.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
-            key=lambda x: x[1]
+        self.expansion_order = sorted(  # noqa
+            [(idx, self.expansion_path_distance_matrix[self.start_base.index, exp.index])
+             for idx, exp in enumerate(self.expansions)], key=lambda x: x[1]
         )
 
         # Enemy
         self.enemy_start_locations = [ExpansionLocation(self.bot, loc) for loc in self.api.enemy_start_locations]
         self.enemy_expansion_order = []
         for loc in self.enemy_start_locations:
-            self.enemy_expansion_order.append(sorted(
-                [(idx, loc.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
-                key=lambda x: x[1]
+            self.enemy_expansion_order.append(sorted(   # noqa
+                #[(idx, loc.center.distance_to(exp.center)) for idx, exp in enumerate(self.expansions)],
+                [(idx, self.expansion_path_distance_matrix[loc.index, exp.index])
+                 for idx, exp in enumerate(self.expansions)], key=lambda x: x[1]
             ))
         self.enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
 
@@ -150,7 +151,7 @@ class MapManager(BotObject):
 
     def get_proxy_location(self) -> Point2:
         idx = self.enemy_expansion_order[0][2][0]
-        return self.expansions[idx].center
+        return self.expansions[idx].center.towards(self.center, 2)
 
     def _get_expansion_list(self) -> list[Point2]:
         try:
@@ -246,7 +247,7 @@ class MapManager(BotObject):
 
     # --- Private
 
-    async def _calculate_expansion_distances(self, *, pathing_query_radius: float = 2.6) -> tuple[ndarray, ndarray]:
+    async def _calculate_expansion_distances(self, *, pathing_query_radius: float = 3) -> tuple[ndarray, ndarray]:
         distance_matrix = numpy.zeros((self.number_expansions, self.number_expansions))
         path_distance_matrix = numpy.zeros((self.number_expansions, self.number_expansions))
         for idx1, exp1 in enumerate(self.expansions):
@@ -260,7 +261,7 @@ class MapManager(BotObject):
                 if path_dist is None:
                     self.logger.warning("Cannot determine pathing distance between {} and {} (distance={:.2f})",
                                         exp1, exp2, dist)
-                    path_dist = -1
+                    path_dist = numpy.inf
                 else:
                     path_dist += 2 * pathing_query_radius
                 path_distance_matrix[idx1, idx2] = path_dist

@@ -14,7 +14,7 @@ class BuildOrderManager(BotObject):
     def __init__(self, bot: 'AvocaDOS', build: Optional[str] = 'default') -> None:
         super().__init__(bot)
         if build == 'default':
-            build = 'mass_marine'
+            build = 'proxy_marine'
         self.build = build
 
     async def on_start(self) -> None:
@@ -65,32 +65,38 @@ class BuildOrderManager(BotObject):
 
     def load_proxy_marine(self) -> None:
         bot = self.bot
+        obj = bot.objectives
+
+        scv1 = obj.add_unit_count_objective(UnitTypeId.SCV, 13, priority=1)
+        obj.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, 1, priority=0.9)
 
         # SCV
-        bot.objectives.add_unit_count_objective(UnitTypeId.SCV, 19)
-
-        # Buildings
-        bot.objectives.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, 1, reqs=(UnitTypeId.SCV, 13))
-        #rax_base = main.add_task(UnitCountTask(UnitTypeId.BARRACKS))
+        scv2 = obj.add_unit_count_objective(UnitTypeId.SCV, 16, priority=0.7, deps=scv1)
+        obj.add_unit_count_objective(UnitTypeId.SCV, 19, priority=0.4, deps=scv2)
 
         proxy_location = bot.map.get_proxy_location()
-        rax = bot.objectives.add_unit_count_objective(UnitTypeId.BARRACKS, 2,
-                                                    reqs=(UnitTypeId.SCV, 14),
-                                                    position=proxy_location, distance=10)
-        rax2 = bot.objectives.add_unit_count_objective(UnitTypeId.BARRACKS, 4,
-                                                     reqs=UnitTypeId.BARRACKS,
-                                                     position=proxy_location, distance=10)
+        rax1234 = bot.objectives.add_unit_count_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, distance=10)
 
-        bot.objectives.add_unit_count_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS)
+        obj.add_unit_count_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, priority=0.8)
 
         # --- Supply
-        bot.objectives.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 19))
-        bot.objectives.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, 3, reqs=('S', 26))
-        bot.objectives.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, 4, reqs=('S', 35))
+        obj.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18))
+        for number in range(3, 30):
+            obj.add_unit_count_objective(UnitTypeId.SUPPLYDEPOT, number, reqs=('S', number * 8 + 2))
 
         # Units
-        bot.objectives.add_unit_count_objective(UnitTypeId.MARINE, 100, reqs=UnitTypeId.BARRACKS)
-        bot.objectives.add_attack_objective(target=bot.map.enemy_start_locations[0].center)
+        obj.add_unit_count_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS)
+
+        squad_size = 6
+        prev = None
+        for loc in bot.map.enemy_start_locations:
+            prev = obj.add_attack_objective(target=loc.center, minimum_size=squad_size, duration=5,
+                                            reqs=(UnitTypeId.MARINE, squad_size),
+                                            deps=prev, priority=0.7)
+        for loc in bot.map.get_enemy_expansions(0):
+            prev = obj.add_attack_objective(target=loc.center, strength=24, minimum_size=squad_size, duration=5,
+                                            deps=prev, priority=0.7)
+
 
     def load_proxy_reaper(self) -> None:
         bot = self.bot

@@ -19,24 +19,28 @@ from avocados.core.geomutil import Area, Circle, squared_distance
 class SquadTask(Protocol):
     target: Any
     priority: float
+    started: float
 
 
 @dataclass
 class SquadAttackTask(SquadTask):
     target: Area
     priority: float = field(default=0.5, compare=False)
+    started: float = field(default=0.0, compare=False)
 
 
 @dataclass
 class SquadDefendTask(SquadTask):
     target: Area
     priority: float = field(default=0.5, compare=False)
+    started: float = field(default=0.0, compare=False)
 
 
 @dataclass
 class SquadRetreatTask(SquadTask):
     target: Area
     priority: float = field(default=0.5, compare=False)
+    started: float = field(default=0.0, compare=False)
 
 
 @dataclass
@@ -44,6 +48,7 @@ class SquadJoinTask(SquadTask):
     target: 'Squad'
     distance: float
     priority: float = field(default=0.5, compare=False)
+    started: float = field(default=0.0, compare=False)
 
 
 class SquadStatus(StrEnum):
@@ -177,25 +182,25 @@ class Squad(BotObject):
     def attack(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5,
                queue: bool = False) -> SquadAttackTask:
         area = Circle(target, radius)
-        task = SquadAttackTask(area, priority=priority)
+        task = SquadAttackTask(area, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task
 
     def defend(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5,
                queue: bool = False) -> SquadDefendTask:
         area = Circle(target, radius)
-        task = SquadDefendTask(area, priority=priority)
+        task = SquadDefendTask(area, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task
 
     def join(self, squad: 'Squad', *, distance: float = 2.0, priority: float = 0.5,
              queue: bool = False) -> SquadJoinTask:
-        task = SquadJoinTask(squad, distance=distance, priority=priority)
+        task = SquadJoinTask(squad, distance=distance, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task
 
     def retreat(self, area: Area, *, priority: float = 0.5, queue: bool = False) -> SquadRetreatTask:
-        task = SquadRetreatTask(area, priority=priority)
+        task = SquadRetreatTask(area, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task
 

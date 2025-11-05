@@ -58,6 +58,10 @@ class ExpansionLocation(BotObject):
             self.region_center = self.center
 
     @property
+    def index(self) -> int:
+        return self.map.expansions.index(self)
+
+    @property
     def mineral_fields(self) -> Units:
         return self.api.mineral_field.tags_in(self.mineral_fields_tags)
 

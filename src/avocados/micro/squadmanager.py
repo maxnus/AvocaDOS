@@ -60,15 +60,15 @@ class SquadManager(BotObject):
             #if (squad.strength < RETREAT_STRENGTH_PERCENTAGE * squad.target_strength
             if (squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
                     and squad.center.distance_to(self.map.base.center) > RETREAT_MIN_BASE_DISTANCE):
-                retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.base.center, RETREAT_DISTANCE))
+                retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.center, RETREAT_DISTANCE))
                 retreat_area = Circle(retreat_point, 1.5)
                 self.logger.debug("Ordering {} to retreat to {}", squad, retreat_area)
                 squad.retreat(retreat_area, priority=1)#, priority=min(squad.task_priority+0.1, ))
 
-        # Retreated squads
+        # Stop retreat
         for squad in self.with_task(task_type=SquadRetreatTask):
             #if squad.all_units_in_area(squad.task.target):
-            if squad.center in squad.task.target:
+            if squad.center in squad.task.target or self.time > squad.task.started + 20:
                 self.logger.debug("{} has retreated to {}", squad, squad.task.target)
                 squad.remove_task()
 

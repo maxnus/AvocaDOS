@@ -139,6 +139,8 @@ TECH_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.INFESTATIONPIT,
     UnitTypeId.ULTRALISKCAVERN,
     UnitTypeId.CYBERNETICSCORE,
+    UnitTypeId.TWILIGHTCOUNCIL,
+    UnitTypeId.DARKSHRINE,
     UnitTypeId.ROBOTICSBAY,
     UnitTypeId.FLEETBEACON
 })
@@ -156,7 +158,7 @@ TECHLAB_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.TECHLAB,
     UnitTypeId.BARRACKSTECHLAB,
     UnitTypeId.FACTORYTECHLAB,
-    UnitTypeId.STARPORTREACTOR,
+    UnitTypeId.STARPORTTECHLAB,
 })
 
 

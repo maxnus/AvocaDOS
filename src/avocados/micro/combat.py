@@ -146,6 +146,9 @@ class CombatManager(BotObject):
             # Flying
             case UnitTypeId.VIKINGFIGHTER: return 0.53
             case UnitTypeId.MEDIVAC: return 0.69
+            case UnitTypeId.LIBERATOR: return 0.70
+            case UnitTypeId.LIBERATORAG: return 0.71
+            case UnitTypeId.BATTLECRUISER: return 0.72
             case UnitTypeId.BANSHEE: return 0.75
             # --- Zerg
             # Structures
@@ -228,7 +231,7 @@ class CombatManager(BotObject):
                 return 0.03
 
             case _:
-                self.log.warning("Missing attack base priority for {}", target.type_id.name)
+                self.log.warning("MissAtkBasPrio {}", target.type_id.name)
                 return 0.05 if target.is_structure else 0.50
 
     def get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
