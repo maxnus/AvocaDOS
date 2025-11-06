@@ -76,6 +76,7 @@ class BuildOrderManager(BotManager):
 
         proxy_location = bot.map.get_proxy_location()
         rax1234 = bot.objectives.add_unit_count_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, distance=10)
+        rax56 = bot.objectives.add_unit_count_objective(UnitTypeId.BARRACKS, 6, distance=10, priority=0.3)
 
         obj.add_unit_count_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, priority=0.8)
 
