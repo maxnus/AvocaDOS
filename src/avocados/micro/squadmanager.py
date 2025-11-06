@@ -1,5 +1,6 @@
 import random
 from collections.abc import Iterator, Callable
+from time import perf_counter
 from typing import TYPE_CHECKING, Optional
 
 from sc2.position import Point2
@@ -32,6 +33,7 @@ class SquadManager(BotManager):
         self._tag_to_squad = {}
 
     async def on_step(self, step: int) -> None:
+        t0 = perf_counter()
 
         # Remove dead tags
         self._tag_to_squad = {tag: squad_id for tag, squad_id in self._tag_to_squad.items()
@@ -89,6 +91,8 @@ class SquadManager(BotManager):
 
         if step % 1000 == 0:
             self.status_dump()
+
+        self.timings['step'].add(t0)
 
     def status_dump(self):
         self.logger.debug("{} Status Dump:", self)

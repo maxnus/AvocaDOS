@@ -1,10 +1,12 @@
 from abc import ABC
+from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Any
 
 from loguru._logger import Logger
 from sc2.game_state import GameState
 
 from avocados.core.geomutil import unique_id
+from avocados.core.timings import Timings
 
 if TYPE_CHECKING:
     from avocados.core.logmanager import LogManager
@@ -13,6 +15,7 @@ if TYPE_CHECKING:
     from avocados.mapdata import MapManager
     from avocados.debug.debugmanager import DebugManager
     from avocados.core.historymanager import HistoryManager
+    from avocados.core.intelmanager import IntelManager
     from avocados.core.orders import OrderManager
     from avocados.core.miningmanager import MiningManager
     from avocados.core.resourcemanager import ResourceManager
@@ -90,6 +93,10 @@ class BotObject(ABC):
         return self.bot.resources
 
     @property
+    def intel(self) -> 'IntelManager':
+        return self.bot.intel
+
+    @property
     def objectives(self) -> 'ObjectiveManager':
         return self.bot.objectives
 
@@ -107,9 +114,11 @@ class BotObject(ABC):
 
 
 class BotManager(BotObject, ABC):
+    timings: dict[str, Timings]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
+        self.timings = defaultdict(Timings)
         self.logger.debug("Initializing {}", type(self).__name__)
 
     # --- Callbacks

@@ -19,6 +19,7 @@ from avocados.__about__ import __version__
 from avocados.core.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
 from avocados.core.historymanager import HistoryManager
+from avocados.core.intelmanager import IntelManager
 from avocados.core.miningmanager import MiningManager
 from avocados.core.unitutil import get_unit_type_counts
 from avocados.core.logmanager import LogManager
@@ -123,12 +124,13 @@ class AvocaDOS:
         self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
         self.resources = ResourceManager(self)
+        self.map = MapManager(self)
+        self.intel = IntelManager(self)     # requires map
         self.objectives = ObjectiveManager(self)
         self.squads = SquadManager(self)
         self.combat = CombatManager(self)
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
-        self.map = MapManager(self)
         self.debug = DebugManager(self) if (debug or micro_scenario) else None
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
@@ -143,6 +145,7 @@ class AvocaDOS:
         self.log.tag(f"{self.name} v{__version__.replace('.', '-')}", add_time=False)
 
         await self.map.on_start()
+        #await self.intel.on_start()
         await self.build.on_start()
 
         if self.micro_scenario is not None:
@@ -152,6 +155,12 @@ class AvocaDOS:
 
     async def on_step(self, step: int):
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
+
+        # print timings
+        if step % 1000 == 0:
+            for manager in [self.intel, self.squads, self.combat]:
+                for key, times in manager.timings.items():
+                    self.logger.info("{} {}: {}", manager, key, times)
 
         # TODO: somewhere else
         if self.time > 15 * 60:
@@ -166,6 +175,7 @@ class AvocaDOS:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
 
         await self.map.on_step(step)
+        #await self.intel.on_step(step)
         await self.resources.on_step(step)
         await self.history.on_step(step)
         await self.order.on_step(step)

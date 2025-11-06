@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, ClassVar
+from typing import TYPE_CHECKING, Optional, ClassVar, Protocol
 
 from sc2.client import Client
 from sc2.ids.ability_id import AbilityId
@@ -59,6 +59,35 @@ def get_color_for_order(order: UnitOrder) -> tuple[int, int, int]:
             return Color.DARK_GREY
 
 
+class DebugItem(Protocol):
+    color: tuple[int, int, int]
+    created: float
+    duration: float
+
+
+@dataclass
+class DebugLine:
+    start: Point3
+    end: Point3
+    text_center: Optional[str]
+    text_start: Optional[str]
+    text_end: Optional[str]
+    text_offset: int
+    text_size: Optional[int]
+    color: tuple[int, int, int]
+    created: float
+    duration: float
+
+
+@dataclass
+class DebugSphere:
+    center: Point3
+    radius: float
+    color: tuple[int, int, int]
+    created: float
+    duration: float
+
+
 @dataclass
 class DebugWorldText:
     position: Point3 | Unit
@@ -85,7 +114,7 @@ class DebugManager(BotManager):
     show_extra: bool
     show_expansions: bool
     # Temporary displays
-    debug_items: list[DebugWorldText]
+    debug_items: list[DebugItem]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -150,7 +179,12 @@ class DebugManager(BotManager):
         #self.damage_taken.clear()
 
         for item in reversed(self.debug_items):
-            self.client.debug_text_world(item.text, item.position, size=item.size, color=item.color)
+            if isinstance(item, DebugWorldText):
+                self._show_text(item)
+            elif isinstance(item, DebugLine):
+                self._show_line(item)
+            elif isinstance(item, DebugSphere):
+                self._show_sphere(item)
             if self.api.time >= item.created + item.duration:
                 self.debug_items.remove(item)
 
@@ -161,6 +195,7 @@ class DebugManager(BotManager):
         #        self.box_with_text(expansion[0], f"Expansion {idx}: {expansion[1]}")
 
     # ---
+
 
     def text_screen(self,
                     lines: list[str] | str,
@@ -175,17 +210,21 @@ class DebugManager(BotManager):
             self.client.debug_text_screen(line, (position[0], y), size=size, color=color)
             y += size / 1000
 
-    def text_world(self,
-                   text: str,
-                   position: Unit | Point3 | Point2,
-                   *,
-                   size: Optional[int] = None,
-                   color: tuple[int, int, int] = Color.YELLOW,
-                   duration: float = 0):
+    def text(self,
+             text: str,
+             position: Unit | Point3 | Point2,
+             *,
+             size: Optional[int] = None,
+             color: tuple[int, int, int] = Color.YELLOW,
+             duration: float = 0) -> DebugWorldText:
         position = self._normalize_point3(position)
         item = DebugWorldText(position, text, size=size or self.text_size, color=color, created=self.api.time,
                               duration=duration)
         self.debug_items.append(item)
+        return item
+
+    def _show_text(self, item: DebugWorldText) -> None:
+        self.client.debug_text_world(item.text, item.position, size=item.size, color=item.color)
 
     def box(self, center: Unit | Point3 | Point2, size: Optional[float] = None, *,
             color: tuple[int, int, int] = Color.YELLOW) -> None:
@@ -201,25 +240,31 @@ class DebugManager(BotManager):
         self.client.debug_box2_out(center, half_vertex_length=size, color=color)
 
     def sphere(self, center: Unit | Point3 | Point2 | Circle, radius: Optional[float] = None, *,
-               color: tuple[int, int, int] | str = Color.YELLOW) -> None:
+               color: tuple[int, int, int] | str = Color.YELLOW,
+               duration: float = 0) -> DebugSphere:
         if isinstance(center, Circle):
             radius = center.radius
             center = center.center
         center = self._normalize_point3(center)
         color = normalize_color(color)
-        self.client.debug_sphere_out(center, radius, color=color)
+        item = DebugSphere(center, radius, color=color, created=self.api.time, duration=duration)
+        self.debug_items.append(item)
+        return item
+
+    def _show_sphere(self, item: DebugSphere) -> None:
+        self.client.debug_sphere_out(item.center, item.radius, color=item.color)
 
     def sphere_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
                          color: tuple[int, int, int] | str = Color.YELLOW) -> None:
         color = normalize_color(color)
         self.sphere(center, size, color=color)
-        self.text_world(text, center, color=color)
+        self.text(text, center, color=color)
 
     def box_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
                       color: tuple[int, int, int] | str = Color.YELLOW) -> None:
         color = normalize_color(color)
         self.box(center, size, color=color)
-        self.text_world(text, center, color=color)
+        self.text(text, center, color=color)
 
     def line(self, start: Point2 | Point3 | Unit | int, end: Point2 | Point3 | Unit | int, *,
              text_center: Optional[str] = None,
@@ -227,19 +272,29 @@ class DebugManager(BotManager):
              text_end: Optional[str] = None,
              text_offset: int = 5,
              text_size: Optional[int] = None,
-             color: tuple[int, int, int] | str = Color.YELLOW) -> None:
+             color: tuple[int, int, int] | str = Color.YELLOW,
+             duration: float = 0) -> DebugLine:
         start = self._normalize_point3(start)
         end = self._normalize_point3(end)
         color = normalize_color(color)
-        self.client.debug_line_out(start, end, color=color)
-        if text_center:
-            added = (start + end)
+        item = DebugLine(start, end, text_center=text_center, text_start=text_start, text_end=text_end,
+                         text_offset=text_offset, text_size=text_size, color=color, created=self.api.time,
+                         duration=duration)
+        self.debug_items.append(item)
+        return item
+
+    def _show_line(self, item: DebugLine) -> None:
+        self.client.debug_line_out(item.start, item.end, color=item.color)
+        if item.text_center:
+            added = (item.start + item.end)
             mid = Point3((added.x/2, added.y/2, added.z/2))
-            self.text_world(text_center, mid, color=color, size=text_size)
-        if text_start:
-            self.text_world(text_start, start.towards(end, text_offset), color=color, size=text_size)
-        if text_end:
-            self.text_world(text_end, end.towards(start, text_offset), color=color, size=text_size)
+            self.text(item.text_center, mid, color=item.color, size=item.text_size)
+        if item.text_start:
+            self.text(item.text_start, item.start.towards(item.end, item.text_offset), color=item.color,
+                      size=item.text_size)
+        if item.text_end:
+            self.text(item.text_end, item.end.towards(item.start, item.text_offset), color=item.color,
+                      size=item.text_size)
 
     def arrow(self, start: Point2 | Point3 | Unit | int, end: Point2 | Point3 | Unit | int, *,
               color: tuple[int, int, int] = Color.YELLOW) -> None:
@@ -305,9 +360,10 @@ class DebugManager(BotManager):
         raise TypeError(f"invalid argument: {point}")
 
     def _show_grid(self) -> None:
-        for x in range(0, self.map.width):
-            for y in range(0, self.map.height):
-                self.box_with_text(Point2((x, y)), f'({x:.1f}, {y:.1f})', color='GREEN')
+        raise NotImplementedError
+        # for x in range(0, self.map.width):
+        #     for y in range(0, self.map.height):
+        #         self.box_with_text(Point2((x, y)), f'({x:.1f}, {y:.1f})', color='GREEN')
 
     def _show_tasks(self) -> None:
         lines = [repr(task) for task in self.api.bot.objectives]
@@ -317,7 +373,7 @@ class DebugManager(BotManager):
         for unit in self.api.bot.units:
             if show_weapon_cooldown and unit.weapon_cooldown != 0:
                 text = f'({math.ceil(unit.weapon_cooldown)})'
-                self.text_world(text, unit.position3d + Point3((0, 0, -0.5)), size=12, color=Color.CYAN)
+                self.text(text, unit.position3d + Point3((0, 0, -0.5)), size=12, color=Color.CYAN)
 
             if unit.orders:
                 order = unit.orders[0]
@@ -367,7 +423,7 @@ class DebugManager(BotManager):
                 self.line(squad.center, squad.task.target.center, color='RED')
             else:
                 task_code = 'NON'
-            self.text_world(f"{squad.id}  {len(squad)}  {squad.status}  {squad.strength:.1f}  {task_code}"
+            self.text(f"{squad.id}  {len(squad)}  {squad.status}  {squad.strength:.1f}  {task_code}"
                             f"  {squad.damage_taken_percentage:.1%}", squad.center, color=color)
             for unit in squad.units:
                 #self.text_world(f"{squad.id}", unit, color=color)

@@ -8,12 +8,12 @@ from numpy import ndarray
 from sc2.game_info import Ramp
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.pixel_map import PixelMap
-from sc2.position import Point2
+from sc2.position import Point2, Rect
 from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotManager
-from avocados.core.geomutil import Area, Circle, Rect
+from avocados.core.geomutil import Area, Circle, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -39,12 +39,33 @@ class MapManager(BotManager):
         # Initialization of variables happens in on_start
 
     @property
+    def playable_area(self) -> Rect:
+        return self.api.game_info.playable_area
+
+    @property
+    def playable_mask(self) -> tuple[slice, slice]:
+        return (slice(self.playable_area.x, self.playable_area.right),
+                slice(self.playable_area.y, self.playable_area.top))
+
+    @property
+    def playable_offset(self) -> Point2:
+        return Point2((self.playable_area.x, self.playable_area.y))
+
+    @property
     def width(self) -> int:
-        return self.api.game_info.playable_area.width
+        return int(self.playable_area.width)
 
     @property
     def height(self) -> int:
-        return self.api.game_info.playable_area.height
+        return int(self.playable_area.height)
+
+    @property
+    def total_width(self) -> int:
+        return int(self.api.game_info.map_size.width)
+
+    @property
+    def total_height(self) -> int:
+        return int(self.api.game_info.map_size.height)
 
     @property
     def number_expansions(self) -> int:
@@ -91,7 +112,7 @@ class MapManager(BotManager):
                     self.logger.info("Found enemy start location at {}", loc)
                     self.enemy_start_locations = [loc]
                     break
-                if self.any_part_of_area_is_visible(Rect.from_center(loc.center, 5, 5)):
+                if self.any_part_of_area_is_visible(Rectangle.from_center(loc.center, 5, 5)):
                     self.logger.info("Enemy start location not at {}", loc)
                     self.enemy_start_locations.remove(loc)
             if len(self.enemy_start_locations) == 1:

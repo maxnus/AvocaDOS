@@ -55,7 +55,7 @@ class MiningManager(BotManager):
         if self.has_worker(worker):
             self.logger.warning("Worker {} already assigned to {}", worker, self)
             if self.debug:
-                self.debug.text_world("Worker already assigned", worker, size=16, color=(255, 0, 0), duration=10)
+                self.debug.text("Worker already assigned", worker, size=16, color=(255, 0, 0), duration=10)
             return False
 
         for expansion, assignment in self.assignments.items():

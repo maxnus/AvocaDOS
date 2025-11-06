@@ -1,3 +1,4 @@
+from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
 from sc2.ids.ability_id import AbilityId
@@ -41,12 +42,11 @@ class CombatManager(BotManager):
         self.attack_priority_threshold = 0.375  # attack_priority_base_weight/2
         self.defense_priority_threshold = 0.50
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}'
-
     async def on_step(self, step: int) -> None:
+        t0 = perf_counter()
         for squad in self.squads:
             await self.micro_squad(squad)
+        self.timings['step'].add(t0)
 
     # ---
 

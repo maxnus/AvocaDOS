@@ -65,21 +65,21 @@ class Area(Protocol):
     def random(self) -> Point2: ...
     def closest(self, points: Collection[Point2]) -> tuple[Point2, float]: ...
     def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]: ...
-    def bounding_rect(self, integral: bool) -> 'Rect': ...
+    def bounding_rect(self, integral: bool) -> 'Rectangle': ...
 
 
 @dataclass(frozen=True)
-class Rect:
+class Rectangle:
     x: float
     y: float
     width: float
     height: float
 
     @classmethod
-    def from_center(cls, center: Point2, width: float, height: float) -> 'Rect':
+    def from_center(cls, center: Point2, width: float, height: float) -> 'Rectangle':
         x = center.x - width / 2
         y = center.y - height / 2
-        return Rect(x, y, width, height)
+        return Rectangle(x, y, width, height)
 
     @property
     def center(self) -> Point2:
@@ -112,13 +112,13 @@ class Rect:
     def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]:
         raise NotImplementedError
 
-    def bounding_rect(self, integral: bool = False) -> 'Rect':
+    def bounding_rect(self, integral: bool = False) -> 'Rectangle':
         if integral:
             x = int(math.floor(self.x))
             y = int(math.floor(self.y))
             width = int(math.ceil(self.x + self.width)) - x
             height = int(math.ceil(self.y + self.height)) - y
-            return Rect(x, y, width, height)
+            return Rectangle(x, y, width, height)
         else:
             return self
 
@@ -169,7 +169,7 @@ class Circle:
     def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]:
         return furthest_point(points, self.center)
 
-    def bounding_rect(self, integral: bool = False) -> 'Rect':
+    def bounding_rect(self, integral: bool = False) -> 'Rectangle':
         x = self.center.x - self.radius
         y = self.center.y - self.radius
         if integral:
@@ -179,7 +179,7 @@ class Circle:
             height = int(math.ceil(self.center.y + self.radius)) - y
         else:
             width = height = 2 * self.radius
-        return Rect(x, y, width, height)
+        return Rectangle(x, y, width, height)
 
 
 def get_circle_intersections(circle1: Circle, circle2: Circle) -> list[Point2]:
