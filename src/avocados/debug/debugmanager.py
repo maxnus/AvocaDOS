@@ -1,5 +1,6 @@
 import math
 from dataclasses import dataclass
+from enum import StrEnum
 from time import perf_counter
 from typing import TYPE_CHECKING, Optional, ClassVar, Protocol
 
@@ -88,6 +89,17 @@ class DebugWorldText:
     duration: float
 
 
+class DebugLayers(StrEnum):
+    LOG = 'log'
+    EXP = 'exp'
+    COMBAT = 'combat'
+    TASKS = 'tasks'
+    ORDERS = 'orders'
+    SQUADS = 'squads'
+    EXTRA = 'extra'
+    GRID = 'grid'
+
+
 class DebugManager(BotManager):
     text_size: ClassVar[int] = 16
     # State
@@ -96,13 +108,7 @@ class DebugManager(BotManager):
     # Frame data
     damage_taken: dict[Unit, float]
     # Config
-    show_grid: bool
-    show_orders: bool
-    show_tasks: bool
-    show_combat: bool
-    show_squads: bool
-    show_extra: bool
-    show_expansions: bool
+    show: dict[str, bool]
     # Temporary displays
     debug_items: list[DebugItem]
 
@@ -113,13 +119,7 @@ class DebugManager(BotManager):
         self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
-        self.show_grid = False
-        self.show_orders = False
-        self.show_tasks = True
-        self.show_combat = False
-        self.show_squads = True
-        self.show_extra = True
-        self.show_expansions = False
+        self.show = {}
         self.debug_items = []
 
     @property
@@ -153,19 +153,19 @@ class DebugManager(BotManager):
     async def on_step(self, step: int) -> None:
         t0 = perf_counter()
         await self._handle_chat()
-        if self.show_grid:
+        if self.show.get(DebugLayers.GRID):
             self._show_grid()
-        if self.show_tasks:
+        if self.show.get(DebugLayers.TASKS):
             self._show_tasks()
-        if self.show_extra:
+        if self.show.get(DebugLayers.EXTRA):
             self._show_extra()
-        if self.show_orders:
+        if self.show.get(DebugLayers.ORDERS):
             self._show_orders()
-        if self.show_squads:
+        if self.show.get(DebugLayers.SQUADS):
             self._show_squads()
-        if self.show_combat:
+        if self.show.get(DebugLayers.COMBAT):
             self._show_combat()
-        if self.show_expansions:
+        if self.show.get(DebugLayers.EXP):
             self._show_expansions()
         #self.damage_taken.clear()
 
@@ -303,10 +303,10 @@ class DebugManager(BotManager):
             if chat_message.message.startswith('!'):
                 cmd, *args = chat_message.message.split()
 
-                if cmd == '!log' and len(args) == 1 and args[0] in {'0', '1'}:
-                    self.show_log = bool(int(args[0]))
+                if cmd == '!show' and len(args) == 2 and args[0] in list(DebugLayers) and args[1] in {'0', '1'}:
+                    self.show[args[0]] = bool(int(args[1]))
 
-                if cmd == '!grid' and len(args) == 1 and args[0] in {'0', '1'}:
+                elif cmd == '!grid' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_grid = bool(int(args[0]))
 
                 elif cmd == '!cmd' and len(args) == 1 and args[0] in {'0', '1'}:

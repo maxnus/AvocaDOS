@@ -44,7 +44,7 @@ class IntelManager(BotManager):
 
     @property
     def visibility(self) -> Field:
-        return Field(self.api.state.visibility.data_numpy[self.map.playable_mask].T, offset=self.map.playable_offset)
+        return Field(self.api.state.visibility.data_numpy[self.map.playable_mask_yx].T, offset=self.map.playable_offset)
 
     def get_percentage_scouted(self) -> float:
         return numpy.sum(self.visibility.data > 0) / self.visibility.size

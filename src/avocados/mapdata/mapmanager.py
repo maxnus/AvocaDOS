@@ -48,6 +48,11 @@ class MapManager(BotManager):
                 slice(self.playable_area.y, self.playable_area.top))
 
     @property
+    def playable_mask_yx(self) -> tuple[slice, slice]:
+        return (slice(self.playable_area.y, self.playable_area.top),
+                slice(self.playable_area.x, self.playable_area.right))
+
+    @property
     def playable_offset(self) -> Point2:
         return Point2((self.playable_area.x, self.playable_area.y))
 
@@ -73,6 +78,8 @@ class MapManager(BotManager):
 
     async def on_start(self) -> None:
         self.logger.debug("on_start started")
+        self.logger.info("Map={}, size={}x{}, playable={}x{}", self.api.game_info.map_name, self.width, self.height,
+                         self.playable_area.width, self.playable_area.height)
         self.center = self.api.game_info.map_center
         self.start_base = ExpansionLocation(self.bot, self.api.start_location)
         self.base = self.start_base # TODO: use later in case we lose the start_base
