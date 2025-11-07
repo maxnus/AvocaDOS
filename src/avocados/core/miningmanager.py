@@ -1,10 +1,11 @@
 from collections import Counter
+from time import perf_counter
 from typing import TYPE_CHECKING, Optional
 
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -20,9 +21,11 @@ class MiningManager(BotManager):
         self.assignments = {}
 
     async def on_step(self, step: int) -> None:
+        t0 = perf_counter()
         self._check_for_dead_tags()
         self._assign_idle_workers()
         self._speed_mine()
+        self.timings['step'].add(t0)
 
     async def add_expansion(self, expansion: ExpansionLocation) -> None:
         self.assignments[expansion] = {}

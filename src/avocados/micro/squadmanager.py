@@ -7,7 +7,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 from avocados.core.geomutil import squared_distance, Circle
 from avocados.core.unitutil import normalize_tags
 from avocados.micro.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 MAX_SQUAD_SIZE = 24
 #RETREAT_STRENGTH_PERCENTAGE = 0.8
 RETREAT_MIN_BASE_DISTANCE = 16.0
-RETREAT_DISTANCE = 30.0
+RETREAT_DISTANCE = 25.0
 RETREAT_HEALTH_PERCENTAGE = 0.25
 
 

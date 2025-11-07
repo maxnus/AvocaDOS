@@ -3,7 +3,7 @@ from collections.abc import Callable, Hashable
 from enum import StrEnum
 from typing import Optional, Any, TYPE_CHECKING
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

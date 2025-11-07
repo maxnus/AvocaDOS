@@ -1,5 +1,6 @@
 import math
 from dataclasses import dataclass
+from time import perf_counter
 from typing import TYPE_CHECKING, Optional, ClassVar, Protocol
 
 from sc2.client import Client
@@ -8,7 +9,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 from avocados.core.geomutil import Circle
 from avocados.micro.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
@@ -34,17 +35,6 @@ def normalize_color(color: tuple[int, int, int] | str) -> tuple[int, int, int]:
     if isinstance(color, str):
         return getattr(Color, color.upper())
     return color
-
-
-# class DebugDisplayItem:
-#     color: tuple[int, int, int]
-#     created: float
-#     duration: float
-#
-#     def __init__(self, color: tuple[int, int, int], created: float, duration: float) -> None:
-#         self.color = color
-#         self.created = created
-#         self.duration = duration
 
 
 def get_color_for_order(order: UnitOrder) -> tuple[int, int, int]:
@@ -126,7 +116,7 @@ class DebugManager(BotManager):
         self.show_grid = False
         self.show_orders = False
         self.show_tasks = True
-        self.show_combat = True
+        self.show_combat = False
         self.show_squads = True
         self.show_extra = True
         self.show_expansions = False
@@ -161,6 +151,7 @@ class DebugManager(BotManager):
     # Callbacks
 
     async def on_step(self, step: int) -> None:
+        t0 = perf_counter()
         await self._handle_chat()
         if self.show_grid:
             self._show_grid()
@@ -175,7 +166,7 @@ class DebugManager(BotManager):
         if self.show_combat:
             self._show_combat()
         if self.show_expansions:
-            self.map.on_debug()
+            self._show_expansions()
         #self.damage_taken.clear()
 
         for item in reversed(self.debug_items):
@@ -193,9 +184,9 @@ class DebugManager(BotManager):
         #    #    self.box_with_text(expansion, f"Enemy expansion {idx}")
         #    for idx, expansion in enumerate(self.bot.map.expansions):
         #        self.box_with_text(expansion[0], f"Expansion {idx}: {expansion[1]}")
+        self.timings['step'].add(t0)
 
     # ---
-
 
     def text_screen(self,
                     lines: list[str] | str,
@@ -215,11 +206,13 @@ class DebugManager(BotManager):
              position: Unit | Point3 | Point2,
              *,
              size: Optional[int] = None,
-             color: tuple[int, int, int] = Color.YELLOW,
+             z_offset: float = 1.0,
+             color: tuple[int, int, int] | str = Color.YELLOW,
              duration: float = 0) -> DebugWorldText:
-        position = self._normalize_point3(position)
-        item = DebugWorldText(position, text, size=size or self.text_size, color=color, created=self.api.time,
-                              duration=duration)
+        position = self._normalize_point3(position, z_offset=z_offset)
+        color = normalize_color(color)
+        item = DebugWorldText(position, text, size=size or self.text_size, color=color,
+                              created=self.api.time, duration=duration)
         self.debug_items.append(item)
         return item
 
@@ -442,3 +435,19 @@ class DebugManager(BotManager):
             color = Color.RED
         self.text_screen(f"step time (ms): {last_step:.1f} (avg={avg_step:.1f}, min={min_step:.1f}"
                          f", max={max_step:.1f})", position=(0.73, 0.71), color=color)
+
+    def _show_expansions(self) -> None:
+        for exp in self.map.expansions:
+            exp.on_debug()
+
+        for exp, time in self.intel.get_time_since_expansions_last_visible().items():
+            self.text(f"LstViz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
+
+        # for idx1, exp1 in enumerate(self.map.expansions):
+        #     for idx2, exp2 in enumerate(self.map.expansions[:idx1]):
+        #         text = (f"d={self.map.expansion_distance_matrix[idx1, idx2]:.2f}, "
+        #                 f"D={self.map.expansion_path_distance_matrix[idx1, idx2]:.2f}")
+        #         self.line(exp1.center, exp2.center, text_start=text)
+        #         text = (f"d={self.map.expansion_distance_matrix[idx2, idx1]:.2f}, "
+        #                 f"D={self.map.expansion_path_distance_matrix[idx2, idx1]:.2f}")
+        #         self.line(exp2.center, exp1.center, text_start=text)

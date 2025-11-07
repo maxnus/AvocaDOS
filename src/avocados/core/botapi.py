@@ -7,6 +7,7 @@ from typing import Optional
 
 from sc2.bot_ai import BotAI
 from sc2.constants import CREATION_ABILITY_FIX
+from sc2.data import Result
 from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -62,6 +63,9 @@ class BotApi(BotAI):
             sleep = self.slowdown / 1000 - (perf_counter() - frame_start)
             if sleep > 0:
                 await asyncio.sleep(sleep)
+
+    async def on_end(self, game_result: Result) -> None:
+        await self.bot.on_end(game_result)
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         self.damage_received[unit.tag] += amount_damage_taken

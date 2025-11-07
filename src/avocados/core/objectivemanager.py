@@ -9,7 +9,7 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from avocados.core.constants import ALTERNATIVES, TRAINERS
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
                                      BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
 from avocados.core.geomutil import squared_distance, get_best_score
@@ -45,6 +45,9 @@ class ObjectiveManager(BotManager):
     def add_defense_objective(self, target: Point2, strength: float = 100, **kwargs) -> int:
         objective = DefenseObjective(self.bot, target, strength, **kwargs)
         return self.add(objective)
+
+    def objectives_of_type(self, objective_type: type[Objective] | tuple[type[Objective], ...]) -> list[Objective]:
+        return [obj for obj in self.current.values() if isinstance(obj, objective_type)]
 
     def __bool__(self) -> bool:
         return bool(self.current)
@@ -237,84 +240,6 @@ class ObjectiveManager(BotManager):
             self.logger.info("Starting {} at {}", objective.upgrade.name, researcher)
         #else:
         #    self.logger.trace("No researcher for {}", task.upgrade)
-        return False
-
-    def _on_squad_objective_old(self, objective: AttackObjective | DefenseObjective) -> bool:
-        squad_task_type = SquadAttackTask if isinstance(objective, AttackObjective) else SquadDefendTask
-        squads_with_task = self.squads.with_task(squad_task_type,
-                                                 filter_=lambda t: squared_distance(t.target.center, objective.target) <= 25)
-
-        if (objective.duration is not None and any(s.status == SquadStatus.AT_TARGET
-                                                   and self.time > s.status_changed + objective.duration
-                                                   for s in squads_with_task)):
-            # Objective complete
-            for s in squads_with_task:
-                # This belongs in the SquadManager...
-                s.remove_task()
-            return True
-
-        total_strength = sum(s.strength for s in squads_with_task)
-        if total_strength >= objective.strength:
-            return False
-
-        # Send idle squads
-        for squad in self.squads:
-            if not squad.has_task():
-                if isinstance(objective, AttackObjective):
-                    squad.attack(objective.target, priority=objective.priority)
-                else:
-                    squad.defend(objective.target, priority=objective.priority)
-                total_strength += squad.strength
-                if total_strength >= objective.strength:
-                    return False
-
-        units = self.bot.army.idle.filter(lambda u: self.squads.get_squad_of(u) is None)
-        if units:
-            units_to_add = int(math.ceil(objective.strength - total_strength))
-            units = units.closest_n_units(objective.target, units_to_add)
-
-        # Add units from squads with lower priority tasks
-        info = []
-        for squad in self.squads:
-            if squad not in squads_with_task and not squad.has_task() or squad.task.priority < objective.priority:
-                info.append(("Assigning units of squad {} for {}", squad, objective))
-                units += squad.units
-                total_strength += squad.strength
-                if total_strength >= objective.strength:
-                    break
-
-        if not units:
-            return False
-
-        # Find suitable existing squad
-        squad = None
-        if squads_with_task:
-            # TODO
-            closest_squad, distance = min([(s, s.center.distance_to(units.center)) for s in squads_with_task],
-                                  key=lambda x: x[1])
-            if distance <= 12:
-                squad = closest_squad
-
-        if squad is None:
-            if len(units) < objective.minimum_size:
-                return False
-            squad = self.squads.create(units, remove_from_squads=True)
-        else:
-            squad.add(units, remove_from_squads=True)
-
-        for entry in info:
-            self.logger.debug(*entry)
-
-        # Always create a new squad - we can always merge later
-        # if len(units) < max(objective.minimum_size, 1):
-        #     return False
-        # self.squads.remove_from_squads(units)
-        # squad = self.squads.create(units)
-
-        if isinstance(objective, AttackObjective):
-            squad.attack(objective.target, priority=objective.priority)
-        else:
-            squad.defend(objective.target, priority=objective.priority)
         return False
 
     def _on_squad_objective(self, objective: AttackObjective | DefenseObjective) -> bool:

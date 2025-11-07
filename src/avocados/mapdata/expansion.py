@@ -4,7 +4,7 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.geomutil import get_circle_intersections, Circle
+from avocados.core.geomutil import get_circle_intersections, Circle, Rectangle
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -60,6 +60,9 @@ class ExpansionLocation(BotObject):
     @property
     def index(self) -> int:
         return self.map.expansions.index(self)
+
+    def get_townhall_area(self, *, size: float = 5.0) -> Rectangle:
+        return Rectangle(self.center.x - size/2, self.center.y - size/2, width=size, height=size)
 
     @property
     def mineral_fields(self) -> Units:

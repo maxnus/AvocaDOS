@@ -7,6 +7,7 @@ import sys
 from loguru import logger as _logger
 from loguru._logger import Logger
 from sc2.cache import property_cache_once_per_frame
+from sc2.data import Result
 from sc2.game_state import GameState
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -21,16 +22,17 @@ from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TY
 from avocados.core.historymanager import HistoryManager
 from avocados.core.intelmanager import IntelManager
 from avocados.core.miningmanager import MiningManager
+from avocados.core.strategymanager import StrategyManager
 from avocados.core.unitutil import get_unit_type_counts
 from avocados.core.logmanager import LogManager
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
-from avocados.core.orders import Order, OrderManager
+from avocados.core.ordermanager import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
 from avocados.core.objectivemanager import ObjectiveManager
 from avocados.core.geomutil import LineSegment, get_best_score, dot
-from avocados.micro.combat import CombatManager
+from avocados.micro.combatmanager import CombatManager
 from avocados.micro.squadmanager import SquadManager
 
 if TYPE_CHECKING:
@@ -83,6 +85,7 @@ class AvocaDOS:
     combat: CombatManager
     mining: MiningManager
     history: HistoryManager
+    strategy: StrategyManager
     debug: Optional[DebugManager]
     micro_scenario: Optional[MicroScenarioManager]
     # Other
@@ -131,6 +134,7 @@ class AvocaDOS:
         self.combat = CombatManager(self)
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
+        self.strategy = StrategyManager(self)
         self.debug = DebugManager(self) if (debug or micro_scenario) else None
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
@@ -145,7 +149,7 @@ class AvocaDOS:
         self.log.tag(f"{self.name} v{__version__.replace('.', '-')}", add_time=False)
 
         await self.map.on_start()
-        #await self.intel.on_start()
+        await self.intel.on_start()
         await self.build.on_start()
 
         if self.micro_scenario is not None:
@@ -158,9 +162,9 @@ class AvocaDOS:
 
         # print timings
         if step % 1000 == 0:
-            for manager in [self.intel, self.squads, self.combat]:
+            for manager in [self.intel, self.history, self.mining, self.squads, self.combat, self.debug]:
                 for key, times in manager.timings.items():
-                    self.logger.info("{} {}: {}", manager, key, times)
+                    self.logger.info("{:<16s} : {:<16s}: {}", type(manager).__name__, key, times)
 
         # TODO: somewhere else
         if self.time > 15 * 60:
@@ -175,7 +179,7 @@ class AvocaDOS:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
 
         await self.map.on_step(step)
-        #await self.intel.on_step(step)
+        await self.intel.on_step(step)
         await self.resources.on_step(step)
         await self.history.on_step(step)
         await self.order.on_step(step)
@@ -183,11 +187,14 @@ class AvocaDOS:
         await self.mining.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
-
-        # TODO
-        await self.other(step)
+        await self.strategy.on_step(step)
+        await self.other(step)  # TODO: find a place for this
         if self.debug:
             await self.debug.on_step(step)
+
+    async def on_end(self, game_result: Result) -> None:
+        self.logger.info("Game result: {}", game_result)
+        pass
 
     async def on_unit_took_damage(self, unit: Unit, amount_damage_taken: float) -> None:
         pass

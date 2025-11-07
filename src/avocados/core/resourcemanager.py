@@ -7,7 +7,7 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

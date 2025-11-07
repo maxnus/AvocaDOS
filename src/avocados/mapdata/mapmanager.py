@@ -12,7 +12,7 @@ from sc2.position import Point2, Rect
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 from avocados.core.geomutil import Area, Circle, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation
 
@@ -29,7 +29,7 @@ class MapManager(BotManager):
     expansion_path_distance_matrix: ndarray
     expansion_order: list[tuple[int, float]]
     enemy_start_locations: list[ExpansionLocation]
-    enemy_start_location: Optional[ExpansionLocation] # Only set once known
+    known_enemy_start_location: Optional[ExpansionLocation] # Only set once known
     enemy_expansion_order: list[list[tuple[int, float]]]
     ramp_defense_location: Optional[Point2]
     placement_grid: PixelMap
@@ -96,7 +96,7 @@ class MapManager(BotManager):
                 [(idx, self.expansion_path_distance_matrix[loc.index, exp.index])
                  for idx, exp in enumerate(self.expansions)], key=lambda x: x[1]
             ))
-        self.enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
+        self.known_enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
 
         self.ramp_defense_location = self.main_base_ramp.top_center if self.main_base_ramp else None
         self.placement_grid = self.api.game_info.placement_grid.copy()
@@ -106,7 +106,7 @@ class MapManager(BotManager):
         # check for enemy start location
 
         # TODO: consider buildings on ramp or natural, if before ~3 min mark
-        if self.enemy_start_location is None and step % 16 == 0:
+        if self.known_enemy_start_location is None and step % 16 == 0:
             for loc in self.enemy_start_locations.copy():
                 if self.api.enemy_structures.closer_than(10, loc.center):
                     self.logger.info("Found enemy start location at {}", loc)
@@ -116,8 +116,8 @@ class MapManager(BotManager):
                     self.logger.info("Enemy start location not at {}", loc)
                     self.enemy_start_locations.remove(loc)
             if len(self.enemy_start_locations) == 1:
-                self.enemy_start_location = self.enemy_start_locations[0]
-                self.logger.info("Enemy start location must be at {}", self.enemy_start_location)
+                self.known_enemy_start_location = self.enemy_start_locations[0]
+                self.logger.info("Enemy start location must be at {}", self.known_enemy_start_location)
 
     @property
     def main_base_ramp(self) -> Optional[Ramp]:
@@ -290,16 +290,3 @@ class MapManager(BotManager):
                 #self.logger.debug("Distances {} to {}: direct={:.2f}, path={:.2f}", exp1, exp2, dist, path_dist)
         return distance_matrix, path_distance_matrix
 
-    # --- debug
-
-    def on_debug(self) -> None:
-        for exp in self.expansions:
-            exp.on_debug()
-        for idx1, exp1 in enumerate(self.expansions):
-            for idx2, exp2 in enumerate(self.expansions[:idx1]):
-                text = (f"d={self.expansion_distance_matrix[idx1, idx2]:.2f}, "
-                        f"D={self.expansion_path_distance_matrix[idx1, idx2]:.2f}")
-                self.debug.line(exp1.center, exp2.center, text_start=text)
-                text = (f"d={self.expansion_distance_matrix[idx2, idx1]:.2f}, "
-                        f"D={self.expansion_path_distance_matrix[idx2, idx1]:.2f}")
-                self.debug.line(exp2.center, exp1.center, text_start=text)

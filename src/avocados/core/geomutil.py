@@ -90,6 +90,14 @@ class Rectangle:
         return self.width * self.height
 
     @property
+    def x_end(self) -> float:
+        return self.x + self.width
+
+    @property
+    def y_end(self) -> float:
+        return self.y + self.height
+
+    @property
     def perimeter(self) -> float:
         return 2 * (self.width + self.height)
 
@@ -99,6 +107,16 @@ class Rectangle:
 
     def __contains__(self, point: Point2) -> bool:
         return (self.x <= point.x < self.x + self.width ) and (self.y <= point.y < self.y + self.height)
+
+    def __add__(self, other: Point2) -> 'Rectangle':
+        if isinstance(other, Point2):
+            return Rectangle(self.x + other.x, self.y + other.y, self.width, self.height)
+        return NotImplemented
+
+    def __sub__(self, other: Point2) -> 'Rectangle':
+        if isinstance(other, Point2):
+            return Rectangle(self.x - other.x, self.y - other.y, self.width, self.height)
+        return NotImplemented
 
     @property
     def random(self) -> Point2:
@@ -121,6 +139,9 @@ class Rectangle:
             return Rectangle(x, y, width, height)
         else:
             return self
+
+    def rounded(self) -> 'Rectangle':
+        return Rectangle(int(round(self.x)), int(round(self.y)), int(round(self.width)), int(round(self.height)))
 
 
 @dataclass(frozen=True)

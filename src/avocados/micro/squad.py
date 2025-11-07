@@ -15,6 +15,11 @@ from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
 from avocados.core.geomutil import Area, Circle, squared_distance
 
 
+COMBAT_LEASH = 4.0
+MOVE_LEASH = 2.0
+DEFAULT_LEASH = 12.0
+
+
 @runtime_checkable
 class SquadTask(Protocol):
     target: Any
@@ -236,11 +241,11 @@ class Squad(BotObject):
     @property
     def leash_range(self) -> float:
         if self.status == SquadStatus.COMBAT:
-            leash = 4
+            leash = COMBAT_LEASH
         elif self.status == SquadStatus.MOVING:
-            leash = 2
+            leash = MOVE_LEASH
         else:
-            leash = 10
+            leash = DEFAULT_LEASH
         return math.sqrt(self.radius_squared) + leash
 
     #@property_cache_once_per_frame

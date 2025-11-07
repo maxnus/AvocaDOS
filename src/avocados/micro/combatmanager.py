@@ -8,7 +8,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS, \
     UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
 from avocados.core.geomutil import lerp, squared_distance
@@ -329,23 +329,28 @@ class CombatManager(BotManager):
     async def micro_squad(self, squad: Squad, *,
                           enemies: Optional[Units] = None) -> None:
         # TODO: Move parts into SquadManager?
+        t0 = perf_counter()
         if enemies is None:
             enemies = self.get_enemies(squad.units)
+        self.timings['get_enemies'].add(t0)
 
+        t0 = perf_counter()
         squad_attack_priorities = self.combat.get_attack_priorities(squad.units, enemies)
+        self.timings['attack_priority'].add(t0)
+
         if squad_attack_priorities:
             squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
             squad.set_status(SquadStatus.COMBAT)
             # TODO DEBUG
-            if self.debug:
-                for unit, priority in squad_attack_priorities.items():
-                    if unit == squad_target:
-                        color = 'RED'
-                    elif priority >= 0.5:
-                        color = 'YELLOW'
-                    else:
-                        color = 'GREEN'
-                    self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
+            # if self.debug:
+            #     for unit, priority in squad_attack_priorities.items():
+            #         if unit == squad_target:
+            #             color = 'RED'
+            #         elif priority >= 0.5:
+            #             color = 'YELLOW'
+            #         else:
+            #             color = 'GREEN'
+            #         self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
 
         else:
             squad_target = None
@@ -365,8 +370,14 @@ class CombatManager(BotManager):
         #    abilities = await self.get_abilities(units)
         #else:
         #    abilities = [[] for _ in range(len(units))]
-        abilities = await self.get_abilities(squad.units)
-        for unit, unit_abilities in zip(squad.units, abilities):
+        #t0 = perf_counter()
+        #abilities = await self.get_abilities(squad.units)
+        #self.timings['abilities'].add(t0)
+
+        t0 = perf_counter()
+        #for unit, unit_abilities in zip(squad.units, abilities):
+        for unit in squad.units:
+            unit_abilities = []
             self._micro_unit(
                 unit,
                 enemies=enemies,
@@ -376,6 +387,7 @@ class CombatManager(BotManager):
                 squad_target_priority=squad_target_priority,
                 squad_target=squad_target
             )
+        self.timings['micro'].add(t0)
 
     def _micro_unit(self, unit: Unit, *,
                     enemies: Units,

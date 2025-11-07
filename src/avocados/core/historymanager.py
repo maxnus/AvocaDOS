@@ -1,8 +1,9 @@
+from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
 from sc2.unit import Unit
 
-from avocados.core.botobject import BotManager
+from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -22,6 +23,7 @@ class HistoryManager(BotManager):
         #self.enemy_units = {}
 
     async def on_step(self, iteration: int) -> None:
+        t0 = perf_counter()
         # Resources
         self.resource_history.append((self.api.minerals, self.api.vespene))
         if len(self.resource_history) > self.max_length:
@@ -32,6 +34,7 @@ class HistoryManager(BotManager):
             self.units_last_seen[unit.tag] = (self.api.state.game_loop, unit)
 
         # Enemies
+        # TODO: Move to botapi?
         for unit in self.api.enemy_units:
             prev_entry = self.units_last_seen.get(unit.tag)
             self.units_last_seen[unit.tag] = (self.api.state.game_loop, unit)
@@ -40,6 +43,7 @@ class HistoryManager(BotManager):
                 change = unit.health + unit.shield - prev_entry[1].health - prev_entry[1].shield
                 if change < 0:
                     await self.api.on_unit_took_damage(unit, -change)
+        self.timings['step'].add(t0)
 
     def get_last_seen(self, unit: int | Unit) -> Optional[Unit]:
         tag = unit.tag if isinstance(unit, Unit) else unit
