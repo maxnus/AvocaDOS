@@ -437,11 +437,17 @@ class DebugManager(BotManager):
                          f", max={max_step:.1f})", position=(0.73, 0.71), color=color)
 
     def _show_expansions(self) -> None:
-        for exp in self.map.expansions:
-            exp.on_debug()
+        # for exp in self.map.expansions:
+        #     self.sphere_with_text(exp.center, repr(exp))
 
-        for exp, time in self.intel.get_time_since_expansions_last_visible().items():
-            self.text(f"LstViz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
+        self.text("NAT", self.map.start_location.natural.center)
+        self.text("LINE", self.map.start_location.line_third.center)
+        self.text("TRIANGLE", self.map.start_location.triangle_third.center)
+        for idx, exp in enumerate(self.map.start_location.expansion_order, start=1):
+            self.text(f"{idx} exp", exp.center, z_offset=2)
+
+        # for exp, time in self.intel.get_time_since_expansions_last_visible().items():
+        #     self.text(f"LstViz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
 
         # for idx1, exp1 in enumerate(self.map.expansions):
         #     for idx2, exp2 in enumerate(self.map.expansions[:idx1]):

@@ -7,6 +7,7 @@ from sc2.game_state import GameState
 from avocados.core.geomutil import unique_id
 
 if TYPE_CHECKING:
+    from avocados.core.buildingmanager import BuildingManager
     from avocados.core.logmanager import LogManager
     from avocados.core.botapi import BotApi
     from avocados.core.avocados import AvocaDOS
@@ -73,6 +74,10 @@ class BotObject(ABC):
     @property
     def map(self) -> 'MapManager':
         return self.bot.map
+
+    @property
+    def building(self) -> 'BuildingManager':
+        return self.bot.building
 
     @property
     def debug(self) -> Optional['DebugManager']:

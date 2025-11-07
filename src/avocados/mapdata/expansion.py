@@ -1,5 +1,6 @@
-from typing import Any, TYPE_CHECKING, Optional
+from typing import Any, TYPE_CHECKING, Optional, Self
 
+from sc2.game_info import Ramp
 from sc2.position import Point2
 from sc2.units import Units
 
@@ -86,7 +87,66 @@ class ExpansionLocation(BotObject):
             return self.center == other.center
         return NotImplemented
 
-    # --- debug
+    def distance_to(self, other: Point2 | Self) -> float:
+        if isinstance(other, ExpansionLocation):
+            other = other.center
+        return self.center.distance_to(other)
 
-    def on_debug(self) -> None:
-        self.debug.sphere_with_text(self.center, repr(self))
+    def path_distance_to(self, other: Self) -> float:
+        return float(self.map.expansion_path_distance_matrix[self.index, other.index])
+
+
+class StartLocation(ExpansionLocation):
+    _ramp: Optional[Ramp]
+    _natural: Optional[ExpansionLocation]
+    _line_third: Optional[ExpansionLocation]
+    _triangle_third: Optional[ExpansionLocation]
+    _expansion_order: Optional[list[ExpansionLocation]]
+
+    def __init__(self, bot: 'AvocaDOS', location: Point2) -> None:
+        super().__init__(bot, location)
+        self._ramp = None
+        self._natural = None
+        self._line_third = None
+        self._triangle_third = None
+        self._expansion_order = None
+
+    @property
+    def ramp(self) -> Ramp:
+        if self._ramp is None:
+            self._ramp = min(self.api.game_info.map_ramps, key=lambda r: r.top_center.distance_to(self.center))
+        return self._ramp
+
+    @property
+    def natural(self) -> ExpansionLocation:
+        if self._natural is None:
+            self._natural = min(self.map.get_expansions(exclude=self), key=lambda exp: self.path_distance_to(exp))
+        return self._natural
+
+    @property
+    def line_third(self) -> ExpansionLocation:
+        if self._line_third is None:
+            self._set_thirds()
+        return self._line_third
+
+    @property
+    def triangle_third(self) -> ExpansionLocation:
+        if self._triangle_third is None:
+            self._set_thirds()
+        return self._triangle_third
+
+    @property
+    def expansion_order(self) -> list[ExpansionLocation]:
+        if self._expansion_order is None:
+            self._expansion_order = self.map.get_expansions(
+                sort_by=lambda exp: exp.distance_to(self.natural) - 0.5*exp.distance_to(self.map.center),
+                exclude=self)
+        return self._expansion_order
+
+    def _set_thirds(self) -> None:
+        thirds = self.expansion_order[1:3]
+        distance_ratios = [t.distance_to(self) / t.distance_to(self.natural) for t in thirds]
+        if distance_ratios[0] >= distance_ratios[1]:
+            self._line_third, self._triangle_third = thirds
+        else:
+            self._triangle_third, self._line_third = thirds

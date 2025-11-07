@@ -17,6 +17,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.__about__ import __version__
+from avocados.core.buildingmanager import BuildingManager
 from avocados.core.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
 from avocados.core.historymanager import HistoryManager
@@ -85,9 +86,11 @@ class AvocaDOS:
     combat: CombatManager
     mining: MiningManager
     history: HistoryManager
+    building: BuildingManager
     strategy: StrategyManager
     debug: Optional[DebugManager]
     micro_scenario: Optional[MicroScenarioManager]
+    leave_at: Optional[float]
     # Other
     previous_orders: dict[int, Optional[Order]]
 
@@ -98,6 +101,7 @@ class AvocaDOS:
                  log_level: str = "DEBUG",
                  log_file: Optional[str] = None,
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
+                 leave_at: Optional[float] = 20 * 60,
                  ) -> None:
         super().__init__()
         self.api = api
@@ -134,19 +138,21 @@ class AvocaDOS:
         self.combat = CombatManager(self)
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
+        self.building = BuildingManager(self)
         self.strategy = StrategyManager(self)
         self.debug = DebugManager(self) if (debug or micro_scenario) else None
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
         else:
             self.micro_scenario = None
+        self.leave_at = leave_at
         self.logger.debug("{} initialized", self)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({__version__})"
 
     async def on_start(self) -> None:
-        self.log.tag(f"{self.name} v{__version__.replace('.', '-')}", add_time=False)
+        self.log.tag(f"{self.name} v{__version__.replace('.', '-')} {self.api.game_info.map_name}", add_time=False)
 
         await self.map.on_start()
         await self.intel.on_start()
@@ -155,7 +161,7 @@ class AvocaDOS:
         if self.micro_scenario is not None:
             await self.micro_scenario.on_start()
 
-        await self.mining.add_expansion(self.map.start_base)
+        await self.mining.add_expansion(self.map.start_location)
 
     async def on_step(self, step: int):
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
@@ -168,12 +174,14 @@ class AvocaDOS:
                 for key, times in manager.timings.items():
                     self.logger.info("{:<16s} : {:<16s}: {}", type(manager).__name__, key, times)
 
-        # TODO: somewhere else
-        if self.time > 15 * 60:
-            self.log.tag('GG')
-            await self.api.client.leave()
-
         await self.log.on_step(step)
+
+        if self.leave_at is not None and self.time >= self.leave_at - 1:
+            self.log.tag('GG', add_time=False)
+            if self.time >= self.leave_at:
+                await self.api.client.leave()
+            return
+
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.on_step(step)
 
@@ -300,7 +308,7 @@ class AvocaDOS:
 
     # --- Pick unit
 
-    async def pick_workers(self, location: Point2 | LineSegment, *,
+    async def pick_workers(self, location: Point2 | Unit | LineSegment, *,
                            number: int,
                            target_distance: float = 0.0,
                            include_moving: bool = True,
@@ -329,6 +337,8 @@ class AvocaDOS:
         if not workers:
             return []
         # Prefilter for performance
+        if isinstance(location, Unit):
+            location = location.position
         if isinstance(location, Point2):
             if len(workers) > number + 10:
                 workers = workers.closest_n_units(position=location, n=number + 10)
@@ -340,6 +350,7 @@ class AvocaDOS:
                 for unit, travel_time in zip(workers, travel_times)
             }
         elif isinstance(location, LineSegment):
+            # TODO: remove?
             workers_and_dist = {unit: location.distance_to(unit) for unit in workers}
         else:
             raise TypeError(f"unknown location type: {type(location)}")
@@ -348,13 +359,13 @@ class AvocaDOS:
         result = sorted(workers_and_dist.items(), key=lambda x: x[1])[:number]
         return result
 
-    async def pick_worker(self, position: Point2, *,
+    async def pick_worker(self, location: Point2 | Unit, *,
                           target_distance: float = 0.0,
                           include_moving: bool = True,
                           include_collecting: bool = True,
                           include_constructing: bool = True,
                           construction_time_discount: float = 0.7) -> tuple[Optional[Unit], Optional[float]]:
-        workers = await self.pick_workers(location=position, number=1,
+        workers = await self.pick_workers(location=location, number=1,
                                           target_distance=target_distance,
                                           include_moving=include_moving,
                                           include_collecting=include_collecting,
@@ -453,11 +464,12 @@ class AvocaDOS:
         # TODO: find the right location in the code
 
         if step % 8 == 0:
+            # TODO check units in vicinity
             for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
-                if not self.api.enemy_units.not_flying.closer_than(4.5, unit):
+                if not self.api.enemy_units.not_flying.closer_than(5.0, unit):
                     self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
             for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
-                if self.api.enemy_units.not_flying.closer_than(3.5, unit):
+                if self.api.enemy_units.not_flying.closer_than(4.0, unit):
                     self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
         if step % 8 == 0:

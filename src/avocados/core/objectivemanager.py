@@ -136,8 +136,8 @@ class ObjectiveManager(BotManager):
         if assigned:
             return False
 
-        target = await self.map.get_building_location(objective.utype, near=objective.position,
-                                                      max_distance=int(objective.max_distance))
+        target = await self.building.get_building_location(objective.utype, near=objective.position,
+                                                           max_distance=int(objective.max_distance))
         if target is None:
             return False
         position = target if isinstance(target, Point2) else target.position
@@ -185,28 +185,27 @@ class ObjectiveManager(BotManager):
                 return False
 
             for _ in range(to_build):
-                target = await self.map.get_building_location(objective.utype, near=objective.position,
-                                                              max_distance=objective.max_distance)
+                wrapped_target = await self.building.get_building_location(objective.utype, near=objective.position,
+                                                                   max_distance=objective.max_distance)
                 #position = task.position
-                if target is None:
+                if wrapped_target is None:
                     break
-                position = target if isinstance(target, Point2) else target.position
                 # SCV can start constructing from a distance of 2.5 away
-                worker, travel_time = await self.bot.pick_worker(position, target_distance=2.5)
+                worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
                 if not worker:
                     break
                 #worker = self.commander.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.resources.can_afford(objective.utype) and worker.distance_to(target) <= 2.5:
+                if self.resources.can_afford(objective.utype) and worker.distance_to(wrapped_target.value) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
-                    self.order.build(worker, objective.utype, target)
+                    self.order.build(worker, objective.utype, wrapped_target.access())
                     self.mining.unassign_worker(worker)     # TODO
                 else:
                     resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker)
                     #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
-                        self.order.move(worker, position)
+                        self.order.move(worker, wrapped_target.access())
                         self.mining.unassign_worker(worker)  # TODO
                         self.resources.reserve(objective.utype)
 

@@ -51,17 +51,7 @@ class BuildOrderManager(BotManager):
         # Units
         obj.add_unit_count_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS)
 
-        obj.add_defense_objective(target=bot.map.start_base.region_center)
-
-        squad_size = 8
-        prev = None
-        for loc in bot.map.enemy_start_locations:
-            prev = obj.add_attack_objective(target=loc.center, minimum_size=squad_size, duration=5,
-                                           reqs=(UnitTypeId.MARINE, squad_size),
-                                           deps=prev, priority=0.7)
-        for loc in bot.map.get_enemy_expansions(0):
-            prev = obj.add_attack_objective(target=loc.center, strength=24, minimum_size=squad_size, duration=5,
-                                           deps=prev, priority=0.7)
+        obj.add_defense_objective(target=bot.map.start_location.region_center)
 
     def load_proxy_marine(self) -> None:
         bot = self.bot

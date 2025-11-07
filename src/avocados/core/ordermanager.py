@@ -80,7 +80,7 @@ class UpgradeOrder(Order):
 
 @dataclass(frozen=True)
 class MoveOrder(Order):
-    target: Point2
+    target: Point2 | Unit
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -198,7 +198,7 @@ class OrderManager(BotManager):
     def has_order(self, unit: Unit) -> bool:
         return unit.tag in self.orders
 
-    def move(self, unit: Unit | Units, target: Point2, *,
+    def move(self, unit: Unit | Units, target: Point2 | Unit, *,
              queue: bool = False, force: bool = False) -> bool:
         return self._order(unit, MoveOrder, target, queue=queue, force=force)
 
