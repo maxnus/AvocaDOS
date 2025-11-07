@@ -163,6 +163,8 @@ class AvocaDOS:
         # print timings
         if step % 1000 == 0:
             for manager in [self.intel, self.history, self.mining, self.squads, self.combat, self.debug]:
+                if manager is None:
+                    continue
                 for key, times in manager.timings.items():
                     self.logger.info("{:<16s} : {:<16s}: {}", type(manager).__name__, key, times)
 
