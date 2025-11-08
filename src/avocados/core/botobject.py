@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from avocados.core.miningmanager import MiningManager
     from avocados.core.resourcemanager import ResourceManager
     from avocados.core.objectivemanager import ObjectiveManager
-    from avocados.micro.squadmanager import SquadManager
-    from avocados.micro.combatmanager import CombatManager
+    from avocados.combat.squadmanager import SquadManager
+    from avocados.combat.combatmanager import CombatManager
 
 
 class BotObject(ABC):

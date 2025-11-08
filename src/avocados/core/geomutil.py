@@ -90,6 +90,10 @@ class Rectangle:
         return self.width * self.height
 
     @property
+    def shape(self) -> tuple[float, float]:
+        return self.width, self.height
+
+    @property
     def x_end(self) -> float:
         return self.x + self.width
 

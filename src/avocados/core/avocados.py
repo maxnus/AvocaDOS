@@ -34,8 +34,8 @@ from avocados.core.ordermanager import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
 from avocados.core.objectivemanager import ObjectiveManager
 from avocados.core.geomutil import LineSegment, get_best_score, dot
-from avocados.micro.combatmanager import CombatManager
-from avocados.micro.squadmanager import SquadManager
+from avocados.combat.combatmanager import CombatManager
+from avocados.combat.squadmanager import SquadManager
 
 if TYPE_CHECKING:
     from avocados.core.botapi import BotApi

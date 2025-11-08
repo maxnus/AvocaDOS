@@ -5,6 +5,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
+from avocados.core.constants import PRODUCTION_BUILDING_TYPE_IDS, TOWNHALL_TYPE_IDS
 from avocados.core.field import Field
 from avocados.core.geomutil import Rectangle
 from avocados.core.manager import BotManager
@@ -77,7 +78,7 @@ class BuildingManager(BotManager):
             case UnitTypeId.BARRACKS:
                 if near is None:
                     ramp_position = self.map.start_location.ramp.barracks_correct_placement
-                    if await self._can_place(structure, ramp_position):
+                    if await self._can_place(structure, ramp_position, clearance=0):
                         return ramp_position
                     return await self._find_placement(structure, self.map.start_location.region_center)
                 else:
@@ -92,24 +93,39 @@ class BuildingManager(BotManager):
         footprint_size = int(2 * self.api.game_data.units[structure.value].footprint_radius)
         return footprint_size
 
-    def _get_footprint(self, structure: UnitTypeId, location: Point2) -> Rectangle:
-        footprint_size = self._get_footprint_size(structure)
+    def _get_footprint(self, structure: UnitTypeId, location: Point2, *, clearance: Optional[int] = None) -> Rectangle:
+        if clearance is None:
+            clearance = 1 if structure in (PRODUCTION_BUILDING_TYPE_IDS | TOWNHALL_TYPE_IDS) else 0
+        footprint_size = self._get_footprint_size(structure) + 2 * clearance
         return Rectangle.from_center(location, footprint_size, footprint_size)
 
     async def _can_place(self, structure: UnitTypeId, location: Point2, *,
+                         clearance: Optional[int] = None,
                          include_addon: Optional[bool] = None) -> bool:
         # Check pathing grid first for performance
-        footprint = self._get_footprint(structure, location)
+        footprint = self._get_footprint(structure, location, clearance=clearance)
         values = self.placement_grid[footprint] & self.reserved_grid[footprint]
         if not numpy.all(values):
             return False
         if include_addon is None:
             include_addon = structure in {UnitTypeId.BARRACKS, UnitTypeId.FACTORY, UnitTypeId.STARPORT}
         if include_addon:
-            if not await self._can_place(UnitTypeId.SUPPLYDEPOT, location.offset(Point2((2.5, -0.5)))):
+            if not await self._can_place(UnitTypeId.SUPPLYDEPOT, location.offset(Point2((2.5, -0.5))),
+                                         clearance=clearance):
                 return False
 
-        return await self.api.can_place_single(structure, location)
+        if footprint.shape == (1, 1):
+            dummy = UnitTypeId.SENSORTOWER
+        elif footprint.shape == (3, 3):
+            dummy = UnitTypeId.BARRACKS
+        elif footprint.shape == (5, 5):
+            dummy = UnitTypeId.COMMANDCENTER
+        else:
+            # TODO: This will ignore clearance
+            # missing cases for clearance=1: (4, 4) and (7, 7)
+            dummy = structure
+
+        return await self.api.can_place_single(dummy, location)
 
     # async def _get_placeable_points(self, stru):
     #     else:
@@ -134,15 +150,29 @@ class BuildingManager(BotManager):
 
     async def _find_placement(self, structure: UnitTypeId, location: Point2, *,
                               max_distance: int = 10,
+                              clearance: Optional[int] = None,
                               include_addon: Optional[bool] = None
                               ) -> Optional[Point2]:
 
-        if await self._can_place(structure, location, include_addon=include_addon):
+        if await self._can_place(structure, location, clearance=clearance, include_addon=include_addon):
             return location
         if max_distance == 0:
             return None
 
-        return await self.api.find_placement(structure, near=location, max_distance=max_distance,
+        footprint = self._get_footprint(structure, location, clearance=clearance)
+
+        if footprint.shape == (1, 1):
+            dummy = UnitTypeId.SENSORTOWER
+        elif footprint.shape == (3, 3):
+            dummy = UnitTypeId.BARRACKS
+        elif footprint.shape == (5, 5):
+            dummy = UnitTypeId.COMMANDCENTER
+        else:
+            # TODO: This will ignore clearance
+            # missing cases for clearance=1: (4, 4) and (7, 7)
+            dummy = structure
+
+        return await self.api.find_placement(dummy, near=location, max_distance=max_distance,
                                              random_alternative=False, addon_place=include_addon)
 
         # TODO

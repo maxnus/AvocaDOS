@@ -9,7 +9,7 @@ from sc2.units import Units
 
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import UnitCost
-from avocados.micro.squad import Squad
+from avocados.combat.squad import Squad
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

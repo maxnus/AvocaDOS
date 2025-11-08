@@ -146,6 +146,19 @@ TECH_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
 })
 
 
+STATIC_DEFENSE_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.BUNKER,
+    UnitTypeId.MISSILETURRET,
+    UnitTypeId.SENSORTOWER,
+    UnitTypeId.SPINECRAWLER,
+    UnitTypeId.SPINECRAWLERUPROOTED,
+    UnitTypeId.SPORECRAWLER,
+    UnitTypeId.SPORECRAWLERUPROOTED,
+    UnitTypeId.PHOTONCANNON,
+    UnitTypeId.SHIELDBATTERY,
+})
+
+
 REACTOR_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.REACTOR,
     UnitTypeId.BARRACKSREACTOR,

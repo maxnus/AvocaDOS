@@ -13,7 +13,7 @@ from avocados.core.manager import BotManager
 from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
                                      BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
 from avocados.core.geomutil import squared_distance, get_best_score
-from avocados.micro.squad import SquadDefendTask, SquadAttackTask, SquadStatus
+from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
 if TYPE_CHECKING:
     from .avocados import AvocaDOS

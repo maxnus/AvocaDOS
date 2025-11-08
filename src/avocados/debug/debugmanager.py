@@ -12,7 +12,7 @@ from sc2.unit import Unit, UnitOrder
 
 from avocados.core.manager import BotManager
 from avocados.core.geomutil import Circle
-from avocados.micro.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
+from avocados.combat.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

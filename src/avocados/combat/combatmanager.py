@@ -13,8 +13,8 @@ from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE
     UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
 from avocados.core.geomutil import lerp, squared_distance
 from avocados.core.unitutil import get_closest_sq_distance
-from avocados.micro.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
-from avocados.micro.weapons import Weapons
+from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
+from avocados.combat.weapons import Weapons
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -101,7 +101,9 @@ class CombatManager(BotManager):
                     weight = 0.2
                 case _:
                     weight = 0.0
-            if structure.type_id == UnitTypeId.STARGATE:
+            if structure.type_id in {UnitTypeId.PHOTONCANNON, UnitTypeId.SHIELDBATTERY}:
+                factor = 0.45
+            elif structure.type_id == UnitTypeId.STARGATE:
                 factor = 0.4
             elif structure.type_id == UnitTypeId.ROBOTICSBAY:
                 factor = 0.35
