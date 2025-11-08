@@ -2,12 +2,13 @@ from typing import Optional, Self, Any
 
 import numpy
 from numpy import ndarray
+from sc2.pixel_map import PixelMap
 from sc2.position import Point2
 
 from avocados.core.geomutil import Rectangle
 
 
-class Field:
+class Field[T]:
     data: ndarray
     offset: Point2
 
@@ -16,6 +17,14 @@ class Field:
             arg = numpy.zeros(arg)
         self.data = arg
         self.offset = offset or Point2((0, 0))
+
+    @classmethod
+    def from_pixelmap(cls, pixelmap: PixelMap, *, offset: Optional[Point2] = None) -> Self:
+        return cls(pixelmap.data_numpy.transpose(), offset=offset)
+
+    @classmethod
+    def zeros_like(cls, other: Self) -> Self:
+        return cls(numpy.zeros_like(other.data), offset=other.offset)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(width={self.width}, height={self.height}, offset={self.offset})"
@@ -32,13 +41,13 @@ class Field:
     def size(self) -> int:
         return self.data.size
 
-    def min(self) -> float:
+    def min(self) -> T:
         return self.data.min()
 
-    def max(self) -> float:
+    def max(self) -> T:
         return self.data.max()
 
-    def __getitem__(self, item: Point2 | Rectangle) -> float | ndarray:
+    def __getitem__(self, item: Point2 | Rectangle) -> T | ndarray:
         if isinstance(item, Point2):
             point = item - self.offset
             return self.data[int(round(point.x)), int(round(point.y))]
@@ -47,14 +56,15 @@ class Field:
             return self.data[rect.x : rect.x_end, rect.y : rect.y_end]
         raise TypeError(f'invalid type: {type(item)}')
 
-    def __setitem__(self, item: Point2, value: float | ndarray) -> None:
+    def __setitem__(self, item: Point2 | Rectangle, value: T | ndarray) -> None:
         if isinstance(item, Point2):
             point = item - self.offset
             self.data[int(round(point.x)), int(round(point.y))] = value
-        if isinstance(item, Rectangle):
+        elif isinstance(item, Rectangle):
             rect = (item - self.offset).rounded()
             self.data[rect.x : rect.x_end, rect.y : rect.y_end] = value
-        raise TypeError(f'invalid type: {type(item)}')
+        else:
+            raise TypeError(f'invalid type: {type(item)}')
 
     def __add__(self, other: Any) -> Self:
         if isinstance(other, (int, float)):

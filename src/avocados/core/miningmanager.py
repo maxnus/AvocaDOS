@@ -193,11 +193,20 @@ class MiningManager(BotManager):
             self.log.error("No townhall at {}", expansion)
             return
 
+        enemies = self.api.enemy_units.closer_than(8, townhall)
+
         for worker_tag, mineral_tag in assignment.items():
             worker = self.bot.workers.find_by_tag(worker_tag)
             if worker is None:
                 self.log.error("Invalid worker tag: {}", worker_tag)
                 continue
+
+            # Defense
+            if worker.weapon_ready:
+                close_enemies = enemies.in_attack_range_of(worker)
+                if close_enemies:
+                    worker.attack(close_enemies.closest_to(worker))
+                    continue
 
             mineral_field = expansion.mineral_fields.find_by_tag(mineral_tag)
             if mineral_field is None:
@@ -221,6 +230,11 @@ class MiningManager(BotManager):
             if 0.75 < distance < 2:
                 self.bot.order.move(worker, target_point)
                 self.bot.order.smart(worker, target, queue=True)
+
+            # Get back to work
+            elif not worker.orders or worker.orders[0].target not in {townhall, mineral_field}:
+                self.bot.order.smart(worker, target)
+
             # elif worker.is_idle:
             #     self.logger.info("Restarting idle worker {}", worker)
             #     if distance <= 0.75:

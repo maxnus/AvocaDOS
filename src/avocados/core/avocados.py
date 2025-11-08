@@ -155,6 +155,7 @@ class AvocaDOS:
         self.log.tag(f"{self.name} v{__version__.replace('.', '-')} {self.api.game_info.map_name}", add_time=False)
 
         await self.map.on_start()
+        await self.building.on_start()
         await self.intel.on_start()
         await self.build.on_start()
 
@@ -168,7 +169,7 @@ class AvocaDOS:
 
         # print timings
         if step % 1000 == 0:
-            for manager in [self.intel, self.history, self.mining, self.squads, self.combat, self.debug]:
+            for manager in [self.intel, self.history, self.building, self.mining, self.squads, self.combat, self.debug]:
                 if manager is None:
                     continue
                 for key, times in manager.timings.items():
@@ -189,6 +190,7 @@ class AvocaDOS:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
 
         await self.map.on_step(step)
+        await self.building.on_step(step)
         await self.intel.on_step(step)
         await self.resources.on_step(step)
         await self.history.on_step(step)

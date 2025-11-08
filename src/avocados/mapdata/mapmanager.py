@@ -131,15 +131,6 @@ class MapManager(BotManager):
         else:
             return None
 
-    # async def can_place_building(self, utype: UnitTypeId, position: Point2) -> bool:
-    #     footprint_size = int(2 * self.api.game_data.units[utype.value].footprint_radius)
-    #
-    #     point = position
-    #     if not self.placement_grid[point]:
-    #         return False
-    #
-    #     return await self.api.can_place_single(utype, point)
-
     def any_part_of_area_is_visible(self, area: Area) -> bool:
         bounds = area.bounding_rect(integral=True)
         for x in range(int(bounds.x), int(bounds.x + bounds.width)):
@@ -176,9 +167,9 @@ class MapManager(BotManager):
 
     def get_proxy_location(self) -> Point2:
         start_location = self.enemy_start_locations[0]
-        #fourth = min(start_location.expansion_order[3:5], key=lambda loc: loc.distance_to(start_location.line_third))
-        #return fourth.center
-        return start_location.line_third.center.towards(start_location.center, -2)
+        fourth = min(start_location.expansion_order[3:5], key=lambda loc: loc.distance_to(start_location.line_third))
+        return fourth.center
+        #return start_location.line_third.center.towards(start_location.center, -2)
 
     def _get_ordered_expansion(self) -> list[Point2]:
         try:

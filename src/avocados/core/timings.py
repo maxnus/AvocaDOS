@@ -49,6 +49,7 @@ class Timings(BotObject):
             self._time_step += time
         else:
             self._time_step = time
+            self._previous_step = self.bot.step
             self.steps += 1
 
         self.min_time = min(self._time_step, self.min_time) if self.min_time is not None else self._time_step

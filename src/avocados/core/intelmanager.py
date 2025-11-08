@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class IntelManager(BotManager):
-    _time_last_visible: Optional[Field]
+    _time_last_visible: Optional[Field[float]]
     last_known_enemy_base: Optional[ExpansionLocation]
 
     def __init__(self, bot: 'AvocaDOS') -> None:

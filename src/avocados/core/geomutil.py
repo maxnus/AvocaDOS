@@ -143,6 +143,13 @@ class Rectangle:
     def rounded(self) -> 'Rectangle':
         return Rectangle(int(round(self.x)), int(round(self.y)), int(round(self.width)), int(round(self.height)))
 
+    def get_grid_points(self) -> list[Point2]:
+        points = []
+        for x in range(int(math.ceil(self.x)), int(math.floor(self.x_end)) + 1):
+            for y in range(int(math.ceil(self.y)), int(math.floor(self.y_end)) + 1):
+                points.append(Point2((x, y)))
+        return points
+
 
 @dataclass(frozen=True)
 class Circle:
