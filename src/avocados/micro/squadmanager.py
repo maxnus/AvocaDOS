@@ -32,9 +32,7 @@ class SquadManager(BotManager):
         self._squads = {}
         self._tag_to_squad = {}
 
-    async def on_step(self, step: int) -> None:
-        t0 = perf_counter()
-
+    async def on_step_start(self, step: int) -> None:
         # Remove dead tags
         self._tag_to_squad = {tag: squad_id for tag, squad_id in self._tag_to_squad.items()
                               if tag in self.api.alive_tags}
@@ -44,6 +42,8 @@ class SquadManager(BotManager):
             if len(squad) == 0:
                 self.delete(squad)
 
+    async def on_step(self, step: int) -> None:
+        t0 = perf_counter()
         # Join squads
         for squad in self.with_task(task_type=SquadJoinTask):
             target_squad = squad.task.target

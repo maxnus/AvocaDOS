@@ -20,6 +20,7 @@ from avocados.__about__ import __version__
 from avocados.core.buildingmanager import BuildingManager
 from avocados.core.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
+from avocados.core.defensemanager import DefenseManager
 from avocados.core.historymanager import HistoryManager
 from avocados.core.intelmanager import IntelManager
 from avocados.core.miningmanager import MiningManager
@@ -136,6 +137,7 @@ class AvocaDOS:
         self.objectives = ObjectiveManager(self)
         self.squads = SquadManager(self)
         self.combat = CombatManager(self)
+        self.defense = DefenseManager(self)
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
         self.building = BuildingManager(self)
@@ -164,16 +166,11 @@ class AvocaDOS:
 
         await self.mining.add_expansion(self.map.start_location)
 
-    async def on_step(self, step: int):
+    async def on_step_start(self, step: int) -> None:
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
 
-        # print timings
         if step % 1000 == 0:
-            for manager in [self.intel, self.history, self.building, self.mining, self.squads, self.combat, self.debug]:
-                if manager is None:
-                    continue
-                for key, times in manager.timings.items():
-                    self.logger.info("{:<16s} : {:<16s}: {}", type(manager).__name__, key, times)
+            self.report_timings()
 
         await self.log.on_step(step)
 
@@ -183,19 +180,26 @@ class AvocaDOS:
                 await self.api.client.leave()
             return
 
+        # Cleanup steps / internal to manager
+        await self.mining.on_step_start(step)
+        await self.map.on_step_start(step)
+        await self.building.on_step_start(step)
+        await self.intel.on_step_start(step)
+        await self.resources.on_step_start(step)
+        await self.history.on_step_start(step)
+        await self.order.on_step_start(step)
+        await self.squads.on_step_start(step)
+
+    async def on_step(self, step: int):
+        await self.map.on_step_start(step)
+
         if self.micro_scenario is not None and self.micro_scenario.running:
             await self.micro_scenario.on_step(step)
 
         # if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
-
-        await self.map.on_step(step)
-        await self.building.on_step(step)
-        await self.intel.on_step(step)
-        await self.resources.on_step(step)
-        await self.history.on_step(step)
-        await self.order.on_step(step)
         await self.objectives.on_step(step)
+        await self.defense.on_step(step)
         await self.mining.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
@@ -484,3 +488,22 @@ class AvocaDOS:
                     mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
                     self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
                     self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
+
+    # --- Private
+
+    def report_timings(self) -> None:
+        managers = [
+            self.intel,
+            self.history,
+            self.building,
+            self.mining,
+            self.squads,
+            self.defense,
+            self.combat,
+            self.debug
+        ]
+        for manager in managers:
+            if manager is None:
+                continue
+            for key, times in manager.timings.items():
+                self.logger.info("{:<16s} : {:<16s}: {}", type(manager).__name__, key, times)

@@ -2,10 +2,12 @@ from collections import Counter
 from time import perf_counter
 from typing import TYPE_CHECKING, Optional
 
+from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.manager import BotManager
+from avocados.core.util import CallbackOnAccess
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -20,9 +22,11 @@ class MiningManager(BotManager):
         super().__init__(bot)
         self.assignments = {}
 
+    async def on_step_start(self, step: int) -> None:
+        self._check_for_dead_tags()
+
     async def on_step(self, step: int) -> None:
         t0 = perf_counter()
-        self._check_for_dead_tags()
         self._assign_idle_workers()
         self._speed_mine()
         self.timings['step'].add(t0)
@@ -76,34 +80,33 @@ class MiningManager(BotManager):
 
         return False
 
-    def _assign_worker(self, expansion: ExpansionLocation, worker: Unit, mineral: Unit) -> None:
-        if expansion not in self.assignments:
-            raise ValueError(f"Expansion {expansion} not in {self}")
-        if worker.is_carrying_minerals:
-            target_point = expansion.mining_return_targets.get(mineral.tag)
-        else:
-            target_point = expansion.mining_gather_targets.get(mineral.tag)
-        if target_point is not None:
-            self.bot.order.move(worker, target_point)
-        else:
-            self.logger.error("Missing target point for mineral {}", mineral)
-        self.assignments[expansion][worker.tag] = mineral.tag
-        self.logger.debug("Assigning {} to {}", worker, mineral)
+    def request_workers(self, location: Point2, *, number: int = 1,
+                        max_distance: Optional[float] = None) -> list[CallbackOnAccess[Unit]]:
+        workers = Units([], self.api)
+        for expansion, assignment in self.assignments.items():
+            for worker_tag in assignment:
+                worker = self.bot.workers.find_by_tag(worker_tag)
+                if worker is not None:
+                    workers.append(worker)
+                else:
+                    self.log.error("Worker with tag {} not found", worker_tag)
+        if max_distance is not None:
+            workers = workers.closer_than(max_distance, location)
+        if not workers:
+            return []
+        workers = workers.closest_n_units(location, number)
+        callbacks = [CallbackOnAccess(w, self.remove_worker, w) for w in workers]
+        return callbacks
 
-    def unassign_worker(self, unit: Unit | int) -> bool:
+    def remove_worker(self, unit: Unit | int) -> bool:
         tag = unit.tag if isinstance(unit, Unit) else unit
         for assignment in self.assignments.values():
             if tag in assignment:
+                self.logger.debug("Removing worker {}", unit)
                 assignment.pop(tag)
                 return True
         #self.logger.debug("Worker {} not found in {}", unit, self)
         return False
-
-    def get_townhall(self, expansion: ExpansionLocation) -> Optional[Unit]:
-        townhalls = self.api.townhalls
-        if not townhalls:
-            return None
-        return townhalls.closest_to(expansion.center)
 
     async def assign_miners_at_expansion(self, expansion: ExpansionLocation) -> None:
         if expansion not in self.assignments:
@@ -111,14 +114,13 @@ class MiningManager(BotManager):
 
         self.assignments[expansion].clear()
 
-        # We accept all townhalls, not just the commanders
-        townhall = self.get_townhall(expansion)
+        townhall = self._get_townhall(expansion)
         if townhall is None:
             return
 
         # TODO: long distance mining?
         if not expansion.mineral_fields:
-            self.logger.info("No minerals at {}", expansion)
+            self.log.caution("No minerals at {}", expansion)
             return
 
         # should already be sorted
@@ -159,13 +161,35 @@ class MiningManager(BotManager):
         for expansion in self.assignments:
             await self.assign_miners_at_expansion(expansion)
 
+    # --- Private
+
+    def _get_townhall(self, expansion: ExpansionLocation) -> Optional[Unit]:
+        townhalls = self.api.townhalls
+        if not townhalls:
+            return None
+        return townhalls.closest_to(expansion.center)
+
+    def _assign_worker(self, expansion: ExpansionLocation, worker: Unit, mineral: Unit) -> None:
+        if expansion not in self.assignments:
+            raise ValueError(f"Expansion {expansion} not in {self}")
+        # if worker.is_carrying_minerals:
+        #     target_point = expansion.mining_return_targets.get(mineral.tag)
+        # else:
+        #     target_point = expansion.mining_gather_targets.get(mineral.tag)
+        # if target_point is not None:
+        #     self.bot.order.move(worker, target_point)
+        # else:
+        #     self.logger.error("Missing target point for mineral {}", mineral)
+        self.assignments[expansion][worker.tag] = mineral.tag
+        self.logger.debug("Assigning {} to {}", worker, mineral)
+
     def _check_for_dead_tags(self):
         for expansion, exp_assignment in self.assignments.items():
             for worker_tag in list(exp_assignment.keys()):
                 mineral_tag = exp_assignment[worker_tag]
                 if worker_tag not in self.api.alive_tags or mineral_tag not in self.api.alive_tags:
                     self.logger.info("Empty mineral field={} or dead worker={}", mineral_tag, worker_tag)
-                    self.unassign_worker(worker_tag)
+                    self.remove_worker(worker_tag)
 
     def _assign_idle_workers(self) -> None:
         def worker_filter(unit: Unit) -> bool:
@@ -188,7 +212,7 @@ class MiningManager(BotManager):
             raise ValueError(f"unknown expansion: {expansion}")
         assignment = self.assignments[expansion]
 
-        townhall = self.get_townhall(expansion)
+        townhall = self._get_townhall(expansion)
         if townhall is None:
             self.log.error("No townhall at {}", expansion)
             return
@@ -201,7 +225,7 @@ class MiningManager(BotManager):
                 self.log.error("Invalid worker tag: {}", worker_tag)
                 continue
 
-            # Defense
+            # Defend yourself
             if worker.weapon_ready:
                 close_enemies = enemies.in_attack_range_of(worker)
                 if close_enemies:

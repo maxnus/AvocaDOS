@@ -95,7 +95,7 @@ class MapManager(BotManager):
         self.placement_grid = self.api.game_info.placement_grid.copy()
         self.logger.debug("on_start finished")
 
-    async def on_step(self, step: int) -> None:
+    async def on_step_start(self, step: int) -> None:
         # check for enemy start location
 
         # TODO: consider buildings on ramp or natural, if before ~3 min mark

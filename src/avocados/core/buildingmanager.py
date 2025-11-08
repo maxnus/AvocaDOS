@@ -27,7 +27,7 @@ class BuildingManager(BotManager):
         self.placement_grid = Field.from_pixelmap(self.api.game_info.placement_grid)
         self.reserved_grid = Field(numpy.full_like(self.placement_grid.data, True), offset=self.placement_grid.offset)
 
-    async def on_step(self, step: int) -> None:
+    async def on_step_start(self, step: int) -> None:
         self.reserved_grid.data[:] = True
 
     async def get_building_location(self, structure: UnitTypeId, *,

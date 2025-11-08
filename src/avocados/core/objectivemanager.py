@@ -59,6 +59,7 @@ class ObjectiveManager(BotManager):
         for obj in self:
             await self._dispatch_objective(obj)
 
+        # TODO: Move below to on_step_started?
         for obj in self.current.copy().values():
             if obj.status == TaskStatus.COMPLETED:
                 self.current.pop(obj.id)
@@ -149,12 +150,12 @@ class ObjectiveManager(BotManager):
 
         if self.bot.resources.can_afford(objective.utype) and worker.distance_to(target) <= 2.5:
             self.order.build(worker, objective.utype, target)
-            self.mining.unassign_worker(worker)  # TODO
+            self.mining.remove_worker(worker)  # TODO
         else:
             resource_time = self.bot.resources.can_afford_in(objective.utype, excluded_workers=worker)
             if resource_time <= travel_time:
                 self.order.move(worker, position)
-                self.mining.unassign_worker(worker)  # TODO
+                self.mining.remove_worker(worker)  # TODO
                 self.resources.reserve(objective.utype)
         objective.assigned.add(worker.tag)
         return False
@@ -199,14 +200,14 @@ class ObjectiveManager(BotManager):
                 if self.resources.can_afford(objective.utype) and worker.distance_to(wrapped_target.value) <= 2.5:
                     #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
                     self.order.build(worker, objective.utype, wrapped_target.access())
-                    self.mining.unassign_worker(worker)     # TODO
+                    self.mining.remove_worker(worker)     # TODO
                 else:
                     resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker)
                     #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)
                     if resource_time <= travel_time:
                         #self.logger.trace("{}: send it", task)
                         self.order.move(worker, wrapped_target.access())
-                        self.mining.unassign_worker(worker)  # TODO
+                        self.mining.remove_worker(worker)  # TODO
                         self.resources.reserve(objective.utype)
 
         else:

@@ -182,7 +182,7 @@ class OrderManager(BotManager):
         self.orders_prev = {}
         self.orders_last = {}
 
-    async def on_step(self, step: int) -> None:
+    async def on_step_start(self, step: int) -> None:
         # Clean orders of dead units (TODO is this really necessary? why not just keep them)
         # alive_tags = self.commander.forces.tags
         # self.orders = {tag: orders for tag, orders in self.orders.items() if tag in alive_tags}

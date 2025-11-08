@@ -29,7 +29,7 @@ class ResourceManager(BotManager):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.minerals}, {self.vespene})"
 
-    async def on_step(self, step: int) -> None:
+    async def on_step_start(self, step: int) -> None:
         self.spent_minerals = 0
         self.spent_vespene = 0
         self.reserved_minerals = 0

@@ -28,7 +28,7 @@ class IntelManager(BotManager):
         self.last_known_enemy_base = self.map.known_enemy_start_location
         self._time_last_visible = Field((self.map.width, self.map.height), offset=self.map.playable_offset)
 
-    async def on_step(self, step: int) -> None:
+    async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
         mask: ndarray = (self.visibility.data == 2)  # noqa
         self._time_last_visible.data[mask] = self.time

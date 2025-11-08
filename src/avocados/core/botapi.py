@@ -1,6 +1,7 @@
 import asyncio
 import random
 from collections import defaultdict
+from collections.abc import Callable
 from enum import Enum
 from time import perf_counter
 from typing import Optional
@@ -92,6 +93,19 @@ class BotApi(BotAI):
         await self.bot.on_unit_destroyed(unit_tag)
 
     # --- Extra utility
+
+    def get_units_with_target(self, target: Unit | Point2, *,
+                              condition: Optional[Callable[[Unit], bool]] = None) -> Units:
+        target = target.tag if isinstance(target, Unit) else target
+        def unit_filter(unit: Unit) -> bool:
+            if len(unit.orders) == 0:
+                return False
+            if unit.orders[0].target != target:
+                return False
+            return condition is None or condition(unit)
+
+        units = (self.units + self.structures)
+        return units.filter(unit_filter)
 
     def get_resource_collection_rates(self) -> tuple[float, float]:
         if self.state.game_loop < 100:

@@ -22,7 +22,7 @@ class HistoryManager(BotManager):
         self.units_last_seen = {}
         #self.enemy_units = {}
 
-    async def on_step(self, iteration: int) -> None:
+    async def on_step_start(self, iteration: int) -> None:
         t0 = perf_counter()
         # Resources
         self.resource_history.append((self.api.minerals, self.api.vespene))
