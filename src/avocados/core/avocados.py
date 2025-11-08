@@ -174,6 +174,19 @@ class AvocaDOS:
 
         await self.log.on_step(step)
 
+        # Cleanup steps / internal to manager
+        await self.mining.on_step_start(step)
+        await self.map.on_step_start(step)
+        await self.building.on_step_start(step)
+        await self.intel.on_step_start(step)
+        await self.resources.on_step_start(step)
+        await self.history.on_step_start(step)
+        await self.order.on_step_start(step)
+        await self.squads.on_step_start(step)
+
+    async def on_step(self, step: int):
+        await self.on_step_start(step)
+
         if self.leave_at is not None and self.time >= self.leave_at - 1:
             self.log.tag('GG', add_time=False)
             if self.time >= self.leave_at:

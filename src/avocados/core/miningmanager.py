@@ -102,7 +102,7 @@ class MiningManager(BotManager):
         tag = unit.tag if isinstance(unit, Unit) else unit
         for assignment in self.assignments.values():
             if tag in assignment:
-                self.logger.debug("Removing worker {}", unit)
+                #self.logger.debug("Removing worker {}", unit)
                 assignment.pop(tag)
                 return True
         #self.logger.debug("Worker {} not found in {}", unit, self)
@@ -181,7 +181,7 @@ class MiningManager(BotManager):
         # else:
         #     self.logger.error("Missing target point for mineral {}", mineral)
         self.assignments[expansion][worker.tag] = mineral.tag
-        self.logger.debug("Assigning {} to {}", worker, mineral)
+        #self.logger.debug("Assigning {} to {}", worker, mineral)
 
     def _check_for_dead_tags(self):
         for expansion, exp_assignment in self.assignments.items():
