@@ -67,7 +67,7 @@ class BuildOrderManager(BotManager):
                                                          reqs=UnitTypeId.BARRACKS)
         rax_home = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 2,
                                                              position=self.map.start_location.region_center,
-                                                             priority=0.3, deps=rax123)
+                                                             priority=0.3, deps=rax4)
 
         supply2 = obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 19), priority=0.7)
         obj.add_unit_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, deps=supply2, priority=0.4)

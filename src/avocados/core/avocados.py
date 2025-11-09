@@ -422,6 +422,13 @@ class AvocaDOS:
             if self.api.enemy_units.not_flying.closer_than(3.5, unit):
                 self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
+        for cc in self.townhalls:
+            if not cc.is_flying and self.api.all_enemy_units.closer_than(8, cc):
+                if not self.workers:
+                    self.order.ability(cc, AbilityId.LIFT)
+            elif cc.is_flying:
+                self.order.ability(cc, AbilityId.LAND)
+
         if step % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
                 if orbital.energy >= 50:

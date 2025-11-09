@@ -208,7 +208,7 @@ class MapManager(BotManager):
     def get_proxy_location(self) -> Point2:
         start_location = self.enemy_start_locations[0]
         fourth = min(start_location.expansion_order[3:5], key=lambda loc: loc.distance_to(start_location.line_third))
-        proxy =  fourth.center.towards(fourth.mineral_line_center, 3)
+        proxy =  fourth.center.towards(fourth.mineral_field_center, 3)
         #return start_location.line_third.center.towards(start_location.center, -2)
         self.logger.info("Proxy location: {}", proxy)
         return proxy

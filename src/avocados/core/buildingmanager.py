@@ -117,8 +117,8 @@ class BuildingManager(BotManager):
             self.log.error("BuildAreaSize{}", building_area.size)
             return None
 
-        if self._can_place(structure, building_area.center, clearance=clearance, include_addon=include_addon):
-            return building_area.center
+        # if self._can_place(structure, building_area.center, clearance=clearance, include_addon=include_addon):
+        #     return building_area.center
 
         footprint = self._get_footprint_shape(structure, clearance=clearance, include_addon=include_addon)
         locations = self._get_possible_locations(building_area, footprint)
