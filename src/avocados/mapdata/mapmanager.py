@@ -9,6 +9,7 @@ from sc2.position import Point2, Rect
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados.core.field import Field
 from avocados.core.manager import BotManager
 from avocados.core.geomutil import Area, Circle, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation, StartLocation
@@ -19,11 +20,13 @@ if TYPE_CHECKING:
 
 class MapManager(BotManager):
     center: Point2
+    placement_grid: Field[bool]
+    pathing_grid: Field[bool]
+    creep: Field[bool]
     base: ExpansionLocation
     expansions: list[ExpansionLocation]
     expansion_distance_matrix: ndarray
     expansion_path_distance_matrix: ndarray
-    placement_grid: PixelMap
     # Start locations
     start_location: StartLocation
     enemy_start_locations: list[StartLocation]
@@ -38,6 +41,10 @@ class MapManager(BotManager):
         return self.api.game_info.playable_area
 
     @property
+    def playable_rect(self) -> Rectangle:
+        return Rectangle.from_rect(self.api.game_info.playable_area)
+
+    @property
     def playable_mask(self) -> tuple[slice, slice]:
         return (slice(self.playable_area.x, self.playable_area.right),
                 slice(self.playable_area.y, self.playable_area.top))
@@ -49,7 +56,23 @@ class MapManager(BotManager):
 
     @property
     def playable_offset(self) -> Point2:
+        return self.bottom_left
+
+    @property
+    def bottom_left(self) -> Point2:
         return Point2((self.playable_area.x, self.playable_area.y))
+
+    @property
+    def bottom_right(self) -> Point2:
+        return Point2((self.playable_area.right, self.playable_area.y))
+
+    @property
+    def top_left(self) -> Point2:
+        return Point2((self.playable_area.x, self.playable_area.top))
+
+    @property
+    def top_right(self) -> Point2:
+        return Point2((self.playable_area.right, self.playable_area.top))
 
     @property
     def width(self) -> int:
@@ -77,10 +100,22 @@ class MapManager(BotManager):
 
     async def on_start(self) -> None:
         self.logger.debug("on_start started")
-        self.logger.info("Map={}, size={}x{}, playable={}x{}", self.api.game_info.map_name, self.width, self.height,
-                         self.playable_area.width, self.playable_area.height)
-
         self.center = self.api.game_info.map_center
+        self.placement_grid = self.create_field_from_pixelmap(self.api.game_info.placement_grid)
+        self.pathing_grid = self.create_field_from_pixelmap(self.api.game_info.pathing_grid)
+        self.creep = self.create_field_from_pixelmap(self.api.state.creep)
+        self.logger.info(
+            "Map={}, size={}x{}, playable={}, center={}, placement_grid={}, pathing_grid={}, creep={}",
+            self.api.game_info.map_name,
+            self.total_width,
+            self.total_height,
+            self.playable_area,
+            self.center,
+            self.placement_grid,
+            self.pathing_grid,
+            self.creep
+        )
+
         self.expansion_distance_matrix, self.expansion_path_distance_matrix = \
             await self._calculate_expansion_distances()
 
@@ -92,10 +127,12 @@ class MapManager(BotManager):
         self.base = self.start_location # TODO: use later in case we lose the start_base
         self.enemy_start_locations = [StartLocation(self.bot, loc) for loc in self.api.enemy_start_locations]
         self.known_enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
-        self.placement_grid = self.api.game_info.placement_grid.copy()
         self.logger.debug("on_start finished")
 
     async def on_step_start(self, step: int) -> None:
+        self.pathing_grid.data = self.api.game_info.pathing_grid.data_numpy.transpose()[self.playable_mask]
+        self.creep.data = self.api.state.creep.data_numpy.transpose()[self.playable_mask]
+
         # check for enemy start location
 
         # TODO: consider buildings on ramp or natural, if before ~3 min mark
@@ -111,6 +148,10 @@ class MapManager(BotManager):
             if len(self.enemy_start_locations) == 1:
                 self.known_enemy_start_location = self.enemy_start_locations[0]
                 self.logger.info("Enemy start location must be at {}", self.known_enemy_start_location)
+
+
+    def create_field_from_pixelmap(self, pixelmap: PixelMap) -> Field:
+        return Field(pixelmap.data_numpy.transpose()[self.playable_mask], offset=self.playable_offset)
 
     def nearest_pathable(self, point: Point2) -> Optional[Point2]:
         if self.api.in_pathing_grid(point):
@@ -168,8 +209,10 @@ class MapManager(BotManager):
     def get_proxy_location(self) -> Point2:
         start_location = self.enemy_start_locations[0]
         fourth = min(start_location.expansion_order[3:5], key=lambda loc: loc.distance_to(start_location.line_third))
-        return fourth.center
+        proxy =  fourth.center
         #return start_location.line_third.center.towards(start_location.center, -2)
+        self.logger.info("Proxy location: {}", proxy)
+        return proxy
 
     def _get_ordered_expansion(self) -> list[Point2]:
         try:
@@ -230,6 +273,7 @@ class MapManager(BotManager):
                 dist = exp1.distance_to(exp2)
                 distance_matrix[idx1, idx2] = dist
                 distance_matrix[idx2, idx1] = dist
+                # TODO: Only needed for starter bases, so we should shift towards the ramp instead?
                 p1 = exp1.towards(exp2, pathing_query_radius)
                 p2 = exp2.towards(exp1, pathing_query_radius)
                 path_dist = await self.api.client.query_pathing(p1, p2)

@@ -179,6 +179,7 @@ class CombatManager(BotManager):
             case UnitTypeId.QUEENBURROWED: return 0.55
             case UnitTypeId.QUEEN: return 0.60
             case UnitTypeId.HYDRALISKBURROWED: return 0.60
+            case UnitTypeId.RAVAGERCOCOON: return 0.52
             case UnitTypeId.RAVAGER: return 0.62
             case UnitTypeId.HYDRALISK: return 0.65
             case UnitTypeId.BANELINGCOCOON: return 0.50

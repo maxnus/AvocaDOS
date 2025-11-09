@@ -16,35 +16,25 @@ if TYPE_CHECKING:
 
 
 class IntelManager(BotManager):
-    _time_last_visible: Optional[Field[float]]
     last_known_enemy_base: Optional[ExpansionLocation]
+    visibility: Field[int]
+    _time_last_visible: Field[float]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
-        self._time_last_visible = None   # Only initialized in on_start
         self.last_known_enemy_base = None
 
     async def on_start(self) -> None:
         self.last_known_enemy_base = self.map.known_enemy_start_location
+        self.visibility = self.map.create_field_from_pixelmap(self.api.state.visibility)
         self._time_last_visible = Field((self.map.width, self.map.height), offset=self.map.playable_offset)
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
+        self.visibility.data = self.api.state.visibility.data_numpy.transpose()[self.map.playable_mask]
         mask: ndarray = (self.visibility.data == 2)  # noqa
         self._time_last_visible.data[mask] = self.time
         self.timings['step'].add(t0)
-
-        # if step % 100 == 0:
-        #     t0 = perf_counter()
-        #     p = self.get_next_scout_location()
-        #     self.log.warning("p = {}", p.center)
-        #     self.debug.sphere(p, color='RED', duration=100 / 22.4)
-        #     self.debug.line(p.center, self.map.center, color='RED', duration=100 / 22.4)
-        #     self.timings['scout'].add(t0)
-
-    @property
-    def visibility(self) -> Field:
-        return Field(self.api.state.visibility.data_numpy[self.map.playable_mask_yx].T, offset=self.map.playable_offset)
 
     def get_percentage_scouted(self) -> float:
         return numpy.sum(self.visibility.data > 0) / self.visibility.size

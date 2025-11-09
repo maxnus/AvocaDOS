@@ -4,9 +4,9 @@ import math
 import random
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable, Self
 
-from sc2.position import Point2
+from sc2.position import Point2, Rect
 from sc2.unit import Unit
 
 
@@ -81,6 +81,10 @@ class Rectangle:
         y = center.y - height / 2
         return Rectangle(x, y, width, height)
 
+    @classmethod
+    def from_rect(cls, rect: Rect) -> 'Rectangle':
+        return Rectangle(rect.x, rect.y, rect.width, rect.height)
+
     @property
     def center(self) -> Point2:
         return Point2((self.x + self.width/2, self.y + self.height/2))
@@ -134,24 +138,56 @@ class Rectangle:
     def furthest(self, points: Collection[Point2]) -> tuple[Point2, float]:
         raise NotImplementedError
 
-    def bounding_rect(self, integral: bool = False) -> 'Rectangle':
+    def bounding_rect(self, integral: bool = False) -> Self:
         if integral:
             x = int(math.floor(self.x))
             y = int(math.floor(self.y))
             width = int(math.ceil(self.x + self.width)) - x
             height = int(math.ceil(self.y + self.height)) - y
-            return Rectangle(x, y, width, height)
+            return type(self)(x, y, width, height)
         else:
             return self
 
-    def rounded(self) -> 'Rectangle':
-        return Rectangle(int(round(self.x)), int(round(self.y)), int(round(self.width)), int(round(self.height)))
+    def overlaps(self, other: Self) -> bool:
+        return not (
+            self.x_end <= other.x
+            or self.x >= other.x_end
+            or self.y_end <= other.y
+            or self.y >= other.y_end
+        )
 
-    def get_grid_points(self) -> list[Point2]:
+    def get_grid_points(self, *, flatten: bool = False) -> list[list[Point2]] | list[Point2]:
+        """All points with coordinates (*.5, *.5) inside the rectangle."""
+        points: list[list[Point2]] | list[Point2] = []
+        #for x in range(int(math.ceil(self.x - 0.5)), int(math.floor(self.x_end + 0.5))):
+        for x in range(int(self.x), int(self.x_end)):
+            column = []
+            #for y in range(int(math.ceil(self.y - 0.5)), int(math.floor(self.y_end + 0.5))):
+            for y in range(int(self.y), int(self.y_end)):
+                column.append(Point2((x + 0.5, y + 0.5)))
+            points.append(column)
+        if flatten:
+            points = [p for row in points for p in row]
+        return points
+
+    def tile(self, shape: tuple[float, float]) -> list[Point2]:
+        """Fill rectangle with instances of another rectangle, centered at the returned list of points"""
         points = []
-        for x in range(int(math.ceil(self.x)), int(math.floor(self.x_end)) + 1):
-            for y in range(int(math.ceil(self.y)), int(math.floor(self.y_end)) + 1):
-                points.append(Point2((x, y)))
+        width, height = shape
+        px = x0 = self.x + width / 2
+        py = self.y + height / 2
+        while True:
+            points.append(Point2((px, py)))
+            dx = min(self.x_end - px - width / 2, width)
+            if dx >= 0.5:
+                px += dx
+            else:
+                px = x0
+                dy = min(self.y_end - py - height / 2, height)
+                if dy >= 0.5:
+                    py += dy
+                else:
+                    break
         return points
 
 

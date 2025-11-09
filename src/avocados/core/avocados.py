@@ -154,7 +154,10 @@ class AvocaDOS:
         return f"{type(self).__name__}({__version__})"
 
     async def on_start(self) -> None:
-        self.log.tag(f"{self.name} v{__version__.replace('.', '-')} {self.api.game_info.map_name}", add_time=False)
+        version = __version__.replace('.', '-')
+        matchup = f"{str(self.api.race)[5]}v{str(self.api.enemy_race)[5]}"
+        tag = f"{self.name} v{version} {self.api.game_info.map_name} {matchup}"
+        self.log.tag(tag, add_time=False)
 
         await self.map.on_start()
         await self.building.on_start()
@@ -169,7 +172,7 @@ class AvocaDOS:
     async def on_step_start(self, step: int) -> None:
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
 
-        if step % 1000 == 0:
+        if step % 500 == 0:
             self.report_timings()
 
         await self.log.on_step(step)
@@ -500,10 +503,12 @@ class AvocaDOS:
             self.squads,
             self.defense,
             self.combat,
+            self.objectives,
             self.debug
         ]
         for manager in managers:
             if manager is None:
                 continue
-            for key, times in manager.timings.items():
-                self.logger.info("{:<16s} : {:<16s}: {}", type(manager).__name__, key, times)
+            for key, timings in manager.timings.items():
+                self.logger.info("{:<16s} : {:<24s}: {}", type(manager).__name__, key, timings)
+                timings.reset()

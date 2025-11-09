@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 
 class Timings(BotObject):
     """Per frame aggregation."""
-    max_time: Optional[float] = None
-    min_time: Optional[float] = None
+    max_time: float
     total_time: float
     steps: int
     calls: int
@@ -19,25 +18,27 @@ class Timings(BotObject):
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
-        self.min_time = None
-        self.max_time = None
+        self.reset()
+
+    def __repr__(self) -> str:
+        return (f"{type(self).__name__}(avg={self.average * 1000:.3f}ms, max={self.max * 1000:.3f}ms,"
+                f" calls={self.calls})")
+
+    def reset(self) -> None:
+        self.max_time = 0
         self.total_time = 0
         self.steps = 0
         self.calls = 0
         self._previous_step = -1
         self._time_step = 0
 
-    def __repr__(self) -> str:
-        return (f"{type(self).__name__}(avg={self.average * 1000:.3f}ms, min={self.min * 1000:.3f}ms, "
-                f"max={self.max * 1000:.3f}ms)")
-
     @property
     def average(self) -> float:
-        return self.total_time / self.steps
-
-    @property
-    def min(self) -> float:
-        return self.min_time
+        if self.steps != 0:
+            return self.total_time / self.steps
+        if self.total_time == 0:
+            return 0.0
+        return float('nan')
 
     @property
     def max(self) -> float:
@@ -52,7 +53,6 @@ class Timings(BotObject):
             self._previous_step = self.bot.step
             self.steps += 1
 
-        self.min_time = min(self._time_step, self.min_time) if self.min_time is not None else self._time_step
-        self.max_time = max(self._time_step, self.max_time) if self.max_time is not None else self._time_step
+        self.max_time = max(self._time_step, self.max_time)
         self.total_time += time
         self.calls += 1

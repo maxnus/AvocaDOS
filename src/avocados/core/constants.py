@@ -66,6 +66,35 @@ ALTERNATIVES: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
 # --- UnitTypeId sets
 
 
+MINERAL_FIELD_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.RICHMINERALFIELD,
+    UnitTypeId.RICHMINERALFIELD750,
+    UnitTypeId.MINERALFIELD,
+    UnitTypeId.MINERALFIELD450,
+    UnitTypeId.MINERALFIELD750,
+    UnitTypeId.LABMINERALFIELD,
+    UnitTypeId.LABMINERALFIELD750,
+    UnitTypeId.PURIFIERRICHMINERALFIELD,
+    UnitTypeId.PURIFIERRICHMINERALFIELD750,
+    UnitTypeId.PURIFIERMINERALFIELD,
+    UnitTypeId.PURIFIERMINERALFIELD750,
+    UnitTypeId.BATTLESTATIONMINERALFIELD,
+    UnitTypeId.BATTLESTATIONMINERALFIELD750,
+    UnitTypeId.MINERALFIELDOPAQUE,
+    UnitTypeId.MINERALFIELDOPAQUE900,
+})
+
+
+VESPENE_GEYSER_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.VESPENEGEYSER,
+    UnitTypeId.SPACEPLATFORMGEYSER,
+    UnitTypeId.RICHVESPENEGEYSER,
+    UnitTypeId.PROTOSSVESPENEGEYSER,
+    UnitTypeId.PURIFIERVESPENEGEYSER,
+    UnitTypeId.SHAKURASVESPENEGEYSER,
+})
+
+
 WORKER_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.DRONE,
     UnitTypeId.DRONEBURROWED,
@@ -180,3 +209,9 @@ ADDON_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     *TECHLAB_TYPE_IDS
 })
 
+
+ADDON_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.BARRACKS,
+    UnitTypeId.FACTORY,
+    UnitTypeId.STARPORT,
+})

@@ -9,7 +9,7 @@ from typing import Optional
 from sc2.bot_ai import BotAI
 from sc2.constants import CREATION_ABILITY_FIX
 from sc2.data import Result
-from sc2.game_data import Cost
+from sc2.game_data import Cost, UnitTypeData
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
@@ -44,6 +44,12 @@ class BotApi(BotAI):
         self.alive_tags = set() # Initialized correctly in on_start
         self.dead_tags = set()
         self.damage_received = defaultdict(float)
+
+    # --- Units
+
+    @property
+    def all_structures(self) -> Units:
+        return self.structures + self.enemy_structures
 
     # --- Callbacks
 
@@ -93,6 +99,9 @@ class BotApi(BotAI):
         await self.bot.on_unit_destroyed(unit_tag)
 
     # --- Extra utility
+
+    def get_unit_type_data(self, utype: UnitTypeId) -> Optional[UnitTypeData]:
+        return self.game_data.units.get(utype.value)
 
     def get_units_with_target(self, target: Unit | Point2, *,
                               condition: Optional[Callable[[Unit], bool]] = None) -> Units:

@@ -10,8 +10,9 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
+from avocados.core.field import Field
 from avocados.core.manager import BotManager
-from avocados.core.geomutil import Circle
+from avocados.core.geomutil import Circle, lerp
 from avocados.combat.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
@@ -32,10 +33,23 @@ class Color:
     WHITE = (255, 255, 255)
 
 
+ColorType = tuple[int, int, int] | str
+
+
 def normalize_color(color: tuple[int, int, int] | str) -> tuple[int, int, int]:
     if isinstance(color, str):
         return getattr(Color, color.upper())
     return color
+
+
+def mix_colors(color1: ColorType, color2: ColorType, factor: float) -> ColorType:
+    color1 = normalize_color(color1)
+    color2 = normalize_color(color2)
+    return (
+            int(factor * color1[0] + (1 - factor) * color2[0]),
+            int(factor * color1[1] + (1 - factor) * color2[1]),
+            int(factor * color1[2] + (1 - factor) * color2[2]),
+    )
 
 
 def get_color_for_order(order: UnitOrder) -> tuple[int, int, int]:
@@ -98,6 +112,11 @@ class DebugLayers(StrEnum):
     SQUADS = 'squads'
     EXTRA = 'extra'
     GRID = 'grid'
+    PATHING = 'pathing'
+    PLACEMENT = 'placement'
+    BLOCKING = 'blocking'
+    RESERVED = 'reserved'
+    CREEP = 'creep'
 
 
 class DebugManager(BotManager):
@@ -119,7 +138,9 @@ class DebugManager(BotManager):
         self.frame_start = None
         self.map_revealed = False
         self.enemy_control = False
-        self.show = {}
+        self.show = {
+            DebugLayers.EXTRA: True
+        }
         self.debug_items = []
 
     @property
@@ -167,6 +188,17 @@ class DebugManager(BotManager):
             self._show_combat()
         if self.show.get(DebugLayers.EXP):
             self._show_expansions()
+        if self.show.get(DebugLayers.PLACEMENT):
+            self._draw_field(self.map.placement_grid)
+        if self.show.get(DebugLayers.PATHING):
+            self._draw_field(self.map.pathing_grid)
+        if self.show.get(DebugLayers.BLOCKING):
+            self._draw_field(self.building.blocking_grid)
+        if self.show.get(DebugLayers.CREEP):
+            self._draw_field(self.map.creep)
+        if self.show.get(DebugLayers.RESERVED):
+            self._draw_field(self.building.reserved_grid)
+
         #self.damage_taken.clear()
 
         for item in reversed(self.debug_items):
@@ -220,17 +252,19 @@ class DebugManager(BotManager):
         self.client.debug_text_world(item.text, item.position, size=item.size, color=item.color)
 
     def box(self, center: Unit | Point3 | Point2, size: Optional[float] = None, *,
-            color: tuple[int, int, int] = Color.YELLOW) -> None:
-        center = self._normalize_point3(center)
+            z_offset: float = 1.0,
+            color: ColorType = Color.YELLOW) -> None:
+        center = self._normalize_point3(center, z_offset=z_offset)
+        color = normalize_color(color)
         if size is None:
             if isinstance(center, Unit):
                 if center.is_structure:
-                    size = center.footprint_radius
+                    size = 2*center.footprint_radius
                 else:
-                    size = center.radius
+                    size = 2*center.radius
             else:
-                size = 0.5
-        self.client.debug_box2_out(center, half_vertex_length=size, color=color)
+                size = 1
+        self.client.debug_box2_out(center, half_vertex_length=size/2, color=color)
 
     def sphere(self, center: Unit | Point3 | Point2 | Circle, radius: Optional[float] = None, *,
                color: tuple[int, int, int] | str = Color.YELLOW,
@@ -303,8 +337,10 @@ class DebugManager(BotManager):
             if chat_message.message.startswith('!'):
                 cmd, *args = chat_message.message.split()
 
-                if cmd == '!show' and len(args) == 2 and args[0] in list(DebugLayers) and args[1] in {'0', '1'}:
-                    self.show[args[0]] = bool(int(args[1]))
+                if cmd == '!show' and len(args) == 1 and args[0] in list(DebugLayers) :
+                    self.show[args[0]] = True
+                if cmd == '!hide' and len(args) == 1 and args[0] in list(DebugLayers):
+                    self.show[args[0]] = False
 
                 elif cmd == '!grid' and len(args) == 1 and args[0] in {'0', '1'}:
                     self.show_grid = bool(int(args[0]))
@@ -351,12 +387,6 @@ class DebugManager(BotManager):
         if isinstance(point, Point2):
             return Point3((point[0], point[1], self.api.get_terrain_z_height(point) + z_offset))
         raise TypeError(f"invalid argument: {point}")
-
-    def _show_grid(self) -> None:
-        raise NotImplementedError
-        # for x in range(0, self.map.width):
-        #     for y in range(0, self.map.height):
-        #         self.box_with_text(Point2((x, y)), f'({x:.1f}, {y:.1f})', color='GREEN')
 
     def _show_tasks(self) -> None:
         lines = [repr(task) for task in self.api.bot.objectives]
@@ -446,8 +476,8 @@ class DebugManager(BotManager):
         for idx, exp in enumerate(self.map.start_location.expansion_order, start=1):
             self.text(f"{idx} exp", exp.center, z_offset=2)
 
-        # for exp, time in self.intel.get_time_since_expansions_last_visible().items():
-        #     self.text(f"LstViz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
+        for exp, time in self.intel.get_time_since_expansions_last_visible().items():
+            self.text(f"{exp}, Viz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
 
         # for idx1, exp1 in enumerate(self.map.expansions):
         #     for idx2, exp2 in enumerate(self.map.expansions[:idx1]):
@@ -457,3 +487,52 @@ class DebugManager(BotManager):
         #         text = (f"d={self.map.expansion_distance_matrix[idx2, idx1]:.2f}, "
         #                 f"D={self.map.expansion_path_distance_matrix[idx2, idx1]:.2f}")
         #         self.line(exp2.center, exp1.center, text_start=text)
+
+    def _draw_field(self, field: Field, colormap: tuple[ColorType, ColorType] = ('Green', 'Red')) -> None:
+        view_area = self._get_camera_view_area()
+        if not view_area:
+            return
+        (x0, y0), (x1, y1) = view_area
+        color0 = normalize_color(colormap[0])
+        color1 = normalize_color(colormap[1])
+        for x in range(int(x0), int(x1)):
+            for y in range(int(y0), int(y1)):
+                point = Point2((x + 0.5, y + 0.5))
+                if point not in field:
+                    continue
+                value = field[point]
+                color = mix_colors(color0, color1, value/(field.max() or 1))
+                self.draw_tile(point, color=color)
+
+    def _show_grid(self, *, color: ColorType = 'Blue') -> None:
+        view_area = self._get_camera_view_area()
+        if not view_area:
+            return
+        (x0, y0), (x1, y1) = view_area
+        for x in range(int(x0), int(x1)):
+            for y in range(int(y0), int(y1)):
+                point = Point2((x + 0.5, y + 0.5))
+                self.draw_tile(point, color=color)
+                self.text(f"{x}, {y}", point, color=color)
+
+    def draw_tile(self, point: Point2, *, color: ColorType = 'Yellow', size=0.95) -> None:
+        self.box(point, size=size, color=color, z_offset=-size/2 + 0.05)
+
+    def _get_camera_view_area(self, *,
+                              #camera_size: tuple[float, float] = (34, 24)
+                              camera_size: tuple[float, float] = (22, 16)
+                              ) -> Optional[tuple[Point2, Point2]]:
+        """Returns the approximate bounding box of the camera view."""
+        camera_pos = self.api.state.observation_raw.player.camera
+        if not camera_pos:
+            return None
+
+        half_width_left = camera_size[0] * -0.5
+        half_width_right = camera_size[0] * 0.5
+        half_height_top = camera_size[1] * 0.5 + 4
+        half_height_bottom = camera_size[1] * -0.5 + 4
+
+        # I change the order because the map start from bottom left (0, 0) to top right (max_x, max_y)
+        mins = Point2((camera_pos.x + half_width_left, camera_pos.y + half_height_bottom))
+        maxs = Point2((camera_pos.x + half_width_right, camera_pos.y + half_height_top))
+        return mins, maxs

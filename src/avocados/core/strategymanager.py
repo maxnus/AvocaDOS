@@ -27,10 +27,9 @@ class StrategyManager(BotManager):
         if self.aggression >= 0.5:
             if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
                     and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
-                if enemy_structures := self.api.enemy_structures:
-                    enemy_townhalls = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
-                    #target = (enemy_townhalls or enemy_structures).closest_to(self.bot.army.center).position
-                    # TODO
+                # TODO
+                enemy_townhalls = self.api.enemy_structures.of_type(TOWNHALL_TYPE_IDS)
+                if enemy_townhalls:
                     target = enemy_townhalls.closest_to(self.bot.army.center).position
                 else:
                     reference_point = self.intel.last_known_enemy_base.center or self.map.center

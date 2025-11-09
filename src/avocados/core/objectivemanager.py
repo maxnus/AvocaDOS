@@ -56,6 +56,7 @@ class ObjectiveManager(BotManager):
         yield from sorted(self.current.values(), key=lambda obj: obj.priority, reverse=True)
 
     async def on_step(self, step: int) -> None:
+        t0 = perf_counter()
         for obj in self:
             await self._dispatch_objective(obj)
 
@@ -74,6 +75,7 @@ class ObjectiveManager(BotManager):
                 obj.status = TaskStatus.STARTED
                 self.current[obj.id] = obj
                 self.logger.debug("Started {}", obj)
+        self.timings['step'].add(t0)
 
     def get_status(self, objective_id: int) -> Optional[TaskStatus]:
         if objective_id in self.current:
@@ -187,9 +189,10 @@ class ObjectiveManager(BotManager):
 
             for _ in range(to_build):
                 wrapped_target = await self.building.get_building_location(objective.utype, near=objective.position,
-                                                                   max_distance=objective.max_distance)
+                                                                           max_distance=objective.max_distance)
                 #position = task.position
                 if wrapped_target is None:
+                    self.log.warning("NoLocFound_{}_{}", objective.utype, objective.position)
                     break
                 # SCV can start constructing from a distance of 2.5 away
                 worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
@@ -198,7 +201,7 @@ class ObjectiveManager(BotManager):
                 #worker = self.commander.workers.random
                 #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
                 if self.resources.can_afford(objective.utype) and worker.distance_to(wrapped_target.value) <= 2.5:
-                    #self.logger.trace("{}: ordering worker {} build {} at {}", task, worker, task.utype.name, position)
+                    self.logger.trace("{}: ordering worker {} build {} at {}", objective, worker, objective.utype.name, wrapped_target.value)
                     self.order.build(worker, objective.utype, wrapped_target.access())
                     self.mining.remove_worker(worker)     # TODO
                 else:

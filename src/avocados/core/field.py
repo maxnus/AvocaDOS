@@ -1,9 +1,14 @@
+from pathlib import Path
 from typing import Optional, Self, Any
 
 import numpy
 from numpy import ndarray
-from sc2.pixel_map import PixelMap
 from sc2.position import Point2
+
+try:
+    import matplotlib.pyplot as plt
+except (ImportError, ModuleNotFoundError):
+    plt = None
 
 from avocados.core.geomutil import Rectangle
 
@@ -18,9 +23,9 @@ class Field[T]:
         self.data = arg
         self.offset = offset or Point2((0, 0))
 
-    @classmethod
-    def from_pixelmap(cls, pixelmap: PixelMap, *, offset: Optional[Point2] = None) -> Self:
-        return cls(pixelmap.data_numpy.transpose(), offset=offset)
+    @property
+    def dtype(self) -> numpy.dtype:
+        return self.data.dtype
 
     @classmethod
     def zeros_like(cls, other: Self) -> Self:
@@ -47,22 +52,31 @@ class Field[T]:
     def max(self) -> T:
         return self.data.max()
 
+    def _point_to_indices(self, item: Point2) -> tuple[int, int]:
+        point = item - self.offset
+        return int(point[0]), int(point[1])
+
+    def _rect_to_mask(self, item: Rectangle) -> tuple[slice, slice]:
+        rect = item - self.offset
+        #return slice(int(rect.x), int(math.ceil(rect.x_end))), slice(int(rect.y), int(math.ceil(rect.y_end)))
+        return slice(int(rect.x), int(rect.x_end)), slice(int(rect.y), int(rect.y_end))
+
+    def __contains__(self, item: Point2) -> bool:
+        x, y = self._point_to_indices(item)
+        return 0 <= x < self.width and 0 <= y < self.height
+
     def __getitem__(self, item: Point2 | Rectangle) -> T | ndarray:
         if isinstance(item, Point2):
-            point = item - self.offset
-            return self.data[int(round(point.x)), int(round(point.y))]
+            return self.data[self._point_to_indices(item)]
         if isinstance(item, Rectangle):
-            rect = (item - self.offset).rounded()
-            return self.data[rect.x : rect.x_end, rect.y : rect.y_end]
+            return self.data[self._rect_to_mask(item)]
         raise TypeError(f'invalid type: {type(item)}')
 
     def __setitem__(self, item: Point2 | Rectangle, value: T | ndarray) -> None:
         if isinstance(item, Point2):
-            point = item - self.offset
-            self.data[int(round(point.x)), int(round(point.y))] = value
+            self.data[self._point_to_indices(item)] = value
         elif isinstance(item, Rectangle):
-            rect = (item - self.offset).rounded()
-            self.data[rect.x : rect.x_end, rect.y : rect.y_end] = value
+            self.data[self._rect_to_mask(item)] = value
         else:
             raise TypeError(f'invalid type: {type(item)}')
 
@@ -95,3 +109,10 @@ class Field[T]:
         if isinstance(other, (int, float)):
             return type(self)(self.data * other, offset=self.offset)
         return NotImplemented
+
+    def plot(self, path: Optional[Path] = None) -> None:
+        plt.imshow(self.data, origin="lower")
+        if path is None:
+            plt.show()
+        else:
+            plt.savefig(path)
