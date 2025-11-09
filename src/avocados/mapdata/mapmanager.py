@@ -149,7 +149,6 @@ class MapManager(BotManager):
                 self.known_enemy_start_location = self.enemy_start_locations[0]
                 self.logger.info("Enemy start location must be at {}", self.known_enemy_start_location)
 
-
     def create_field_from_pixelmap(self, pixelmap: PixelMap) -> Field:
         return Field(pixelmap.data_numpy.transpose()[self.playable_mask], offset=self.playable_offset)
 
@@ -209,7 +208,7 @@ class MapManager(BotManager):
     def get_proxy_location(self) -> Point2:
         start_location = self.enemy_start_locations[0]
         fourth = min(start_location.expansion_order[3:5], key=lambda loc: loc.distance_to(start_location.line_third))
-        proxy =  fourth.center
+        proxy =  fourth.center.towards(fourth.mineral_line_center, 3)
         #return start_location.line_third.center.towards(start_location.center, -2)
         self.logger.info("Proxy location: {}", proxy)
         return proxy
@@ -226,9 +225,9 @@ class MapManager(BotManager):
     async def get_travel_times(self, units: Units, destination: Point2, *,
                                target_distance: float = 0.0) -> list[float]:
         #distances = [d if d is not None else float('inf') for d in await self.get_travel_distances(units, destination)]
-        #distances = await self.get_travel_distances(units, destination)
+        distances = await self.get_travel_distances(units, destination)
         # Too expensive at the moment, use euclidean distance instead
-        distances = [1.4 * unit.distance_to(destination) for unit in units]
+        #distances = [1.4 * unit.distance_to(destination) for unit in units]
         times = [max(d - target_distance, 0) / (1.4 * unit.real_speed) for (unit, d) in zip(units, distances)]
         return times
 
@@ -244,6 +243,7 @@ class MapManager(BotManager):
         #self.logger.warning("query={}", query)
         distances = await self.api.client.query_pathings(query)
         #self.logger.warning("distances={}", distances)
+        distances = [d if d is not None else float('inf') for d in distances]
 
         #distances = [d if d >= 0 else None for d in distances]
         return distances

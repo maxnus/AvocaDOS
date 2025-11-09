@@ -203,11 +203,11 @@ class AvocaDOS:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
         await self.objectives.on_step(step)
         await self.defense.on_step(step)
-        await self.mining.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
         await self.strategy.on_step(step)
         await self.other(step)  # TODO: find a place for this
+        await self.mining.on_step(step)
         if self.debug:
             await self.debug.on_step(step)
 
@@ -472,14 +472,12 @@ class AvocaDOS:
     async def other(self, step: int) -> None:
         # TODO: find the right location in the code
 
-        if step % 8 == 0:
-            # TODO check units in vicinity
-            for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
-                if not self.api.enemy_units.not_flying.closer_than(5.0, unit):
-                    self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
-            for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
-                if self.api.enemy_units.not_flying.closer_than(4.0, unit):
-                    self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
+        for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
+            if not self.api.enemy_units.not_flying.closer_than(4.5, unit):
+                self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+        for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
+            if self.api.enemy_units.not_flying.closer_than(3.5, unit):
+                self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
         if step % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:

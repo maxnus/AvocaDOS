@@ -4,8 +4,9 @@ import math
 import random
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable, Self
+from typing import Any, Protocol, runtime_checkable, Self, Optional
 
+import numpy
 from sc2.position import Point2, Rect
 from sc2.unit import Unit
 
@@ -114,7 +115,7 @@ class Rectangle:
         return math.sqrt(self.width * self.height)
 
     def __contains__(self, point: Point2) -> bool:
-        return (self.x <= point.x < self.x + self.width ) and (self.y <= point.y < self.y + self.height)
+        return (self.x <= point.x < self.x_end) and (self.y <= point.y < self.y_end)
 
     def __add__(self, other: Point2) -> 'Rectangle':
         if isinstance(other, Point2):
@@ -142,11 +143,18 @@ class Rectangle:
         if integral:
             x = int(math.floor(self.x))
             y = int(math.floor(self.y))
-            width = int(math.ceil(self.x + self.width)) - x
-            height = int(math.ceil(self.y + self.height)) - y
+            width = int(math.ceil(self.x_end)) - x
+            height = int(math.ceil(self.y_end)) - y
             return type(self)(x, y, width, height)
         else:
             return self
+
+    def enclosed_rect(self) -> Self:
+        x = int(math.ceil(self.x))
+        y = int(math.ceil(self.y))
+        width = int(math.floor(self.x_end)) - x
+        height = int(math.floor(self.y_end)) - y
+        return type(self)(x, y, width, height)
 
     def overlaps(self, other: Self) -> bool:
         return not (
@@ -156,19 +164,37 @@ class Rectangle:
             or self.y >= other.y_end
         )
 
-    def get_grid_points(self, *, flatten: bool = False) -> list[list[Point2]] | list[Point2]:
+    def overlap(self, other: Self) -> Optional[Self]:
+        x = max(self.x, other.x)
+        y = max(self.y, other.y)
+        x_end = min(self.x_end, other.x_end)
+        y_end = min(self.y_end, other.y_end)
+        # No overlap
+        if x_end <= x or y_end <= y:
+            return None
+        return type(self)(x, y, x_end - x, y_end - y)
+
+    def get_grid_points(self, *,
+                        shift: tuple[float, float] = (0.5, 0.5),
+                        offset: tuple[float, float] = (0.0, 0.0)) -> numpy.ndarray:
         """All points with coordinates (*.5, *.5) inside the rectangle."""
-        points: list[list[Point2]] | list[Point2] = []
-        #for x in range(int(math.ceil(self.x - 0.5)), int(math.floor(self.x_end + 0.5))):
-        for x in range(int(self.x), int(self.x_end)):
-            column = []
-            #for y in range(int(math.ceil(self.y - 0.5)), int(math.floor(self.y_end + 0.5))):
-            for y in range(int(self.y), int(self.y_end)):
-                column.append(Point2((x + 0.5, y + 0.5)))
-            points.append(column)
-        if flatten:
-            points = [p for row in points for p in row]
-        return points
+        i0 = int(self.x + shift[0])
+        j0 = int(self.y + shift[1])
+        i1 = int(self.x_end - shift[0] + 1)
+        j1 = int(self.y_end - shift[1] + 1)
+        xs = numpy.arange(i0, i1) + shift[0] + offset[0]
+        ys = numpy.arange(j0, j1) + shift[1] + offset[1]
+        mesh = numpy.meshgrid(xs, ys, indexing='ij')
+        grid_points = numpy.stack(mesh, axis=-1)
+
+        # grid_points2 = numpy.zeros((i1-i0, j1-j0, 2))
+        # for i, x in enumerate(range(i0, i1)):
+        #     for j, y in enumerate(range(j0, j1)):
+        #         grid_points2[i, j, 0] = x + shift[0] + offset[0]
+        #         grid_points2[i, j, 1] = y + shift[1] + offset[1]
+        # assert numpy.all(grid_points == grid_points2)
+
+        return grid_points
 
     def tile(self, shape: tuple[float, float]) -> list[Point2]:
         """Fill rectangle with instances of another rectangle, centered at the returned list of points"""
@@ -189,7 +215,6 @@ class Rectangle:
                 else:
                     break
         return points
-
 
 @dataclass(frozen=True)
 class Circle:

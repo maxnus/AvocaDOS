@@ -45,17 +45,17 @@ class LogManager(BotManager):
             self._tags_sent.add(tag)
         self._tags_to_send.clear()
 
-    def caution(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = False) -> None:
-        self._raise(message, *args, level=WarningLevel.CAUTION, key=key, tag=tag)
+    def caution(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = False) -> bool:
+        return self._raise(message, *args, level=WarningLevel.CAUTION, key=key, tag=tag)
 
-    def warning(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = True) -> None:
-        self._raise(message, *args, level=WarningLevel.WARNING, key=key, tag=tag)
+    def warning(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = True) -> bool:
+        return self._raise(message, *args, level=WarningLevel.WARNING, key=key, tag=tag)
 
-    def error(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = True) -> None:
-        self._raise(message, *args, level=WarningLevel.ERROR, key=key, tag=tag)
+    def error(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = True) -> bool:
+        return self._raise(message, *args, level=WarningLevel.ERROR, key=key, tag=tag)
 
-    def critical(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = True) -> None:
-        self._raise(message, *args, level=WarningLevel.CRITICAL, key=key, tag=tag)
+    def critical(self, message: str, *args: Any, key: Optional[Hashable] = None, tag: bool = True) -> bool:
+        return self._raise(message, *args, level=WarningLevel.CRITICAL, key=key, tag=tag)
 
     def tag(self, tag: str, *, add_time: bool = True) -> None:
         if add_time:
@@ -66,7 +66,7 @@ class LogManager(BotManager):
     # --- Private
 
     def _raise(self, message: str, *args: Any, level: WarningLevel,
-               key: Optional[Hashable] = None, tag: bool = True) -> None:
+               key: Optional[Hashable] = None, tag: bool = True) -> bool:
         message = message.format(*args)
         if key is None:
             key = message
@@ -76,6 +76,8 @@ class LogManager(BotManager):
             logfunc(message)
             if tag:
                 self.tag(f"{warning_codes[level]}_{message[:80]}")
+            return True
+        return False
 
     def _get_log_function(self, level: WarningLevel) -> Callable:
         match level:

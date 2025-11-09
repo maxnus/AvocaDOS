@@ -168,7 +168,7 @@ class ObjectiveManager(BotManager):
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
         #self.logger.trace("units for {}: {}", task, units)
         if objective.position is not None:
-            units = units.closer_than(objective.max_distance, objective.position)
+            units = units.filter(lambda u: u.position in objective.position)
             #self.logger.trace("Have {} units of type {} within range of {}",
             #                  units.amount, task.utype.name, task.max_distance)
         #self.logger.trace("units for {} within {}: {}", task, task.position, units)
@@ -188,8 +188,7 @@ class ObjectiveManager(BotManager):
                 return False
 
             for _ in range(to_build):
-                wrapped_target = await self.building.get_building_location(objective.utype, near=objective.position,
-                                                                           max_distance=objective.max_distance)
+                wrapped_target = await self.building.get_building_location(objective.utype, area=objective.position)
                 #position = task.position
                 if wrapped_target is None:
                     self.log.warning("NoLocFound_{}_{}", objective.utype, objective.position)

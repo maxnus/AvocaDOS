@@ -2,6 +2,7 @@ from collections import Counter
 from time import perf_counter
 from typing import TYPE_CHECKING, Optional
 
+from sc2.ids.ability_id import AbilityId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
@@ -101,9 +102,9 @@ class MiningManager(BotManager):
     def remove_worker(self, unit: Unit | int) -> bool:
         tag = unit.tag if isinstance(unit, Unit) else unit
         for assignment in self.assignments.values():
-            if tag in assignment:
+            removed = assignment.pop(tag, None)
+            if removed:
                 #self.logger.debug("Removing worker {}", unit)
-                assignment.pop(tag)
                 return True
         #self.logger.debug("Worker {} not found in {}", unit, self)
         return False
@@ -201,7 +202,19 @@ class MiningManager(BotManager):
                 return False
             return True
         for worker in self.bot.workers.filter(worker_filter):
+            #self.logger.debug("Assigning idle worker {}", worker)
             self.add_worker(worker)
+
+    def _worker_is_working(self, worker: Unit, expected_location: Point2, *,
+                           location_tolerance: float = 1.0) -> bool:
+        if not worker.orders:
+            return False
+        order = worker.orders[0]
+        if order.ability.id not in {AbilityId.HARVEST_GATHER, AbilityId.HARVEST_RETURN, AbilityId.MOVE}:
+            return False
+        if isinstance(order.target, Point2) and order.target.distance_to(expected_location) > location_tolerance:
+            return False
+        return True
 
     def _speed_mine(self) -> None:
         for expansion in self.assignments:
@@ -256,7 +269,10 @@ class MiningManager(BotManager):
                 self.bot.order.smart(worker, target, queue=True)
 
             # Get back to work
-            elif not worker.orders or worker.orders[0].target not in {townhall, mineral_field}:
+            elif not self._worker_is_working(worker, target_point):
+                # self.logger.debug("Sending worker {} with order target {} and ability id {} back to mineral work",
+                #                   worker, worker.orders[0].target if worker.orders else None,
+                #                   worker.orders[0].ability if worker.orders else None)
                 self.bot.order.smart(worker, target)
 
             # elif worker.is_idle:

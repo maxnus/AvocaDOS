@@ -10,7 +10,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.geomutil import unique_id
+from avocados.core.geomutil import unique_id, Rectangle
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -126,8 +126,7 @@ class BuildingCountObjective(Objective):
 class UnitCountObjective(Objective):
     utype: UnitTypeId
     number: int
-    position: Optional[Point2 | Unit]
-    max_distance: int
+    position: Optional[Rectangle]
 
     def __init__(self,
                  bot: 'AvocaDOS',
@@ -138,14 +137,17 @@ class UnitCountObjective(Objective):
                  deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
-                 position: Optional[Point2] = None,
-                 distance: Optional[int] = 10,
+                 position: Optional[Point2 | Rectangle] = None,
+                 max_distance: int = 16,
                  ) -> None:
         super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
         self.number = number
+        if isinstance(position, Point2):
+            position = Rectangle.from_center(position, 2 * max_distance, 2 * max_distance)
+        if isinstance(position, Rectangle):
+            position = position.enclosed_rect()
         self.position = position
-        self.max_distance = distance
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"

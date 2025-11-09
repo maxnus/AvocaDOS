@@ -44,11 +44,11 @@ class BuildingManager(BotManager):
         self.timings['step'].add(t0)
 
     async def get_building_location(self, structure: UnitTypeId, *,
-                                    near: Optional[Point2] = None,
-                                    max_distance: int = 10) -> Optional[CallbackOnAccess[Point2 | Unit]]:
+                                    area: Optional[Rectangle] = None
+                                    ) -> Optional[CallbackOnAccess[Point2 | Unit]]:
 
         t0 = perf_counter()
-        location = await self._get_building_location(structure=structure, near=near, max_distance=max_distance)
+        location = await self._get_building_location(structure=structure, area=area)
         self.timings['get_building_location'].add(t0)
         if not location:
             return None
@@ -62,8 +62,8 @@ class BuildingManager(BotManager):
     # --- Private
 
     async def _get_building_location(self, structure: UnitTypeId, *,
-                                     near: Optional[Point2] = None,
-                                     max_distance: int = 10) -> Optional[Point2 | Unit]:
+                                     area: Optional[Rectangle] = None
+                                     ) -> Optional[Point2 | Unit]:
 
         match structure:
             case UnitTypeId.SUPPLYDEPOT:
@@ -73,21 +73,23 @@ class BuildingManager(BotManager):
                     return self.map.start_location.center.closest(ramp_positions)
                 if self._can_place(structure, self.map.start_location.ramp.depot_in_middle):
                     return self.map.start_location.ramp.depot_in_middle
-                return await self._find_placement(structure, self.map.start_location.region_center)
+                if area is None:
+                    area = Rectangle.from_center(self.map.start_location.region_center, 24, 24)
+                return await self._find_placement(structure, area)
 
             case UnitTypeId.BARRACKS:
-                if near is None:
+                if area is None:
                     ramp_position = self.map.start_location.ramp.barracks_correct_placement
                     if self._can_place(structure, ramp_position, clearance=0):
                         return ramp_position
-                    return await self._find_placement(structure, self.map.start_location.region_center)
-                else:
-                    return await self._find_placement(structure, near, max_distance=max_distance)
+                    area = Rectangle.from_center(self.map.start_location.region_center, 24, 24)
+                return await self._find_placement(structure, area)
 
             case UnitTypeId.REFINERY:
-                if near is None:
-                    near = self.map.start_location.center
-                geysers = self.api.vespene_geyser.closer_than(10.0, near).filter(lambda g: g.has_vespene)
+                if area is None:
+                    area = Rectangle.from_center(self.map.start_location.center, 10, 10)
+                geysers = (self.api.vespene_geyser.closer_than(area.characteristic_length, area.center)
+                           .filter(lambda g: g.has_vespene))
                 if not geysers:
                     return None
                 if len(geysers) == 1:
@@ -96,71 +98,82 @@ class BuildingManager(BotManager):
                                           key=lambda x: x[1], reverse=True)
                 if geysers_contents[0][1] > geysers_contents[1][1]:
                     return geysers_contents[0][0]
-                return geysers.closest_to(near)
+                return geysers.closest_to(area.center)
 
             case _:
                 self.log.error("NoImplBuildLoc{}", structure.name)
                 return None
 
     async def _find_placement(self,
-                              structure: UnitTypeId, location: Point2, *,
-                              max_distance: int = 10,
-                              clearance: Optional[int] = None,
+                              structure: UnitTypeId,
+                              area: Rectangle,
+                              *,
+                              clearance: Optional[tuple[int, ...] | int] = None,
                               include_addon: bool = True,
                               ) -> Optional[Point2]:
 
-        if self._can_place(structure, location, clearance=clearance, include_addon=include_addon):
-            return location
-        if max_distance == 0:
+        building_area = area.overlap(self.map.playable_rect).enclosed_rect()
+        if building_area.size == 0:
+            self.log.error("BuildAreaSize{}", building_area.size)
             return None
 
-        footprint = self._get_footprint(structure, location, clearance=clearance, include_addon=include_addon)
-        building_area = Rectangle.from_center(location,
-                                              2*max_distance + footprint.width,
-                                              2*max_distance + footprint.height)
+        if self._can_place(structure, building_area.center, clearance=clearance, include_addon=include_addon):
+            return building_area.center
+
+        footprint = self._get_footprint_shape(structure, clearance=clearance, include_addon=include_addon)
         locations = self._get_possible_locations(building_area, footprint)
 
         if not locations:
             return None
 
-        location = min(locations, key=lambda p: p.distance_to(location))
+        location = min(locations, key=lambda p: p.distance_to(area.center))
         if include_addon and structure in ADDON_BUILDING_TYPE_IDS:
             return location.offset(Point2((-1, 0)))
         return location
 
     def _get_footprint(self, structure: UnitTypeId, location: Point2, *,
-                       clearance: Optional[int] = None,
+                       clearance: Optional[tuple[int, ...] | int] = None,
                        include_addon: bool = True,
                        ) -> Rectangle:
-        width, height = self._get_footprint_size(structure, include_addon=include_addon)
-        if clearance is None:
-            clearance = 1 if structure in (PRODUCTION_BUILDING_TYPE_IDS | TOWNHALL_TYPE_IDS) else 0
-        if clearance:
-            width += 2 * clearance
-            height += 2 * clearance
+        width, height = self._get_footprint_shape(structure, include_addon=include_addon, clearance=clearance)
         if structure in ADDON_BUILDING_TYPE_IDS and include_addon:
             center = location.offset(Point2((1, 0)))
         else:
             center = location
+        # TODO: clearance logic
         return Rectangle.from_center(center, width, height)
 
-    def _get_footprint_size(self, structure: UnitTypeId, *, include_addon: bool = True) -> tuple[int, int]:
-        """1 (Sensor Tower), 2 (Spore), 3 (Barracks), or 5 (Nexus)"""
-        if structure == UnitTypeId.SUPPLYDEPOTLOWERED:
-            return 2, 2
-        if structure in MINERAL_FIELD_TYPE_IDS:
-            return 2, 1
-        if structure in VESPENE_GEYSER_TYPE_IDS:
-            return 3, 3
+    def _get_footprint_shape(self, structure: UnitTypeId, *, include_addon: bool = True,
+                             clearance: Optional[tuple[int, ...] | int] = None) -> tuple[int, int]:
 
-        unit_type_data = self.api.get_unit_type_data(structure)
-        if unit_type_data is None:
+        # Exceptions
+        if structure.value == UnitTypeId.SUPPLYDEPOTLOWERED.value:
+            width = height = 2
+        elif structure.value == UnitTypeId.ORBITALCOMMAND.value:
+            width = height = 5
+        elif structure in MINERAL_FIELD_TYPE_IDS:
+            width, height = (2, 1)
+        elif structure in VESPENE_GEYSER_TYPE_IDS:
+            width = height = 3
+        elif (unit_type_data := self.api.get_unit_type_data(structure)) is None:
             self.log.error("NoUnitData{}", structure)
-            return 0, 0
+            width = height = 0
+        else:
+            width = height = int(2 * unit_type_data.footprint_radius)
 
-        width = height = int(2 * unit_type_data.footprint_radius)
         if include_addon and structure in ADDON_BUILDING_TYPE_IDS:
             width += 2
+
+        if clearance is None:
+            clearance = 1 if structure in (PRODUCTION_BUILDING_TYPE_IDS | TOWNHALL_TYPE_IDS) else 0
+        if isinstance(clearance, int):
+            clearance = 4 * (clearance,)
+        if isinstance(clearance, tuple) and len(clearance) == 2:
+            clearance = 2 * (clearance[0],) + 2 * (clearance[1],)
+
+        width += clearance[0] + clearance[1]
+        height += clearance[2] + clearance[3]
+
         return width, height
 
     def _can_place(self, structure: UnitTypeId, location: Point2, *,
@@ -169,7 +182,7 @@ class BuildingManager(BotManager):
         footprint = self._get_footprint(structure, location, clearance=clearance, include_addon=include_addon)
         return self._can_place_footprint(footprint)
 
-    def _get_possible_locations(self, building_area: Rectangle, footprint: Rectangle) -> list[Point2]:
+    def _get_possible_locations(self, building_area: Rectangle, footprint: tuple[int, int]) -> list[Point2]:
         array = (
                 self.map.placement_grid[building_area]
                 & self.blocking_grid[building_area]
@@ -177,10 +190,27 @@ class BuildingManager(BotManager):
                 & numpy.invert(self.reserved_grid[building_area])
                 & numpy.invert(self.map.creep[building_area])
         ).astype(int)
-        kernel = numpy.ones((int(footprint.width), int(footprint.height)), dtype=int)
+        kernel = numpy.ones(footprint, dtype=int)
         count = convolve2d(array, kernel, mode='same')
         mask = (count == kernel.size)
-        points = numpy.asarray(building_area.get_grid_points())[mask]
+        offset = (
+            -0.5 if kernel.shape[0] % 2 == 0 else 0,
+            -0.5 if kernel.shape[1] % 2 == 0 else 0,
+        )
+        grid_points = building_area.get_grid_points(offset=offset)
+        try:
+            points = grid_points[mask, :]
+        except IndexError as exc:
+            if self.log.error("BooleanMaskIndexError"):
+                self.logger.exception(exc)
+                self.logger.error('_rect_to_mask={}', self.map.placement_grid._rect_to_mask(building_area))
+                self.logger.error("building_area={}", building_area)
+                self.logger.error("shape of array={}", array.shape)
+                self.logger.error("kernel={}", kernel)
+                self.logger.error("shape of mask={}", mask.shape)
+                self.logger.error("offset={}", offset)
+                self.logger.error("shape of grid points={}", grid_points.shape)
+            return []
         result = [Point2((float(x), float(y))) for x, y in points]
         return result
 
