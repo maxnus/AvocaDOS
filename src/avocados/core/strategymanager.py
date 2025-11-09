@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from avocados.core.geomutil import lerp
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.objective import AttackObjective, DefenseObjective
@@ -27,10 +28,11 @@ class StrategyManager(BotManager):
         if self.aggression >= 0.5:
             if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
                     and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
-                # TODO
-                enemy_townhalls = self.api.enemy_structures.of_type(TOWNHALL_TYPE_IDS)
-                if enemy_townhalls:
-                    target = enemy_townhalls.closest_to(self.bot.army.center).position
+                enemy_structures = self.api.enemy_structures
+                if self.get_late_game_score() <= 0.25:
+                    enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
+                if enemy_structures:
+                    target = enemy_structures.closest_to(self.bot.army.center).position
                 else:
                     reference_point = self.intel.last_known_enemy_base.center or self.map.center
                     targets = {exp: (time
@@ -43,3 +45,10 @@ class StrategyManager(BotManager):
         else:
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
                 self.objectives.add_defense_objective(self.map.base.region_center)
+
+    def get_late_game_score(self) -> float:
+        """0: game just started, 1: late game"""
+        # TODO
+        time_score = lerp(self.time, (0, 0), (20, 0))
+        supply_score = lerp(self.api.supply_used, (12, 0), (200, 1))
+        return (time_score + supply_score) / 2

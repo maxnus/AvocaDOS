@@ -1,6 +1,5 @@
 import math
 from collections import Counter
-from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING, Any
 import sys
 
@@ -39,31 +38,6 @@ from avocados.combat.squadmanager import SquadManager
 
 if TYPE_CHECKING:
     from avocados.core.botapi import BotApi
-
-
-@dataclass
-class Command:
-    pass
-
-
-@dataclass
-class IdleCommand(Command):
-    pass
-
-
-@dataclass
-class MoveCommand(Command):
-    target: Point2
-
-
-@dataclass
-class AttackCommand(Command):
-    target: Point2
-
-
-@dataclass
-class RetreatCommand(Command):
-    target: Point2
 
 
 LOG_FORMAT = ("<level>[{level:8}]</level>"

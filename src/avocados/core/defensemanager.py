@@ -1,6 +1,9 @@
 from typing import TYPE_CHECKING, ClassVar
 
-from avocados.core.constants import WORKER_TYPE_IDS
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.unit import Unit
+
+from avocados.core.constants import WORKER_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS, TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
@@ -9,7 +12,6 @@ if TYPE_CHECKING:
 
 class DefenseManager(BotManager):
     defense_distance: ClassVar[float] = 10.0
-    defender_per_target: ClassVar[int] = 4
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -29,7 +31,8 @@ class DefenseManager(BotManager):
                     self.order.attack(defender, enemy)
 
                 #self.logger.debug("Units already defending: {}", units_defending)
-                required_defender = self.defender_per_target - len(units_defending)
+
+                required_defender = self._workers_to_defend(enemy) - len(units_defending)
                 if required_defender <= 0:
                     continue
                 # TODO: order army units / squads
@@ -38,3 +41,18 @@ class DefenseManager(BotManager):
                 for defender in defenders:
                     #self.logger.debug("Ordering {} to defend against {}", defender.value, enemy)
                     self.order.attack(defender.access(), enemy)
+
+    def _workers_to_defend(self, target: Unit) -> int:
+        if target.type_id in WORKER_TYPE_IDS:
+            return 1
+        if target.type_id in {UnitTypeId.REAPER, UnitTypeId.ZERGLING, UnitTypeId.ADEPT}:
+            return 2
+        if target.type_id == UnitTypeId.PYLON:
+            return 4
+        if target.type_id in STATIC_DEFENSE_TYPE_IDS:
+            return 4
+        if target.type_id in {UnitTypeId.ZEALOT, UnitTypeId.STALKER}:
+            return 4
+        if target.type_id in TOWNHALL_TYPE_IDS:
+            return 6
+        return 3

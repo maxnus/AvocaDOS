@@ -46,6 +46,17 @@ class MiningManager(BotManager):
         counter = Counter(self.assignments[expansion].values())
         return counter
 
+    def get_all_workers(self) -> Units:
+        workers = []
+        for assignment in self.assignments.values():
+            for worker_tag in assignment:
+                worker = self.bot.workers.find_by_tag(worker_tag)
+                if worker is None:
+                    self.log.error("MissingWorker{}", worker_tag)
+                    continue
+                workers.append(worker)
+        return Units(workers, self.api)
+
     def get_mineral_field_split_at_expansion(self, expansion: ExpansionLocation) -> tuple[Units, Units, Units]:
         count = self.get_assigned_worker_count_at_expansion(expansion)
         empty_fields = Units([mf for mf in expansion.mineral_fields if count[mf.tag] == 0], self.api)

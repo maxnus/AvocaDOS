@@ -55,13 +55,27 @@ class ResourceManager(BotManager):
 
     def can_afford_in(self, item: UnitTypeId | UpgradeId | AbilityId | Cost, *,
                       excluded_workers: Optional[Unit | Units] = None) -> float:
+        # Should be discounted more heavily if multiple workers were assigned
         if isinstance(item, Cost):
             cost = item
         else:
             cost = self.calculate_cost(item)
+
+        if excluded_workers is not None:
+            if isinstance(excluded_workers, Unit):
+                excluded_workers = [Unit]
+
+            # TODO: Gas
+            n_excluded = len([w for w in excluded_workers if self.mining.has_worker(w)])
+            n_total = len(self.mining.get_all_workers())
+            mineral_discount_factor = 1 - (n_excluded / n_total)
+        else:
+            mineral_discount_factor = 1
+
         if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
             return 0
         mineral_rate, vespene_rate = self.api.get_resource_collection_rates()
+        mineral_rate *= mineral_discount_factor
         time = 0
         if cost.minerals > 0:
             if mineral_rate == 0:
