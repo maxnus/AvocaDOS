@@ -7,8 +7,9 @@ from time import perf_counter
 from typing import Optional
 
 from sc2.bot_ai import BotAI
-from sc2.constants import CREATION_ABILITY_FIX
-from sc2.data import Result
+from sc2.constants import CREATION_ABILITY_FIX, PROTOSS_TECH_REQUIREMENT, TERRAN_TECH_REQUIREMENT, \
+    ZERG_TECH_REQUIREMENT, EQUIVALENTS_FOR_TECH_PROGRESS
+from sc2.data import Result, Race
 from sc2.game_data import Cost, UnitTypeData
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -99,6 +100,18 @@ class BotApi(BotAI):
         await self.bot.on_unit_destroyed(unit_tag)
 
     # --- Extra utility
+
+    def get_tech_requirement(self, structure_type: UnitTypeId) -> list[UnitTypeId]:
+        race_dict = {
+            Race.Protoss: PROTOSS_TECH_REQUIREMENT,
+            Race.Terran: TERRAN_TECH_REQUIREMENT,
+            Race.Zerg: ZERG_TECH_REQUIREMENT,
+        }
+        requirement = race_dict[self.race].get(structure_type)
+        if requirement is None:
+            return []
+        equivalent = EQUIVALENTS_FOR_TECH_PROGRESS.get(requirement, [])
+        return [requirement, *equivalent]
 
     def get_unit_type_data(self, utype: UnitTypeId) -> Optional[UnitTypeData]:
         return self.game_data.units.get(utype.value)
@@ -192,10 +205,14 @@ class BotApi(BotAI):
         supply = self.game_data.units[unit.value]._proto.food_required
         return UnitCost(cost.minerals, cost.vespene, supply)
 
-    def get_remaining_construction_time(self, scv: Unit) -> float:
-        if not scv.is_constructing_scv:
-            return 0
-        building = self.get_scv_build_target(scv)
-        if not building:
-            return 0
-        return self.get_cost(building.type_id).time * (1 - building.build_progress)
+    def get_remaining_construction_time(self, scv_or_structure: Unit) -> float:
+        if scv_or_structure.type_id == UnitTypeId.SCV:
+            structure = self.get_scv_build_target(scv_or_structure)
+            if not structure:
+                return 0.0
+        elif scv_or_structure.is_structure:
+            structure = scv_or_structure
+        else:
+            raise ValueError(f"not an SCV or structure: {scv_or_structure}")
+
+        return self.get_cost(structure.type_id).time * (1 - structure.build_progress) / 22.4

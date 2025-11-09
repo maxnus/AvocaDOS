@@ -1,14 +1,14 @@
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Optional
 
 
-class CallbackOnAccess[T]:
+class WithCallback[T]:
     value: T
-    callback: Callable[[...], Any]
+    callback: Optional[Callable[[...], Any]]
     args: tuple[Any, ...]
     kwargs: dict[str, Any]
 
-    def __init__(self, value: T, callback: Callable[[...], Any], *args: Any, **kwargs: Any) -> None:
+    def __init__(self, value: T, callback: Optional[Callable[[...], Any]], *args: Any, **kwargs: Any) -> None:
         super().__init__()
         self.value = value
         self.callback = callback
@@ -18,6 +18,10 @@ class CallbackOnAccess[T]:
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.value})"
 
+    def peak(self) -> T:
+        return self.value
+
     def access(self) -> T:
-        self.callback(*self.args, **self.kwargs)
+        if self.callback is not None:
+            self.callback(*self.args, **self.kwargs)
         return self.value

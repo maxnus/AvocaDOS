@@ -162,6 +162,7 @@ TECH_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.FUSIONCORE,
     UnitTypeId.SPAWNINGPOOL,
     UnitTypeId.ROACHWARREN,
+    UnitTypeId.BANELINGNEST,
     UnitTypeId.HYDRALISKDEN,
     UnitTypeId.LURKERDEN,
     UnitTypeId.SPIRE,

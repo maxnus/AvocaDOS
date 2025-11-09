@@ -12,7 +12,7 @@ from avocados.core.constants import (PRODUCTION_BUILDING_TYPE_IDS, TOWNHALL_TYPE
 from avocados.core.field import Field
 from avocados.core.geomutil import Rectangle
 from avocados.core.manager import BotManager
-from avocados.core.util import CallbackOnAccess
+from avocados.core.util import WithCallback
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
@@ -45,7 +45,7 @@ class BuildingManager(BotManager):
 
     async def get_building_location(self, structure: UnitTypeId, *,
                                     area: Optional[Rectangle] = None
-                                    ) -> Optional[CallbackOnAccess[Point2 | Unit]]:
+                                    ) -> Optional[WithCallback[Point2 | Unit]]:
 
         t0 = perf_counter()
         location = await self._get_building_location(structure=structure, area=area)
@@ -54,7 +54,7 @@ class BuildingManager(BotManager):
             return None
 
         footprint = self._get_footprint(structure, location)
-        return CallbackOnAccess(location, self.reserve_area, footprint)
+        return WithCallback(location, self.reserve_area, footprint)
 
     def reserve_area(self, rect: Rectangle) -> None:
         self.reserved_grid[rect] = True
@@ -78,10 +78,10 @@ class BuildingManager(BotManager):
                 return await self._find_placement(structure, area)
 
             case UnitTypeId.BARRACKS:
+                ramp_position = self.map.start_location.ramp.barracks_correct_placement
+                if (area is None or ramp_position in area) and self._can_place(structure, ramp_position, clearance=0):
+                    return ramp_position
                 if area is None:
-                    ramp_position = self.map.start_location.ramp.barracks_correct_placement
-                    if self._can_place(structure, ramp_position, clearance=0):
-                        return ramp_position
                     area = Rectangle.from_center(self.map.start_location.region_center, 24, 24)
                 return await self._find_placement(structure, area)
 

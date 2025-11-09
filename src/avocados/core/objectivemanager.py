@@ -1,4 +1,3 @@
-import math
 from collections.abc import Iterator
 from time import perf_counter
 from typing import Optional, TYPE_CHECKING
@@ -6,12 +5,13 @@ from typing import Optional, TYPE_CHECKING
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
-from sc2.units import Units
 
-from avocados.core.constants import ALTERNATIVES, TRAINERS
+from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS
 from avocados.core.manager import BotManager
-from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements, ObjectiveDependencies,
-                                     BuildingCountObjective, UnitCountObjective, ResearchObjective, AttackObjective, DefenseObjective)
+from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements,
+                                     ObjectiveDependencies,
+                                     UnitObjective, ResearchObjective, AttackObjective,
+                                     DefenseObjective, ConstructionObjective)
 from avocados.core.geomutil import squared_distance, get_best_score
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
@@ -34,8 +34,12 @@ class ObjectiveManager(BotManager):
         self.future[objective.id] = objective
         return objective.id
 
-    def add_unit_count_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
-        objective = UnitCountObjective(self.bot, utype, number, **kwargs)
+    def add_construction_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
+        objective = ConstructionObjective(self.bot, utype, number, **kwargs)
+        return self.add(objective)
+
+    def add_unit_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
+        objective = UnitObjective(self.bot, utype, number, **kwargs)
         return self.add(objective)
 
     def add_attack_objective(self, target: Point2, strength: float = 100, **kwargs) -> int:
@@ -118,51 +122,75 @@ class ObjectiveManager(BotManager):
         return self._dependencies_fulfilled(objective.deps) and self._requirements_fulfilled(objective.reqs)
 
     async def _dispatch_objective(self, objective: Objective) -> bool:
-        t0 = perf_counter()
-        if isinstance(objective, UnitCountObjective):
-            completed = await self._on_unit_count_objective(objective)
+        if isinstance(objective, UnitObjective):
+            completed = await self._on_unit_objective(objective)
+        elif isinstance(objective, ConstructionObjective):
+            completed = await self._on_construction_objective(objective)
         elif isinstance(objective, ResearchObjective):
             completed = self._on_research_objective(objective)
         elif isinstance(objective, (AttackObjective, DefenseObjective)):
             completed = self._on_squad_objective(objective)
         else:
-            self.logger.error("Not implemented: {}", objective)
+            self.log.error("ObjectiveNotImplemented-{}", objective)
             completed = False
-        #if (time_ms := 1000 * (perf_counter() - t0)) > 5:
-        #    self.logger.warning("{} took {:.3f} ms", task, time_ms)
         if completed:
             objective.mark_complete()
         return completed
 
-    async def _on_build_objective(self, objective: BuildingCountObjective) -> bool:
-        assigned = self.bot.units.tags_in(objective.assigned)
-        if assigned:
+    async def _on_construction_objective(self, objective: ConstructionObjective) -> bool:
+        utype = ALTERNATIVES.get(objective.utype, objective.utype)
+        units = self.bot.forces(utype).ready
+
+        if objective.position is not None:
+            units = units.filter(lambda u: u.position in objective.position)
+        if units.amount >= objective.number:
+            return True
+
+        pending = int(self.api.already_pending(objective.utype))
+        to_build = objective.number - units.amount - pending
+
+        trainer_utype = TRAINERS.get(objective.utype)
+        if trainer_utype is None:
+            self.log.error("MissingTrainer{}", objective.utype)
             return False
 
-        target = await self.building.get_building_location(objective.utype, near=objective.position,
-                                                           max_distance=int(objective.max_distance))
-        if target is None:
-            return False
-        position = target if isinstance(target, Point2) else target.position
-
-        # SCV can start constructing from a distance of 2.5 away
-        worker, travel_time = await self.bot.pick_worker(position, target_distance=2.5)
-        if not worker:
+        if trainer_utype not in WORKER_TYPE_IDS:
+            self.log.error("TrainerNotWorker{}", objective.utype)
             return False
 
-        if self.bot.resources.can_afford(objective.utype) and worker.distance_to(target) <= 2.5:
-            self.order.build(worker, objective.utype, target)
-            self.mining.remove_worker(worker)  # TODO
-        else:
-            resource_time = self.bot.resources.can_afford_in(objective.utype, excluded_workers=worker)
-            if resource_time <= travel_time:
-                self.order.move(worker, position)
-                self.mining.remove_worker(worker)  # TODO
-                self.resources.reserve(objective.utype)
-        objective.assigned.add(worker.tag)
+        time_for_tech = self.bot.time_until_tech(objective.utype)
+        #self.logger.debug("Time for tech: {}", time_for_tech)
+        if time_for_tech >= 60.0:
+            return False
+
+        for _ in range(to_build):
+            wrapped_target = await self.building.get_building_location(objective.utype, area=objective.position)
+            #position = task.position
+            if wrapped_target is None:
+                self.log.warning("NoLocFound_{}_{}", objective.utype, objective.position)
+                break
+            # SCV can start constructing from a distance of 2.5 away
+            worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
+            if not worker:
+                break
+            #worker = self.commander.workers.random
+            #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
+            if (time_for_tech == 0
+                    and self.resources.can_afford(objective.utype)
+                    and worker.value.distance_to(wrapped_target.value) <= 2.5):
+                self.logger.trace("{}: ordering worker {} build {} at {}", objective, worker, objective.utype.name, wrapped_target.value)
+                self.order.build(worker.access(), objective.utype, wrapped_target.access())
+            elif time_for_tech <= travel_time:
+                resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker.value)
+                #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)
+                if resource_time <= travel_time:
+                    #self.logger.trace("{}: send it", task)
+                    self.order.move(worker.access(), wrapped_target.access())
+                    self.resources.reserve(objective.utype)
+
         return False
 
-    async def _on_unit_count_objective(self, objective: UnitCountObjective) -> bool:
+    async def _on_unit_objective(self, objective: UnitObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
         units = self.bot.forces(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
@@ -182,45 +210,16 @@ class ObjectiveManager(BotManager):
         if trainer_utype is None:
             self.logger.error("No trainer for {}", objective.utype)
 
-        if trainer_utype == UnitTypeId.SCV:
-            if self.api.tech_requirement_progress(objective.utype) < 1:
-                #self.logger.debug("Tech requirements for {} not fulfilled", task.utype)
-                return False
-
-            for _ in range(to_build):
-                wrapped_target = await self.building.get_building_location(objective.utype, area=objective.position)
-                #position = task.position
-                if wrapped_target is None:
-                    self.log.warning("NoLocFound_{}_{}", objective.utype, objective.position)
-                    break
-                # SCV can start constructing from a distance of 2.5 away
-                worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
-                if not worker:
-                    break
-                #worker = self.commander.workers.random
-                #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-                if self.resources.can_afford(objective.utype) and worker.distance_to(wrapped_target.value) <= 2.5:
-                    self.logger.trace("{}: ordering worker {} build {} at {}", objective, worker, objective.utype.name, wrapped_target.value)
-                    self.order.build(worker, objective.utype, wrapped_target.access())
-                    self.mining.remove_worker(worker)     # TODO
-                else:
-                    resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker)
-                    #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)
-                    if resource_time <= travel_time:
-                        #self.logger.trace("{}: send it", task)
-                        self.order.move(worker, wrapped_target.access())
-                        self.mining.remove_worker(worker)  # TODO
-                        self.resources.reserve(objective.utype)
-
-        else:
-            for _ in range(to_build):
-                trainer = self.bot.pick_trainer(objective.utype)
-                if trainer is None:
-                    break
-                if self.resources.can_afford(objective.utype):
-                    self.order.train(trainer, objective.utype)
-                else:
-                    self.resources.reserve(objective.utype)
+        for _ in range(to_build):
+            trainer = self.bot.pick_trainer(objective.utype)
+            if trainer is None:
+                break
+            time_for_tech = self.bot.time_until_tech(objective.utype)
+            time_for_resources = self.resources.can_afford_in(objective.utype)
+            if time_for_tech == 0 and time_for_resources == 0:
+                self.order.train(trainer, objective.utype)
+            elif time_for_tech <= time_for_resources:
+                self.resources.reserve(objective.utype)
         return False
 
     def _on_research_objective(self, objective: ResearchObjective) -> bool:

@@ -66,9 +66,12 @@ class ResourceManager(BotManager):
                 excluded_workers = [Unit]
 
             # TODO: Gas
-            n_excluded = len([w for w in excluded_workers if self.mining.has_worker(w)])
             n_total = len(self.mining.get_all_workers())
-            mineral_discount_factor = 1 - (n_excluded / n_total)
+            if n_total > 0:
+                n_excluded = len([w for w in excluded_workers if self.mining.has_worker(w)])
+                mineral_discount_factor = 1 - (n_excluded / n_total)
+            else:
+                mineral_discount_factor = 0
         else:
             mineral_discount_factor = 1
 

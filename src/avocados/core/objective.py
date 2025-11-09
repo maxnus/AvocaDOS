@@ -96,34 +96,40 @@ class Objective(BotObject, ABC):
         return copied_task
 
 
-class BuildingCountObjective(Objective):
+class ConstructionObjective(Objective):
     utype: UnitTypeId
     number: int
-    position: Point2
-    max_distance: float
+    position: Optional[Rectangle]
+    max_workers: int
 
     def __init__(self,
                  bot: 'AvocaDOS',
                  utype: UnitTypeId,
                  number: int = 1,
+                 max_workers: Optional[int] = None,
                  *,
                  reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
+                 deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
-                 position: Optional[Point2] = None,
-                 max_distance: Optional[float] = 5,
+                 position: Optional[Point2 | Rectangle] = None,
+                 max_distance: int = 16,
                  ) -> None:
         super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
         self.utype = utype
+        self.number = number
+        if isinstance(position, Point2):
+            position = Rectangle.from_center(position, 2 * max_distance, 2 * max_distance)
+        if isinstance(position, Rectangle):
+            position = position.enclosed_rect()
         self.position = position
-        self.max_distance = max_distance
+        self.max_workers = max_workers or number
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
 
 
-class UnitCountObjective(Objective):
+class UnitObjective(Objective):
     utype: UnitTypeId
     number: int
     position: Optional[Rectangle]

@@ -26,6 +26,7 @@ from avocados.core.miningmanager import MiningManager
 from avocados.core.strategymanager import StrategyManager
 from avocados.core.unitutil import get_unit_type_counts
 from avocados.core.logmanager import LogManager
+from avocados.core.util import WithCallback
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
@@ -147,7 +148,7 @@ class AvocaDOS:
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
 
         if step % 500 == 0:
-            self.report_timings()
+            self._report_timings()
 
         await self.log.on_step(step)
 
@@ -251,44 +252,6 @@ class AvocaDOS:
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.forces)
 
-    # --- Utility
-
-    def intercept_unit(self, unit: Unit, target: Unit, *,
-                       max_intercept_distance: float = 10.0) -> Point2:
-        """TODO: friendly units"""
-        d = target.position - unit.position
-        dsq = dot(d, d)
-        # if dsq > 200:
-        #     # Far away, don't try to intercept
-        #     return target.position
-
-        v = self.api.get_unit_velocity_vector(target)
-        if v is None:
-            self.logger.debug("No target velocity")
-            return target.position
-        s = 1.4 * unit.real_speed
-        vsq = dot(v, v)
-        ssq = s * s
-        denominator = vsq - ssq
-        if abs(denominator) < 1e-8:
-            self.logger.debug("Linear case")
-            # TODO: linear case
-            return target.position
-
-        dv = dot(d, v)
-        disc = dv*dv - denominator * dsq
-        if disc < 0:
-            self.logger.debug("No real solution")
-            # no real solution
-            return target.position
-        sqrt = math.sqrt(disc)
-        tau1 = (-dv + sqrt) / denominator
-        tau2 = (-dv - sqrt) / denominator
-        tau = min(tau1, tau2)
-        intercept = target.position + tau * v
-        self.logger.debug("{} intercepting {} at {}", unit.position, target.position, intercept)
-        return intercept
-
     # --- Pick unit
 
     async def pick_workers(self, location: Point2 | Unit | LineSegment, *,
@@ -299,7 +262,7 @@ class AvocaDOS:
                            include_constructing: bool = True,
                            construction_time_discount: float = 0.7,
                            carrying_resource_penalty: float = 1.5,
-                           ) -> list[tuple[Unit, float]]:
+                           ) -> list[tuple[WithCallback[Unit], float]]:
 
         def worker_filter(worker: Unit) -> bool:
             if self.order.has_order(worker):
@@ -340,14 +303,20 @@ class AvocaDOS:
 
         #result = heapq.nsmallest(number, workers_and_dist.items(), key=lambda item: item[1])
         result = sorted(workers_and_dist.items(), key=lambda x: x[1])[:number]
-        return result
+        with_callbacks = [
+            (WithCallback(worker, self.mining.remove_worker if self.mining.has_worker(worker) else None, worker),
+             distance) for worker, distance in result
+        ]
+        return with_callbacks
 
-    async def pick_worker(self, location: Point2 | Unit, *,
+    async def pick_worker(self,
+                          location: Point2 | Unit, *,
                           target_distance: float = 0.0,
                           include_moving: bool = True,
                           include_collecting: bool = True,
                           include_constructing: bool = True,
-                          construction_time_discount: float = 0.7) -> tuple[Optional[Unit], Optional[float]]:
+                          construction_time_discount: float = 0.7
+                          ) -> tuple[Optional[WithCallback[Unit]], Optional[float]]:
         workers = await self.pick_workers(location=location, number=1,
                                           target_distance=target_distance,
                                           include_moving=include_moving,
@@ -464,9 +433,60 @@ class AvocaDOS:
                     self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
                     self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
 
+    # --- Utility
+
+    def time_until_tech(self, structure_type: UnitTypeId) -> float:
+        requirements = self.api.get_tech_requirement(structure_type)
+        if not requirements:
+            return 0
+        for req in requirements:
+            if self.structures(req).ready:
+                return 0
+        remaining_time = float('inf')
+        for req in requirements:
+            for structure in self.structures(req):
+                remaining_time = min(self.api.get_remaining_construction_time(structure), remaining_time)
+        return remaining_time
+
+    def intercept_unit(self, unit: Unit, target: Unit, *,
+                       max_intercept_distance: float = 10.0) -> Point2:
+        """TODO: friendly units"""
+        d = target.position - unit.position
+        dsq = dot(d, d)
+        # if dsq > 200:
+        #     # Far away, don't try to intercept
+        #     return target.position
+
+        v = self.api.get_unit_velocity_vector(target)
+        if v is None:
+            self.logger.debug("No target velocity")
+            return target.position
+        s = 1.4 * unit.real_speed
+        vsq = dot(v, v)
+        ssq = s * s
+        denominator = vsq - ssq
+        if abs(denominator) < 1e-8:
+            self.logger.debug("Linear case")
+            # TODO: linear case
+            return target.position
+
+        dv = dot(d, v)
+        disc = dv*dv - denominator * dsq
+        if disc < 0:
+            self.logger.debug("No real solution")
+            # no real solution
+            return target.position
+        sqrt = math.sqrt(disc)
+        tau1 = (-dv + sqrt) / denominator
+        tau2 = (-dv - sqrt) / denominator
+        tau = min(tau1, tau2)
+        intercept = target.position + tau * v
+        self.logger.debug("{} intercepting {} at {}", unit.position, target.position, intercept)
+        return intercept
+
     # --- Private
 
-    def report_timings(self) -> None:
+    def _report_timings(self) -> None:
         managers = [
             self.intel,
             self.history,
