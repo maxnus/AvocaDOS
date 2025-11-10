@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
@@ -13,6 +14,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.unitutil import UnitCost
+from avocados.geometry.util import dot
 
 if TYPE_CHECKING:
     from avocados import BotApi
@@ -141,3 +143,52 @@ class ApiExtensions:
             raise ValueError(f"not an SCV or structure: {scv_or_structure}")
 
         return self.get_cost(structure.type_id).time * (1 - structure.build_progress) * 22.4
+
+    def time_until_tech(self, structure_type: UnitTypeId) -> float:
+        requirements = self.get_tech_requirement(structure_type)
+        if not requirements:
+            return 0
+        for req in requirements:
+            if self.api.structures(req).ready:
+                return 0
+        remaining_time = float('inf')
+        for req in requirements:
+            for structure in self.api.structures(req):
+                remaining_time = min(self.get_remaining_construction_time(structure), remaining_time)
+        return remaining_time
+
+    def intercept_unit(self, unit: Unit, target: Unit, *,
+                       max_intercept_distance: float = 10.0) -> Point2:
+        """TODO: friendly units"""
+        d = target.position - unit.position
+        dsq = dot(d, d)
+        # if dsq > 200:
+        #     # Far away, don't try to intercept
+        #     return target.position
+
+        v = self.get_unit_velocity_vector(target)
+        if v is None:
+            #self.logger.debug("No target velocity")
+            return target.position
+        s = 1.4 * unit.real_speed
+        vsq = dot(v, v)
+        ssq = s * s
+        denominator = vsq - ssq
+        if abs(denominator) < 1e-8:
+            #self.logger.debug("Linear case")
+            # TODO: linear case
+            return target.position
+
+        dv = dot(d, v)
+        disc = dv*dv - denominator * dsq
+        if disc < 0:
+            #self.logger.debug("No real solution")
+            # no real solution
+            return target.position
+        sqrt = math.sqrt(disc)
+        tau1 = (-dv + sqrt) / denominator
+        tau2 = (-dv - sqrt) / denominator
+        tau = min(tau1, tau2)
+        intercept = target.position + tau * v
+        #self.logger.debug("{} intercepting {} at {}", unit.position, target.position, intercept)
+        return intercept

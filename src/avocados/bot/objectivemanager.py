@@ -160,7 +160,7 @@ class ObjectiveManager(BotManager):
             self.log.error("TrainerNotWorker{}", objective.utype)
             return False
 
-        time_for_tech = self.bot.time_until_tech(objective.utype)
+        time_for_tech = self.ext.time_until_tech(objective.utype)
         #self.logger.debug("Time for tech: {}", time_for_tech)
         if time_for_tech >= 60.0:
             return False
@@ -216,7 +216,7 @@ class ObjectiveManager(BotManager):
             trainer = self.bot.pick_trainer(objective.utype)
             if trainer is None:
                 break
-            time_for_tech = self.bot.time_until_tech(objective.utype)
+            time_for_tech = self.ext.time_until_tech(objective.utype)
             time_for_resources = self.resources.can_afford_in(objective.utype)
             if time_for_tech == 0 and time_for_resources == 0:
                 self.order.train(trainer, objective.utype)

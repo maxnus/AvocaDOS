@@ -117,6 +117,7 @@ class DebugLayers(StrEnum):
     BLOCKING = 'blocking'
     RESERVED = 'reserved'
     CREEP = 'creep'
+    HEIGHT = 'height'
 
 
 class DebugManager(BotManager):
@@ -198,6 +199,8 @@ class DebugManager(BotManager):
             self._draw_field(self.map.creep)
         if self.show.get(DebugLayers.RESERVED):
             self._draw_field(self.building.reserved_grid)
+        if self.show.get(DebugLayers.HEIGHT):
+            self._draw_field(self.map.terrain_height, with_text=True, text_format=".2f")
 
         #self.damage_taken.clear()
 
@@ -494,7 +497,11 @@ class DebugManager(BotManager):
         #                 f"D={self.map.expansion_path_distance_matrix[idx2, idx1]:.2f}")
         #         self.line(exp2.center, exp1.center, text_start=text)
 
-    def _draw_field(self, field: Field, colormap: tuple[ColorType, ColorType] = ('Green', 'Red')) -> None:
+    def _draw_field(self, field: Field, *,
+                    colormap: tuple[ColorType, ColorType] = ('Green', 'Red'),
+                    with_text: bool = False,
+                    text_format: str = ".2f"
+                    ) -> None:
         view_area = self._get_camera_view_area()
         if not view_area:
             return
@@ -508,7 +515,7 @@ class DebugManager(BotManager):
                     continue
                 value = field[point]
                 color = mix_colors(color0, color1, value/(field.max() or 1))
-                self.draw_tile(point, color=color)
+                self.draw_tile(point, color=color, text=f"{value:{text_format}}" if with_text else None)
 
     def _show_grid(self, *, color: ColorType = 'Blue') -> None:
         view_area = self._get_camera_view_area()
@@ -521,8 +528,10 @@ class DebugManager(BotManager):
                 self.draw_tile(point, color=color)
                 self.text(f"{x}, {y}", point, color=color)
 
-    def draw_tile(self, point: Point2, *, color: ColorType = 'Yellow', size=0.95) -> None:
+    def draw_tile(self, point: Point2, *, color: ColorType = 'Yellow', size=0.95, text: Optional[str] = None) -> None:
         self.box(point, size=size, color=color, z_offset=-size/2 + 0.05)
+        if text:
+            self.text(text, point, color=color)
 
     def _get_camera_view_area(self, *,
                               #camera_size: tuple[float, float] = (34, 24)

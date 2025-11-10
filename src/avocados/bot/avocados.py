@@ -438,7 +438,7 @@ class AvocaDOS:
                 if not self.workers:
                     self.order.ability(cc, AbilityId.LIFT)
             elif cc.is_flying:
-                self.order.ability(cc, AbilityId.LAND)
+                self.order.ability(cc, AbilityId.LAND, self.map.start_location.center)
 
         if step % 8 == 0:
             for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
@@ -450,57 +450,6 @@ class AvocaDOS:
                     mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
                     self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
                     self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
-
-    # --- Utility
-
-    def time_until_tech(self, structure_type: UnitTypeId) -> float:
-        requirements = self.ext.get_tech_requirement(structure_type)
-        if not requirements:
-            return 0
-        for req in requirements:
-            if self.structures(req).ready:
-                return 0
-        remaining_time = float('inf')
-        for req in requirements:
-            for structure in self.structures(req):
-                remaining_time = min(self.ext.get_remaining_construction_time(structure), remaining_time)
-        return remaining_time
-
-    def intercept_unit(self, unit: Unit, target: Unit, *,
-                       max_intercept_distance: float = 10.0) -> Point2:
-        """TODO: friendly units"""
-        d = target.position - unit.position
-        dsq = dot(d, d)
-        # if dsq > 200:
-        #     # Far away, don't try to intercept
-        #     return target.position
-
-        v = self.ext.get_unit_velocity_vector(target)
-        if v is None:
-            self.logger.debug("No target velocity")
-            return target.position
-        s = 1.4 * unit.real_speed
-        vsq = dot(v, v)
-        ssq = s * s
-        denominator = vsq - ssq
-        if abs(denominator) < 1e-8:
-            self.logger.debug("Linear case")
-            # TODO: linear case
-            return target.position
-
-        dv = dot(d, v)
-        disc = dv*dv - denominator * dsq
-        if disc < 0:
-            self.logger.debug("No real solution")
-            # no real solution
-            return target.position
-        sqrt = math.sqrt(disc)
-        tau1 = (-dv + sqrt) / denominator
-        tau2 = (-dv - sqrt) / denominator
-        tau = min(tau1, tau2)
-        intercept = target.position + tau * v
-        self.logger.debug("{} intercepting {} at {}", unit.position, target.position, intercept)
-        return intercept
 
     # --- Private
 

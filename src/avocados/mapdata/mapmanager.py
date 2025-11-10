@@ -23,6 +23,7 @@ class MapManager(BotManager):
     placement_grid: Field[bool]
     pathing_grid: Field[bool]
     creep: Field[bool]
+    terrain_height: Field[int]
     base: ExpansionLocation
     expansions: list[ExpansionLocation]
     expansion_distance_matrix: ndarray
@@ -101,9 +102,13 @@ class MapManager(BotManager):
     async def on_start(self) -> None:
         self.logger.debug("on_start started")
         self.center = self.api.game_info.map_center
+
+        # Fields
         self.placement_grid = self.create_field_from_pixelmap(self.api.game_info.placement_grid)
         self.pathing_grid = self.create_field_from_pixelmap(self.api.game_info.pathing_grid)
         self.creep = self.create_field_from_pixelmap(self.api.state.creep)
+        self.terrain_height = self.create_field_from_pixelmap(self.api.game_info.terrain_height)
+
         self.logger.info(
             "Map={}, size={}x{}, playable={}, center={}, placement_grid={}, pathing_grid={}, creep={}",
             self.api.game_info.map_name,
