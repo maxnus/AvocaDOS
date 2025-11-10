@@ -5,10 +5,12 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
+from avocados.geometry.region import Region
 from avocados.geometry.util import get_circle_intersections, Circle, Rectangle
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
+
 
 GATHER_RADIUS = 1.325
 RETURN_RADIUS = 3.125 # CC = 2.75, SCV = 0.375 (TODO: are other races the same?)
@@ -17,6 +19,7 @@ MINERAL_LINE_CENTER_DISTANCE = 4.5
 
 class ExpansionLocation(BotObject):
     center: Point2
+    terrain_height: int
     region_center: Point2
     mineral_fields_tags: set[int]
     vespene_geyser_tags: set[int]
@@ -28,6 +31,8 @@ class ExpansionLocation(BotObject):
     def __init__(self, bot: 'AvocaDOS', location: Point2) -> None:
         super().__init__(bot)
         self.center = location
+        self.terrain_height = self.map.terrain_height[self.center]
+
         self.mineral_fields_tags = (self.api.mineral_field.closer_than(8, self.center)
                                     .sorted_by_distance_to(self.center).tags)
         self.vespene_geyser_tags = (self.api.vespene_geyser.closer_than(8, self.center)
@@ -57,6 +62,9 @@ class ExpansionLocation(BotObject):
             self.mineral_field_center = None
             self.mineral_line_center = None
             self.region_center = self.center
+
+    def __repr__(self) -> str:
+        return f"ExpLoc({self.center})"
 
     @property
     def index(self) -> int:
@@ -102,6 +110,7 @@ class StartLocation(ExpansionLocation):
     _line_third: Optional[ExpansionLocation]
     _triangle_third: Optional[ExpansionLocation]
     _expansion_order: Optional[list[ExpansionLocation]]
+    _region: Region
 
     def __init__(self, bot: 'AvocaDOS', location: Point2) -> None:
         super().__init__(bot, location)
@@ -110,12 +119,18 @@ class StartLocation(ExpansionLocation):
         self._line_third = None
         self._triangle_third = None
         self._expansion_order = None
+        self._region = self.map.floodfill(self.center, lambda p: self.map.terrain_height[p] == self.terrain_height,
+                                          max_distance=32)
 
     @property
     def ramp(self) -> Ramp:
         if self._ramp is None:
             self._ramp = min(self.api.game_info.map_ramps, key=lambda r: r.top_center.distance_to(self.center))
         return self._ramp
+
+    @property
+    def region(self) -> Region:
+        return self._region
 
     @property
     def natural(self) -> ExpansionLocation:

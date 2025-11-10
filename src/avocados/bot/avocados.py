@@ -139,6 +139,7 @@ class AvocaDOS:
         self.log.tag(tag, add_time=False)
 
         await self.map.on_start()
+        await self.mining.on_start()
         await self.building.on_start()
         await self.intel.on_start()
         await self.build.on_start()
@@ -146,15 +147,11 @@ class AvocaDOS:
         if self.micro_scenario is not None:
             await self.micro_scenario.on_start()
 
-        await self.mining.add_expansion(self.map.start_location)
-
     async def on_step_start(self, step: int) -> None:
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
-
+        await self.log.on_step(step)
         if step % 500 == 0:
             self._report_timings()
-
-        await self.log.on_step(step)
 
         # Cleanup steps / internal to manager
         await self.mining.on_step_start(step)

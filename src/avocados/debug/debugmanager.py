@@ -12,6 +12,7 @@ from sc2.unit import Unit, UnitOrder
 
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
+from avocados.geometry.region import Region
 from avocados.geometry.util import Circle
 from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
@@ -106,6 +107,7 @@ class DebugWorldText:
 class DebugLayers(StrEnum):
     LOG = 'log'
     EXP = 'exp'
+    EXP_DIST = 'expdist'
     COMBAT = 'combat'
     TASKS = 'tasks'
     ORDERS = 'orders'
@@ -189,6 +191,8 @@ class DebugManager(BotManager):
             self._show_combat()
         if self.show.get(DebugLayers.EXP):
             self._show_expansions()
+        if self.show.get(DebugLayers.EXP_DIST):
+            self._show_expansion_distances()
         if self.show.get(DebugLayers.PLACEMENT):
             self._draw_field(self.map.placement_grid)
         if self.show.get(DebugLayers.PATHING):
@@ -200,7 +204,7 @@ class DebugManager(BotManager):
         if self.show.get(DebugLayers.RESERVED):
             self._draw_field(self.building.reserved_grid)
         if self.show.get(DebugLayers.HEIGHT):
-            self._draw_field(self.map.terrain_height, with_text=True, text_format=".2f")
+            self._draw_field(self.map.terrain_height, with_text=True, text_format=".0f")
 
         #self.damage_taken.clear()
 
@@ -472,30 +476,23 @@ class DebugManager(BotManager):
                          f", max={max_step:.1f})", position=(0.73, 0.71), color=color)
 
     def _show_expansions(self) -> None:
-        for exp in self.map.expansions:
-            self.sphere(exp.center, color=Color.GREEN)
-            self.sphere(exp.mineral_field_center, color=Color.YELLOW)
-            self.sphere(exp.mineral_line_center, color=Color.RED)
+        self.text("NAT", self.map.start_location.natural.center)
+        self.text("LINE", self.map.start_location.line_third.center)
+        self.text("TRIA", self.map.start_location.triangle_third.center)
+        for idx, exp in enumerate(self.map.start_location.expansion_order, start=1):
+            self.text(f"{idx} exp", exp.center, z_offset=2)
+        for exp, time in self.intel.get_time_since_expansions_last_visible().items():
+            self.text(f"{exp}, Viz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
 
-        #     self.sphere_with_text(exp.center, repr(exp))
-
-        # self.text("NAT", self.map.start_location.natural.center)
-        # self.text("LINE", self.map.start_location.line_third.center)
-        # self.text("TRIANGLE", self.map.start_location.triangle_third.center)
-        # for idx, exp in enumerate(self.map.start_location.expansion_order, start=1):
-        #     self.text(f"{idx} exp", exp.center, z_offset=2)
-        #
-        # for exp, time in self.intel.get_time_since_expansions_last_visible().items():
-        #     self.text(f"{exp}, Viz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
-
-        # for idx1, exp1 in enumerate(self.map.expansions):
-        #     for idx2, exp2 in enumerate(self.map.expansions[:idx1]):
-        #         text = (f"d={self.map.expansion_distance_matrix[idx1, idx2]:.2f}, "
-        #                 f"D={self.map.expansion_path_distance_matrix[idx1, idx2]:.2f}")
-        #         self.line(exp1.center, exp2.center, text_start=text)
-        #         text = (f"d={self.map.expansion_distance_matrix[idx2, idx1]:.2f}, "
-        #                 f"D={self.map.expansion_path_distance_matrix[idx2, idx1]:.2f}")
-        #         self.line(exp2.center, exp1.center, text_start=text)
+    def _show_expansion_distances(self) -> None:
+        for idx1, exp1 in enumerate(self.map.expansions):
+            for idx2, exp2 in enumerate(self.map.expansions[:idx1]):
+                text = (f"d={self.map.expansion_distance_matrix[idx1, idx2]:.2f}, "
+                        f"D={self.map.expansion_path_distance_matrix[idx1, idx2]:.2f}")
+                self.line(exp1.center, exp2.center, text_start=text)
+                text = (f"d={self.map.expansion_distance_matrix[idx2, idx1]:.2f}, "
+                        f"D={self.map.expansion_path_distance_matrix[idx2, idx1]:.2f}")
+                self.line(exp2.center, exp1.center, text_start=text)
 
     def _draw_field(self, field: Field, *,
                     colormap: tuple[ColorType, ColorType] = ('Green', 'Red'),
@@ -516,6 +513,10 @@ class DebugManager(BotManager):
                 value = field[point]
                 color = mix_colors(color0, color1, value/(field.max() or 1))
                 self.draw_tile(point, color=color, text=f"{value:{text_format}}" if with_text else None)
+
+    def _draw_region(self, region: Region, *, color: ColorType = Color.YELLOW) -> None:
+        for point in region:
+            self.draw_tile(point, color=color)
 
     def _show_grid(self, *, color: ColorType = 'Blue') -> None:
         view_area = self._get_camera_view_area()

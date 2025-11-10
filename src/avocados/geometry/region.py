@@ -1,5 +1,6 @@
 import random
-from typing import TYPE_CHECKING
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Optional
 
 from sc2.position import Point2
 
@@ -13,9 +14,9 @@ if TYPE_CHECKING:
 class Region(BotObject):
     points: set[Point2]
 
-    def __init__(self, bot: 'AvocaDOS'):
+    def __init__(self, bot: 'AvocaDOS', points: Optional[set[Point2]] = None):
         super().__init__(bot)
-        self.points = set()
+        self.points = points or set()
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(size={self.size})"
@@ -33,6 +34,9 @@ class Region(BotObject):
 
     def __contains__(self, point: Point2) -> bool:
         return point in self.points
+
+    def __iter__(self) -> Iterator[Point2]:
+        yield from self.points
 
     def random(self) -> Point2:
         return random.choice(list(self.points))

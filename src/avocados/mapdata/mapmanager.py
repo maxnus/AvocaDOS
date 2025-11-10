@@ -11,6 +11,7 @@ from sc2.units import Units
 
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
+from avocados.geometry.region import Region
 from avocados.geometry.util import Area, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation, StartLocation
 
@@ -24,7 +25,7 @@ class MapManager(BotManager):
     pathing_grid: Field[bool]
     creep: Field[bool]
     terrain_height: Field[int]
-    base: ExpansionLocation
+    base: StartLocation
     expansions: list[ExpansionLocation]
     expansion_distance_matrix: ndarray
     expansion_path_distance_matrix: ndarray
@@ -265,6 +266,28 @@ class MapManager(BotManager):
         distance = max(distance - target_distance, 0)
         speed = 1.4 * unit.real_speed
         return distance / speed
+
+    def floodfill(self, start: Point2, predicate: Callable[[Point2], bool], *,
+                  max_distance: Optional[float] = None,
+                  in_placement_grid: bool = True) -> Region:
+        points: set[Point2] = set()
+        queue: list[Point2] = [start]
+        while queue:
+            point = queue.pop()
+            if point not in self.playable_rect:
+                continue
+            if point in points:
+                continue
+            if in_placement_grid and not self.map.placement_grid[point]:
+                continue
+            if max_distance is not None and point.distance_to(start) > max_distance:
+                continue
+            if predicate(point):
+                points.add(point)
+                queue += [Point2((point.x + dx, point.y + dy))
+                          for dx in [-1, 0, 1] for dy in [-1, 0, 1]
+                          if not (dx == 0 and dy == 0)]
+        return Region(self.bot, points)
 
     # --- Private
 
