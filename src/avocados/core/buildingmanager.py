@@ -225,7 +225,7 @@ class BuildingManager(BotManager):
 
     def _update_blocking_grid(self) -> None:
         self.blocking_grid.data[:] = self.resource_blocking_grid.data
-        for structure in self.api.all_structures:
+        for structure in self.api.all_structures.not_flying:
             footprint = self._get_footprint(structure.type_id, structure.position)
             self.blocking_grid[footprint] = False
 

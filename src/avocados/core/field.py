@@ -59,19 +59,10 @@ class Field[T]:
     def _rect_to_mask(self, item: Rectangle) -> tuple[slice, slice]:
         rect = item - self.offset
         #return slice(int(rect.x), int(math.ceil(rect.x_end))), slice(int(rect.y), int(math.ceil(rect.y_end)))
-        x0 = int(rect.x)
-        y0 = int(rect.y)
-        x1 = int(rect.x_end)
-        y1 = int(rect.y_end)
-        if x0 < 0:
-            raise ValueError(f"x0 cannot be negative: {x0}")
-        if y0 < 0:
-            raise ValueError(f"y0 cannot be negative: {y0}")
-        if x1 < 0:
-            raise ValueError(f"x1 cannot be negative: {x1}")
-        if y1 < 0:
-            raise ValueError(f"y1 cannot be negative: {y1}")
-
+        x0 = max(int(rect.x), 0)
+        y0 = max(int(rect.y), 0)
+        x1 = max(int(rect.x_end), 0)
+        y1 = max(int(rect.y_end), 0)
         mask = slice(x0, x1), slice(y0, y1)
         #return slice(int(rect.x + 0.5), int(rect.x_end + 0.5)), slice(int(rect.y + 0.5), int(rect.y_end + 0.5))
         return mask

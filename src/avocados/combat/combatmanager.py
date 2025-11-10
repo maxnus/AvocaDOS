@@ -195,6 +195,7 @@ class CombatManager(BotManager):
             case UnitTypeId.PROBE: return 0.50
             case UnitTypeId.ZEALOT: return 0.55
             case UnitTypeId.PHOENIX: return 0.55
+            case UnitTypeId.ARCHON: return 0.57
             case UnitTypeId.STALKER: return 0.60
             case UnitTypeId.VOIDRAY: return 0.65
             case UnitTypeId.SENTRY:
@@ -399,6 +400,13 @@ class CombatManager(BotManager):
                     squad_attack_priorities: dict[Unit, float],
                     squad_target_priority: float,
                     squad_target: Optional[Unit]) -> bool:
+
+        # if squad_target and isinstance(squad.task, (SquadAttackTask, SquadDefendTask, SquadRetreatTask)):
+        #     task_target = squad.task.target.center
+        #     squad_target_is_closer = (squad_target.distance_to_squared(task_target)
+        #                               <= unit.distance_to_squared(task_target))
+        # else:
+        #     squad_target_is_closer = True
 
         # --- Offense
         weapon_ready = self.weapon_ready(unit)

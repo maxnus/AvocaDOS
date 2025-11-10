@@ -76,6 +76,9 @@ class Rectangle:
     width: float
     height: float
 
+    def __repr__(self) -> str:
+        return f"Rect({self.x}, {self.y}, {self.width}, {self.height})"
+
     @classmethod
     def from_center(cls, center: Point2, width: float, height: float) -> 'Rectangle':
         x = center.x - width / 2
