@@ -7,7 +7,7 @@ from avocados.core.constants import WORKER_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS, TO
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class DefenseManager(BotManager):

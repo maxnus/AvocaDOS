@@ -9,7 +9,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.apiextensions import ApiExtensions
-from avocados.core.avocados import AvocaDOS
+from avocados.bot.avocados import AvocaDOS
 
 
 class BotApi(BotAI):

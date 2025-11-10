@@ -13,7 +13,7 @@ from avocados.core.unitutil import normalize_tags
 from avocados.combat.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 MAX_SQUAD_SIZE = 24

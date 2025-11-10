@@ -5,7 +5,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class BuildOrderManager(BotManager):

@@ -15,7 +15,7 @@ from avocados.geometry.util import Area, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation, StartLocation
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class MapManager(BotManager):

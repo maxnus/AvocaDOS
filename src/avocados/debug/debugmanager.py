@@ -16,7 +16,7 @@ from avocados.geometry.util import Circle
 from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class Color:

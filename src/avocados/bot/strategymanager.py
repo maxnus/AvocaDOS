@@ -1,13 +1,12 @@
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from avocados.core.util import two_point_lerp
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS
-from avocados.core.objective import AttackObjective, DefenseObjective
+from avocados.bot.objective import AttackObjective, DefenseObjective
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 # class StrategyState(StrEnum):

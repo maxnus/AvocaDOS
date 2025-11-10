@@ -18,7 +18,7 @@ from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, Squad
 from avocados.combat.weapons import Weapons
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class CombatManager(BotManager):

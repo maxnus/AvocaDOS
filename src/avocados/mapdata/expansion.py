@@ -8,7 +8,7 @@ from avocados.core.botobject import BotObject
 from avocados.geometry.util import get_circle_intersections, Circle, Rectangle
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 GATHER_RADIUS = 1.325
 RETURN_RADIUS = 3.125 # CC = 2.75, SCV = 0.375 (TODO: are other races the same?)

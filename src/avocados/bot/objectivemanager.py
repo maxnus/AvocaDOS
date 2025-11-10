@@ -8,15 +8,15 @@ from sc2.position import Point2
 
 from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS
 from avocados.core.manager import BotManager
-from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements,
-                                     ObjectiveDependencies,
-                                     UnitObjective, ResearchObjective, AttackObjective,
-                                     DefenseObjective, ConstructionObjective)
+from avocados.bot.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements,
+                                    ObjectiveDependencies,
+                                    UnitObjective, ResearchObjective, AttackObjective,
+                                    DefenseObjective, ConstructionObjective)
 from avocados.geometry.util import squared_distance, get_best_score
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
 if TYPE_CHECKING:
-    from .avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class ObjectiveManager(BotManager):

@@ -10,7 +10,7 @@ from sc2.units import Units
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class ResourceManager(BotManager):

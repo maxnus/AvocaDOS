@@ -13,7 +13,7 @@ from avocados.core.botobject import BotObject
 from avocados.geometry.util import unique_id, Rectangle
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class TaskStatus(Enum):

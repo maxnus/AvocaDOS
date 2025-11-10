@@ -8,18 +8,18 @@ from avocados.core.apiextensions import ApiExtensions
 from avocados.geometry.util import unique_id
 
 if TYPE_CHECKING:
-    from avocados.core.buildingmanager import BuildingManager
+    from avocados.bot.buildingmanager import BuildingManager
     from avocados.core.logmanager import LogManager
     from avocados.core.botapi import BotApi
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
     from avocados.mapdata import MapManager
     from avocados.debug.debugmanager import DebugManager
-    from avocados.core.historymanager import HistoryManager
-    from avocados.core.intelmanager import IntelManager
-    from avocados.core.ordermanager import OrderManager
-    from avocados.core.miningmanager import MiningManager
-    from avocados.core.resourcemanager import ResourceManager
-    from avocados.core.objectivemanager import ObjectiveManager
+    from avocados.bot.historymanager import HistoryManager
+    from avocados.bot.intelmanager import IntelManager
+    from avocados.bot.ordermanager import OrderManager
+    from avocados.bot.miningmanager import MiningManager
+    from avocados.bot.resourcemanager import ResourceManager
+    from avocados.bot.objectivemanager import ObjectiveManager
     from avocados.combat.squadmanager import SquadManager
     from avocados.combat.combatmanager import CombatManager
 

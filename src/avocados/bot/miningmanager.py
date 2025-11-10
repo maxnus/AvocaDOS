@@ -12,7 +12,7 @@ from avocados.core.util import WithCallback
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class MiningManager(BotManager):

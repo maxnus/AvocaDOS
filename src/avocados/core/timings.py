@@ -1,10 +1,10 @@
 from time import perf_counter
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from avocados.core.botobject import BotObject
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class Timings(BotObject):

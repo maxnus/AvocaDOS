@@ -4,7 +4,7 @@ from typing import Any, Optional, TYPE_CHECKING
 from avocados.core.botobject import BotObject
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 def lerp(x, /, *points: tuple[float, float]) -> float:

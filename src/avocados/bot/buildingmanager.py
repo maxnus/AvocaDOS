@@ -15,7 +15,7 @@ from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class BuildingManager(BotManager):

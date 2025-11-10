@@ -12,7 +12,7 @@ from avocados.core.unitutil import UnitCost
 from avocados.combat.squad import Squad
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 @dataclass

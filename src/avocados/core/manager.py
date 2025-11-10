@@ -6,7 +6,7 @@ from avocados.core.botobject import BotObject
 from avocados.core.timings import Timings
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class BotManager(BotObject, ABC):

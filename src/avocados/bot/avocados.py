@@ -17,23 +17,23 @@ from sc2.units import Units
 
 from avocados.__about__ import __version__
 from avocados.core.apiextensions import ApiExtensions
-from avocados.core.buildingmanager import BuildingManager
-from avocados.core.buildordermanager import BuildOrderManager
+from avocados.bot.buildingmanager import BuildingManager
+from avocados.bot.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
-from avocados.core.defensemanager import DefenseManager
-from avocados.core.historymanager import HistoryManager
-from avocados.core.intelmanager import IntelManager
-from avocados.core.miningmanager import MiningManager
-from avocados.core.strategymanager import StrategyManager
+from avocados.bot.defensemanager import DefenseManager
+from avocados.bot.historymanager import HistoryManager
+from avocados.bot.intelmanager import IntelManager
+from avocados.bot.miningmanager import MiningManager
+from avocados.bot.strategymanager import StrategyManager
 from avocados.core.unitutil import get_unit_type_counts
 from avocados.core.logmanager import LogManager
 from avocados.core.util import WithCallback
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
-from avocados.core.ordermanager import Order, OrderManager
-from avocados.core.resourcemanager import ResourceManager
-from avocados.core.objectivemanager import ObjectiveManager
+from avocados.bot.ordermanager import Order, OrderManager
+from avocados.bot.resourcemanager import ResourceManager
+from avocados.bot.objectivemanager import ObjectiveManager
 from avocados.geometry.util import LineSegment, get_best_score, dot
 from avocados.combat.combatmanager import CombatManager
 from avocados.combat.squadmanager import SquadManager

@@ -6,7 +6,7 @@ from sc2.unit import Unit
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
-    from avocados.core.avocados import AvocaDOS
+    from avocados.bot.avocados import AvocaDOS
 
 
 class HistoryManager(BotManager):
