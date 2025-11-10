@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from avocados.bot.miningmanager import MiningManager
     from avocados.bot.resourcemanager import ResourceManager
     from avocados.bot.objectivemanager import ObjectiveManager
+    from avocados.bot.taunts import TauntManager
     from avocados.combat.squadmanager import SquadManager
     from avocados.combat.combatmanager import CombatManager
 
@@ -119,3 +120,7 @@ class BotObject(ABC):
     @property
     def combat(self) -> 'CombatManager':
         return self.bot.combat
+
+    @property
+    def taunt(self) -> 'TauntManager':
+        return self.bot.taunt

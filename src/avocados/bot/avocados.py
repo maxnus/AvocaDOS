@@ -16,6 +16,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.__about__ import __version__
+from avocados.bot.taunts import TauntManager
 from avocados.core.apiextensions import ApiExtensions
 from avocados.bot.buildingmanager import BuildingManager
 from avocados.bot.buildordermanager import BuildOrderManager
@@ -65,6 +66,7 @@ class AvocaDOS:
     history: HistoryManager
     building: BuildingManager
     strategy: StrategyManager
+    taunt: TauntManager
     debug: Optional[DebugManager]
     micro_scenario: Optional[MicroScenarioManager]
     leave_at: Optional[float]
@@ -117,6 +119,7 @@ class AvocaDOS:
         self.mining = MiningManager(self)
         self.history = HistoryManager(self)
         self.building = BuildingManager(self)
+        self.taunt = TauntManager(self)
         self.strategy = StrategyManager(self)
         self.debug = DebugManager(self) if (debug or micro_scenario) else None
         if micro_scenario is not None:
@@ -186,6 +189,9 @@ class AvocaDOS:
         await self.mining.on_step(step)
         if self.debug:
             await self.debug.on_step(step)
+
+        if step % 8 == 0:
+            await self.taunt.on_step(step)
 
     async def on_end(self, game_result: Result) -> None:
         self.logger.info("Game result: {}", game_result)

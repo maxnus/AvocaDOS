@@ -361,6 +361,7 @@ class CombatManager(BotManager):
 
         if squad_target_priority >= self.attack_priority_threshold:
             squad.set_status(SquadStatus.COMBAT)
+            self.taunt.taunt()
         else:
             if isinstance(squad.task, (SquadAttackTask, SquadDefendTask, SquadRetreatTask)):
                 # TODO: all units?

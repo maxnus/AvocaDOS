@@ -5,11 +5,6 @@ import numpy
 from numpy import ndarray
 from sc2.position import Point2
 
-try:
-    import matplotlib.pyplot as plt
-except (ImportError, ModuleNotFoundError):
-    plt = None
-
 from avocados.geometry.util import Rectangle
 
 
@@ -117,6 +112,7 @@ class Field[T]:
         return NotImplemented
 
     def plot(self, path: Optional[Path] = None) -> None:
+        import matplotlib.pyplot as plt
         plt.imshow(self.data, origin="lower")
         if path is None:
             plt.show()
