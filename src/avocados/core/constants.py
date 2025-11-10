@@ -170,6 +170,7 @@ TECH_BUILDING_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.ULTRALISKCAVERN,
     UnitTypeId.CYBERNETICSCORE,
     UnitTypeId.TWILIGHTCOUNCIL,
+    UnitTypeId.TEMPLARARCHIVE,
     UnitTypeId.DARKSHRINE,
     UnitTypeId.ROBOTICSBAY,
     UnitTypeId.FLEETBEACON

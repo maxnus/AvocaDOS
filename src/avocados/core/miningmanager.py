@@ -211,8 +211,8 @@ class MiningManager(BotManager):
                 return False
             return True
         for worker in self.bot.workers.filter(worker_filter):
-            self.logger.debug("Assigning idle worker {}", worker)
-            self.add_worker(worker)
+            if self.add_worker(worker):
+                self.logger.debug("Assigning idle worker {}", worker)
 
     def _worker_is_working(self, worker: Unit, expected_location: Point2, *,
                            location_tolerance: float = 1.0) -> bool:

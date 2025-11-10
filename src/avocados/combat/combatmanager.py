@@ -344,7 +344,6 @@ class CombatManager(BotManager):
 
         if squad_attack_priorities:
             squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
-            squad.set_status(SquadStatus.COMBAT)
             # TODO DEBUG
             # if self.debug:
             #     for unit, priority in squad_attack_priorities.items():
@@ -355,10 +354,13 @@ class CombatManager(BotManager):
             #         else:
             #             color = 'GREEN'
             #         self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
-
         else:
             squad_target = None
             squad_target_priority = 0
+
+        if squad_target_priority >= self.attack_priority_threshold:
+            squad.set_status(SquadStatus.COMBAT)
+        else:
             if isinstance(squad.task, (SquadAttackTask, SquadDefendTask, SquadRetreatTask)):
                 # TODO: all units?
                 if sum(unit.position in squad.task.target for unit in squad.units) >= max(0.75 * len(squad), 1):
