@@ -9,9 +9,9 @@ from sc2.position import Point2, Rect
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.field import Field
+from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
-from avocados.core.geomutil import Area, Circle, Rectangle
+from avocados.geometry.util import Area, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation, StartLocation
 
 if TYPE_CHECKING:

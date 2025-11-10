@@ -10,9 +10,9 @@ if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
-class StrategyState(StrEnum):
-    ATTACK = "Attack"
-    DEFEND = "Defend"
+# class StrategyState(StrEnum):
+#     ATTACK = "Attack"
+#     DEFEND = "Defend"
 
 
 class StrategyManager(BotManager):

@@ -10,10 +10,10 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
-from avocados.core.field import Field
+from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
-from avocados.core.geomutil import Circle
-from avocados.combat.squad import SquadTask, SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
+from avocados.geometry.util import Circle
+from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

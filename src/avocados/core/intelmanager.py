@@ -4,11 +4,10 @@ from typing import TYPE_CHECKING, Optional
 import numpy
 from numpy import ndarray
 from sc2.position import Point2
-from scipy.ndimage import gaussian_filter, distance_transform_edt
 
 from avocados.core.manager import BotManager
-from avocados.core.field import Field
-from avocados.core.geomutil import Circle, Rectangle
+from avocados.geometry.field import Field
+from avocados.geometry.util import Rectangle
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:

@@ -5,7 +5,7 @@ from sc2.position import Point2
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.geomutil import get_circle_intersections, Circle, Rectangle
+from avocados.geometry.util import get_circle_intersections, Circle, Rectangle
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

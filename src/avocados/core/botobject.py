@@ -5,7 +5,7 @@ from loguru._logger import Logger
 from sc2.game_state import GameState
 
 from avocados.core.apiextensions import ApiExtensions
-from avocados.core.geomutil import unique_id
+from avocados.geometry.util import unique_id
 
 if TYPE_CHECKING:
     from avocados.core.buildingmanager import BuildingManager

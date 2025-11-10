@@ -12,7 +12,7 @@ from avocados.core.objective import (Objective, TaskStatus, TaskRequirementType,
                                      ObjectiveDependencies,
                                      UnitObjective, ResearchObjective, AttackObjective,
                                      DefenseObjective, ConstructionObjective)
-from avocados.core.geomutil import squared_distance, get_best_score
+from avocados.geometry.util import squared_distance, get_best_score
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
 if TYPE_CHECKING:

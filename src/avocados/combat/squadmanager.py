@@ -8,7 +8,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.manager import BotManager
-from avocados.core.geomutil import squared_distance, Circle
+from avocados.geometry.util import squared_distance, Circle
 from avocados.core.unitutil import normalize_tags
 from avocados.combat.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
 

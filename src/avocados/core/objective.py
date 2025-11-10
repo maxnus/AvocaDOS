@@ -1,5 +1,5 @@
 import copy
-from abc import ABC, abstractmethod
+from abc import ABC
 from enum import Enum, StrEnum
 from typing import Optional, Self, TYPE_CHECKING
 
@@ -10,7 +10,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.core.geomutil import unique_id, Rectangle
+from avocados.geometry.util import unique_id, Rectangle
 
 if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS

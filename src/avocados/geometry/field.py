@@ -10,7 +10,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     plt = None
 
-from avocados.core.geomutil import Rectangle
+from avocados.geometry.util import Rectangle
 
 
 class Field[T]:

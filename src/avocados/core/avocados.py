@@ -34,7 +34,7 @@ from avocados.mapdata.mapmanager import MapManager
 from avocados.core.ordermanager import Order, OrderManager
 from avocados.core.resourcemanager import ResourceManager
 from avocados.core.objectivemanager import ObjectiveManager
-from avocados.core.geomutil import LineSegment, get_best_score, dot
+from avocados.geometry.util import LineSegment, get_best_score, dot
 from avocados.combat.combatmanager import CombatManager
 from avocados.combat.squadmanager import SquadManager
 

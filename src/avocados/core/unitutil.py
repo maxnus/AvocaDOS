@@ -9,7 +9,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.geomutil import squared_distance
+from avocados.geometry.util import squared_distance
 
 
 def normalize_tags(unit: Unit | int | Units | set[int]) -> set[int]:

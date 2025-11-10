@@ -9,8 +9,8 @@ from scipy.signal import convolve2d
 
 from avocados.core.constants import (PRODUCTION_BUILDING_TYPE_IDS, TOWNHALL_TYPE_IDS, MINERAL_FIELD_TYPE_IDS,
                                      VESPENE_GEYSER_TYPE_IDS, ADDON_BUILDING_TYPE_IDS, GAS_TYPE_IDS)
-from avocados.core.field import Field
-from avocados.core.geomutil import Rectangle
+from avocados.geometry.field import Field
+from avocados.geometry.util import Rectangle
 from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
 

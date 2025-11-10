@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Optional, Protocol, runtime_checkable, Any
 
-from sc2.cache import property_cache_once_per_frame
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -12,8 +11,7 @@ from sc2.units import Units
 
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
-from avocados.core.geomutil import Area, Circle, squared_distance
-
+from avocados.geometry.util import Area, Circle
 
 COMBAT_LEASH = 4.0
 MOVE_LEASH = 2.0
