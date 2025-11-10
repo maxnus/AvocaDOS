@@ -335,17 +335,3 @@ class LineSegment:
         q = self.start + t * segment
         distance = point.distance_to(q)
         return distance
-
-
-def lerp(x, /, *points: tuple[float, float]) -> float:
-    # Flat extrapolation
-    if x <= points[0][0]:
-        return points[0][1]
-    if x > points[-1][0]:
-        return points[-1][1]
-    # LERP
-    for (x1, y1), (x2, y2) in zip(points, points[1:]):
-        if x <= x2:
-            r = (x2 - x) / (x2 - x1)
-            return r * y1 + (1 - r) * y2
-    raise ValueError

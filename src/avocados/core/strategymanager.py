@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from avocados.core.geomutil import lerp
+from avocados.core.util import two_point_lerp
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.objective import AttackObjective, DefenseObjective
@@ -51,6 +51,6 @@ class StrategyManager(BotManager):
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""
         # TODO
-        time_score = lerp(self.time, (0, 0), (20, 0))
-        supply_score = lerp(self.api.supply_used, (12, 0), (200, 1))
+        time_score = two_point_lerp(self.time, 0, 20)
+        supply_score = two_point_lerp(self.api.supply_used, 12, 200)
         return (time_score + supply_score) / 2

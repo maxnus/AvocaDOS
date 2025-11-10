@@ -11,7 +11,8 @@ from sc2.units import Units
 from avocados.core.manager import BotManager
 from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS, \
     UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
-from avocados.core.geomutil import lerp, squared_distance
+from avocados.core.util import lerp
+from avocados.core.geomutil import squared_distance
 from avocados.core.unitutil import get_closest_sq_distance
 from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
 from avocados.combat.weapons import Weapons

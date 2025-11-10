@@ -7,6 +7,30 @@ if TYPE_CHECKING:
     from avocados.core.avocados import AvocaDOS
 
 
+def lerp(x, /, *points: tuple[float, float]) -> float:
+    # Flat extrapolation
+    if x <= points[0][0]:
+        return points[0][1]
+    if x > points[-1][0]:
+        return points[-1][1]
+    # LERP
+    for (x1, y1), (x2, y2) in zip(points, points[1:]):
+        if x <= x2:
+            r = (x2 - x) / (x2 - x1)
+            return r * y1 + (1 - r) * y2
+    raise ValueError
+
+
+def two_point_lerp(value: float, lower: float, upper: float, *,
+                   lower_value: float = 0, upper_value: float= 1) -> float:
+    if value <= lower:
+        return lower_value
+    if value >= upper:
+        return upper_value
+    p = (upper - value) / (upper - lower)
+    return p * lower_value + (1 - p) * upper_value
+
+
 class WithCallback[T]:
     value: T
     callback: Optional[Callable[[...], Any]]
