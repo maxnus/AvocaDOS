@@ -31,6 +31,7 @@ class ObjectiveManager(BotManager):
         self.future = objectives or {}
 
     def add(self, objective: Objective) -> int:
+        self.logger.info("Adding new objective: {}", objective)
         self.future[objective.id] = objective
         return objective.id
 

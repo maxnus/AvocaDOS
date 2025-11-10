@@ -29,7 +29,9 @@ class StrategyManager(BotManager):
             if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
                     and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
                 enemy_structures = self.api.enemy_structures
-                if self.get_late_game_score() <= 0.25:
+                late_game_score = self.get_late_game_score()
+                self.logger.info("Late game score: {:.2%}", late_game_score)
+                if late_game_score <= 0.2:
                     enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
                 if enemy_structures:
                     target = enemy_structures.closest_to(self.bot.army.center).position

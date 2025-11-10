@@ -8,7 +8,7 @@ from sc2.unit import Unit
 from scipy.signal import convolve2d
 
 from avocados.core.constants import (PRODUCTION_BUILDING_TYPE_IDS, TOWNHALL_TYPE_IDS, MINERAL_FIELD_TYPE_IDS,
-                                     VESPENE_GEYSER_TYPE_IDS, ADDON_BUILDING_TYPE_IDS)
+                                     VESPENE_GEYSER_TYPE_IDS, ADDON_BUILDING_TYPE_IDS, GAS_TYPE_IDS)
 from avocados.core.field import Field
 from avocados.core.geomutil import Rectangle
 from avocados.core.manager import BotManager
@@ -153,13 +153,16 @@ class BuildingManager(BotManager):
             width = height = 5
         elif structure in MINERAL_FIELD_TYPE_IDS:
             width, height = (2, 1)
-        elif structure in VESPENE_GEYSER_TYPE_IDS:
+        elif structure in VESPENE_GEYSER_TYPE_IDS | GAS_TYPE_IDS:
             width = height = 3
         elif (unit_type_data := self.api.get_unit_type_data(structure)) is None:
             self.log.error("NoUnitData{}", structure)
             width = height = 0
-        else:
+        elif unit_type_data.footprint_radius is not None:
             width = height = int(2 * unit_type_data.footprint_radius)
+        else:
+            self.logger.warning("Footprint radius of {} is None", structure)
+            width = height = 0
 
         if include_addon and structure in ADDON_BUILDING_TYPE_IDS:
             width += 2
