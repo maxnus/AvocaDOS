@@ -165,9 +165,9 @@ class MicroScenario(BotObject):
     def _get_results(self) -> MicroScenarioResults:
         if not self.finished:
             raise RuntimeError
-        value_start_p1 = sum((number * self.api.get_unit_value(utype)
+        value_start_p1 = sum((number * self.ext.get_unit_value(utype)
                               for utype, number in self.units_types[0].items()), start=UnitCost(0, 0, 0))
-        value_start_p2 = sum((number * self.api.get_unit_value(utype)
+        value_start_p2 = sum((number * self.ext.get_unit_value(utype)
                               for utype, number in self.units_types[1].items()), start=UnitCost(0, 0, 0))
 
         units_p1, units_p2 = self._get_units()
@@ -177,8 +177,8 @@ class MicroScenario(BotObject):
             winner = 2
         else:
             winner = 0
-        value_end_p1 = self.api.get_unit_value(units_p1)
-        value_end_p2 = self.api.get_unit_value(units_p2)
+        value_end_p1 = self.ext.get_unit_value(units_p1)
+        value_end_p2 = self.ext.get_unit_value(units_p2)
 
         results = MicroScenarioResults(
             duration=self.finished - self.started,

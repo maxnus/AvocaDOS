@@ -155,7 +155,7 @@ class BuildingManager(BotManager):
             width, height = (2, 1)
         elif structure in VESPENE_GEYSER_TYPE_IDS | GAS_TYPE_IDS:
             width = height = 3
-        elif (unit_type_data := self.api.get_unit_type_data(structure)) is None:
+        elif (unit_type_data := self.ext.get_unit_type_data(structure)) is None:
             self.log.error("NoUnitData{}", structure)
             width = height = 0
         elif unit_type_data.footprint_radius is not None:

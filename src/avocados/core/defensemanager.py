@@ -25,7 +25,7 @@ class DefenseManager(BotManager):
                 continue
 
             for enemy in enemies:
-                units_defending = self.api.get_units_with_target(
+                units_defending = self.ext.get_units_with_target(
                     enemy, condition=lambda u: u.distance_to(enemy) <= self.defense_distance)
                 for defender in units_defending:
                     self.order.attack(defender, enemy)

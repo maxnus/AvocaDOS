@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Optional, Any
 from loguru._logger import Logger
 from sc2.game_state import GameState
 
+from avocados.core.apiextensions import ApiExtensions
 from avocados.core.geomutil import unique_id
 
 if TYPE_CHECKING:
@@ -48,6 +49,10 @@ class BotObject(ABC):
     @property
     def api(self) -> 'BotApi':
         return self.bot.api
+
+    @property
+    def ext(self) -> ApiExtensions:
+        return self.bot.ext
 
     @property
     def state(self) -> GameState:

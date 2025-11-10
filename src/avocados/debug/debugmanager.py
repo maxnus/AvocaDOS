@@ -455,7 +455,7 @@ class DebugManager(BotManager):
                 self.line(unit, squad.center, color=color)
 
     def _show_extra(self) -> None:
-        mineral_rate, vespene_rate = self.api.get_resource_collection_rates()
+        mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
         self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.78, 0.05))
 
         min_step, avg_step, max_step, last_step = self.api.step_time

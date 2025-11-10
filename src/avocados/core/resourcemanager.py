@@ -77,7 +77,7 @@ class ResourceManager(BotManager):
 
         if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
             return 0
-        mineral_rate, vespene_rate = self.api.get_resource_collection_rates()
+        mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
         mineral_rate *= mineral_discount_factor
         time = 0
         if cost.minerals > 0:

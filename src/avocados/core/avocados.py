@@ -16,6 +16,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.__about__ import __version__
+from avocados.core.apiextensions import ApiExtensions
 from avocados.core.buildingmanager import BuildingManager
 from avocados.core.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
@@ -219,6 +220,10 @@ class AvocaDOS:
     def state(self) -> GameState:
         return self.api.state
 
+    @property
+    def ext(self) -> ApiExtensions:
+        return self.api.ext
+
     # --- Units
 
     @property
@@ -292,7 +297,7 @@ class AvocaDOS:
             workers_and_dist = {
                 unit: travel_time
                       + (carrying_resource_penalty if unit.is_carrying_resource else 0)
-                      + construction_time_discount * self.api.get_remaining_construction_time(unit)
+                      + construction_time_discount * self.ext.get_remaining_construction_time(unit)
                 for unit, travel_time in zip(workers, travel_times)
             }
         elif isinstance(location, LineSegment):
@@ -443,7 +448,7 @@ class AvocaDOS:
     # --- Utility
 
     def time_until_tech(self, structure_type: UnitTypeId) -> float:
-        requirements = self.api.get_tech_requirement(structure_type)
+        requirements = self.ext.get_tech_requirement(structure_type)
         if not requirements:
             return 0
         for req in requirements:
@@ -452,7 +457,7 @@ class AvocaDOS:
         remaining_time = float('inf')
         for req in requirements:
             for structure in self.structures(req):
-                remaining_time = min(self.api.get_remaining_construction_time(structure), remaining_time)
+                remaining_time = min(self.ext.get_remaining_construction_time(structure), remaining_time)
         return remaining_time
 
     def intercept_unit(self, unit: Unit, target: Unit, *,
@@ -464,7 +469,7 @@ class AvocaDOS:
         #     # Far away, don't try to intercept
         #     return target.position
 
-        v = self.api.get_unit_velocity_vector(target)
+        v = self.ext.get_unit_velocity_vector(target)
         if v is None:
             self.logger.debug("No target velocity")
             return target.position
