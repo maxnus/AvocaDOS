@@ -122,8 +122,10 @@ class ObjectiveManager(BotManager):
         return self._dependencies_fulfilled(objective.deps) and self._requirements_fulfilled(objective.reqs)
 
     async def _dispatch_objective(self, objective: Objective) -> bool:
+        completed = False
         if isinstance(objective, UnitObjective):
-            completed = await self._on_unit_objective(objective)
+            if self.step % 2 == 0:
+                completed = await self._on_unit_objective(objective)
         elif isinstance(objective, ConstructionObjective):
             completed = await self._on_construction_objective(objective)
         elif isinstance(objective, ResearchObjective):
@@ -132,7 +134,6 @@ class ObjectiveManager(BotManager):
             completed = self._on_squad_objective(objective)
         else:
             self.log.error("ObjectiveNotImplemented-{}", objective)
-            completed = False
         if completed:
             objective.mark_complete()
         return completed
@@ -206,9 +207,9 @@ class ObjectiveManager(BotManager):
         pending = int(self.api.already_pending(objective.utype))
         to_build = objective.number - units.amount - pending
 
-        trainer_utype = TRAINERS.get(objective.utype)
-        if trainer_utype is None:
-            self.logger.error("No trainer for {}", objective.utype)
+        # trainer_utype = TRAINERS.get(objective.utype)
+        # if trainer_utype is None:
+        #     self.logger.error("No trainer for {}", objective.utype)
 
         for _ in range(to_build):
             trainer = self.bot.pick_trainer(objective.utype)
@@ -218,6 +219,7 @@ class ObjectiveManager(BotManager):
             time_for_resources = self.resources.can_afford_in(objective.utype)
             if time_for_tech == 0 and time_for_resources == 0:
                 self.order.train(trainer, objective.utype)
+                self.logger.debug("Training {} at {}", objective.utype, trainer)
             elif time_for_tech <= time_for_resources:
                 self.resources.reserve(objective.utype)
         return False
