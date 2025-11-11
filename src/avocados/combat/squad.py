@@ -11,11 +11,12 @@ from sc2.units import Units
 
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
-from avocados.geometry.util import Area, Circle
+from avocados.geometry import Area, Circle
+
 
 COMBAT_LEASH = 4.0
 MOVE_LEASH = 2.0
-DEFAULT_LEASH = 12.0
+DEFAULT_LEASH = 14.0
 
 
 @runtime_checkable
@@ -182,16 +183,14 @@ class Squad(BotObject):
     def remove_task(self, index: int = 0) -> SquadTask:
         return self._tasks.pop(index)
 
-    def attack(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5,
+    def attack(self, area: Area, *, priority: float = 0.5,
                queue: bool = False) -> SquadAttackTask:
-        area = Circle(target, radius)
         task = SquadAttackTask(area, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task
 
-    def defend(self, target: Point2, *, radius: float = 12.0, priority: float = 0.5,
+    def defend(self, area: Area, *, priority: float = 0.5,
                queue: bool = False) -> SquadDefendTask:
-        area = Circle(target, radius)
         task = SquadDefendTask(area, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task

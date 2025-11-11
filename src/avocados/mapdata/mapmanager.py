@@ -287,7 +287,7 @@ class MapManager(BotManager):
                 queue += [Point2((point.x + dx, point.y + dy))
                           for dx in [-1, 0, 1] for dy in [-1, 0, 1]
                           if not (dx == 0 and dy == 0)]
-        return Region(self.bot, points)
+        return Region(points)
 
     # --- Private
 

@@ -12,8 +12,7 @@ from sc2.unit import Unit, UnitOrder
 
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
-from avocados.geometry.region import Region
-from avocados.geometry.util import Circle
+from avocados.geometry import Circle, Region
 from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:

@@ -4,7 +4,9 @@ from typing import Optional, Self, Any
 import numpy
 from numpy import ndarray
 from sc2.position import Point2
+from scipy.ndimage import gaussian_filter
 
+from avocados.geometry.region import Region
 from avocados.geometry.util import Rectangle
 
 
@@ -66,18 +68,24 @@ class Field[T]:
         x, y = self._point_to_indices(item)
         return 0 <= x < self.width and 0 <= y < self.height
 
-    def __getitem__(self, item: Point2 | Rectangle) -> T | ndarray:
+    def __getitem__(self, item: Point2 | Rectangle | Region) -> T | ndarray | dict[Point2, T]:
         if isinstance(item, Point2):
             return self.data[self._point_to_indices(item)]
         if isinstance(item, Rectangle):
             return self.data[self._rect_to_mask(item)]
+        if isinstance(item, Region):
+            return {point: self._point_to_indices(point) for point in item}
         raise TypeError(f'invalid type: {type(item)}')
 
-    def __setitem__(self, item: Point2 | Rectangle, value: T | ndarray) -> None:
+    def __setitem__(self, item: Point2 | Rectangle | Region, value: T | ndarray | dict[Point2, T]) -> None:
         if isinstance(item, Point2):
             self.data[self._point_to_indices(item)] = value
         elif isinstance(item, Rectangle):
             self.data[self._rect_to_mask(item)] = value
+        elif isinstance(item, Region):
+            assert isinstance(value, dict)
+            for point, v in value.items():
+                self.data[self._point_to_indices(point)] = value
         else:
             raise TypeError(f'invalid type: {type(item)}')
 
@@ -110,6 +118,10 @@ class Field[T]:
         if isinstance(other, (int, float)):
             return type(self)(self.data * other, offset=self.offset)
         return NotImplemented
+
+    def gaussian_filter(self, *, sigma: float = 1.0) -> Self:
+       data = gaussian_filter(self.data, sigma=sigma)
+       return Field(data, offset=self.offset)
 
     def plot(self, path: Optional[Path] = None) -> None:
         import matplotlib.pyplot as plt

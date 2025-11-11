@@ -8,7 +8,8 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.manager import BotManager
-from avocados.geometry.util import squared_distance, Circle
+from avocados.geometry import Circle
+from avocados.geometry.util import squared_distance
 from avocados.core.unitutil import normalize_tags
 from avocados.combat.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
 
@@ -73,16 +74,6 @@ class SquadManager(BotManager):
             if squad.center in squad.task.target or self.time > squad.task.started + 20:
                 self.logger.debug("{} has retreated to {}", squad, squad.task.target)
                 squad.remove_task()
-
-        # TODO: Combine squads
-        # for squad1 in list(self._squads.values()):
-        #     for squad2 in list(self._squads.values()):
-        #         if len(squad1) == 0 or len(squad2) == 0:
-        #             continue
-        #         if len(squad1) + len(squad2) > MAX_SQUAD_SIZE:
-        #             continue
-        #         if type(squad1.task) != type(squad2.task):
-        #             continue
 
         # Remove far units
         for squad in list(self._squads.values()):
@@ -244,10 +235,12 @@ class SquadManager(BotManager):
                 smallest_squad = squad
         return smallest_squad
 
-    def with_task(self, task_type: type[SquadTask], filter_: Optional[Callable[[SquadTask], bool]] = None) -> list[Squad]:
+    def with_task(self, task_type: type[SquadTask],
+                  filter_: Optional[Callable[[SquadTask], bool]] = None) -> list[Squad]:
         return [s for s in self if isinstance(s.task, task_type)
                 and len(s) > 0 and (filter_ is None or filter_(s.task))]
 
-    def not_with_task(self, task_type: type[SquadTask], filter_: Optional[Callable[[SquadTask], bool]] = None) -> list[Squad]:
+    def not_with_task(self, task_type: type[SquadTask],
+                      filter_: Optional[Callable[[SquadTask], bool]] = None) -> list[Squad]:
         return [s for s in self if not isinstance(s.task, task_type)
                 and len(s) > 0 and (filter_ is None or filter_(s.task))]

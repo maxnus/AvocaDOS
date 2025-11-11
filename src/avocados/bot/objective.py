@@ -10,19 +10,20 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
-from avocados.geometry.util import unique_id, Rectangle
+from avocados.geometry.util import unique_id, Rectangle, Area
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
-class TaskStatus(Enum):
+class ObjectiveStatus(Enum):
     NOT_STARTED = 0
     STARTED = 1
     COMPLETED = 2
+    FAILED = 3
 
 
-class TaskRequirementType(StrEnum):
+class ObjectiveRequirementType(StrEnum):
     TIME = "T"
     SUPPLY = "S"
     MINERALS = "M"
@@ -32,33 +33,33 @@ class TaskRequirementType(StrEnum):
 DEFAULT_PRIORITY = 0.5
 
 
-ObjectiveDependencies = dict[int, TaskStatus]
-TaskRequirements = list[tuple[TaskRequirementType | UnitTypeId | UpgradeId, int | bool]]
+ObjectiveDependencies = dict[int, ObjectiveStatus]
+ObjectiveRequirements = list[tuple[ObjectiveRequirementType | UnitTypeId | UpgradeId, int | bool]]
 
 
 class Objective(BotObject, ABC):
-    reqs: TaskRequirements
+    reqs: ObjectiveRequirements
     deps: ObjectiveDependencies
     priority: float
     repeat: bool = False
-    status: TaskStatus
+    status: ObjectiveStatus
     assigned: set[int]
 
     def __init__(self,
                  bot: 'AvocaDOS',
-                 reqs: Optional[TaskRequirements | UnitTypeId | UpgradeId] = None,
-                 deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
+                 reqs: Optional[ObjectiveRequirements | UnitTypeId | UpgradeId] = None,
+                 deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] =  None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
-                 status: TaskStatus = TaskStatus.NOT_STARTED,
+                 status: ObjectiveStatus = ObjectiveStatus.NOT_STARTED,
                  ) -> None:
         super().__init__(bot)
         self.reqs = self._normalize_reqs(reqs)
         if deps is None:
             deps = {}
         elif isinstance(deps, int):
-            deps = {deps: TaskStatus.COMPLETED}
-        elif isinstance(deps, TaskStatus):
+            deps = {deps: ObjectiveStatus.COMPLETED}
+        elif isinstance(deps, ObjectiveStatus):
             deps = {self.id - 1: deps} if self.id > 0 else {}
         self.deps = deps
         if not (0 <= priority <= 1):
@@ -70,7 +71,7 @@ class Objective(BotObject, ABC):
         self.assigned = set()
 
     @staticmethod
-    def _normalize_reqs(reqs: Optional[TaskRequirements | UnitTypeId | UpgradeId]) -> TaskRequirements:
+    def _normalize_reqs(reqs: Optional[ObjectiveRequirements | UnitTypeId | UpgradeId]) -> ObjectiveRequirements:
         if reqs is None:
             return []
         if isinstance(reqs, (UnitTypeId, UpgradeId)):
@@ -80,7 +81,7 @@ class Objective(BotObject, ABC):
         return reqs
 
     def mark_complete(self) -> None:
-        self.status = TaskStatus.COMPLETED
+        self.status = ObjectiveStatus.COMPLETED
 
     def assign_units(self, units: Unit | Units | set[int]) -> None:
         if isinstance(units, Unit):
@@ -89,7 +90,7 @@ class Objective(BotObject, ABC):
             units = units.tags
         self.assigned.update(units)
 
-    def copy(self, status: Optional[TaskStatus] = None) -> Self:
+    def copy(self, status: Optional[ObjectiveStatus] = None) -> Self:
         copied_task = copy.copy(self)
         copied_task.id = unique_id()
         copied_task.status = status or self.status
@@ -108,8 +109,8 @@ class ConstructionObjective(Objective):
                  number: int = 1,
                  max_workers: Optional[int] = None,
                  *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
+                 reqs: Optional[ObjectiveRequirements] = None,
+                 deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] = None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  position: Optional[Point2 | Rectangle] = None,
@@ -139,8 +140,8 @@ class UnitObjective(Objective):
                  utype: UnitTypeId,
                  number: int = 1,
                  *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
+                 reqs: Optional[ObjectiveRequirements] = None,
+                 deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] = None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  position: Optional[Point2 | Rectangle] = None,
@@ -168,8 +169,8 @@ class ResearchObjective(Objective):
                  bot: 'AvocaDOS',
                  upgrade: UpgradeId,
                  *,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[ObjectiveDependencies | TaskStatus | int] =  None,
+                 reqs: Optional[ObjectiveRequirements] = None,
+                 deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] =  None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  position: Optional[Point2] = None,
@@ -185,20 +186,20 @@ class ResearchObjective(Objective):
 
 
 class AttackOrDefenseObjective(Objective, ABC):
-    target: Point2
+    target: Area
     strength: float
     minimum_size: int
     duration: Optional[float]
 
     def __init__(self,
                  bot: 'AvocaDOS',
-                 target: Point2,
+                 target: Area,
                  strength: float = 100.0,
                  *,
                  minimum_size: int = 1,
                  duration: Optional[float] = None,
-                 reqs: Optional[TaskRequirements] = None,
-                 deps: Optional[ObjectiveDependencies | TaskStatus | int] = None,
+                 reqs: Optional[ObjectiveRequirements] = None,
+                 deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] = None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
                  ) -> None:

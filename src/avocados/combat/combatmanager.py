@@ -8,14 +8,14 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.manager import BotManager
-from avocados.core.constants import TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS, \
-    UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS
-from avocados.core.util import lerp
-from avocados.geometry.util import squared_distance
-from avocados.core.unitutil import get_closest_sq_distance
 from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
 from avocados.combat.weapons import Weapons
+from avocados.core.constants import (TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS,
+                                     UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS)
+from avocados.core.manager import BotManager
+from avocados.core.unitutil import get_closest_sq_distance
+from avocados.core.util import lerp
+from avocados.geometry.util import squared_distance
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -49,13 +49,89 @@ class CombatManager(BotManager):
             await self.micro_squad(squad)
         self.timings['step'].add(t0)
 
-    # ---
+    async def micro_squad(self, squad: Squad, *,
+                          enemies: Optional[Units] = None) -> None:
+        # TODO: Move parts into SquadManager?
+        t0 = perf_counter()
+        if enemies is None:
+            enemies = self._get_enemies(squad.units)
+        self.timings['get_enemies'].add(t0)
+
+        t0 = perf_counter()
+        squad_attack_priorities = self.combat._get_attack_priorities(squad.units, enemies)
+        self.timings['attack_priority'].add(t0)
+
+        if squad_attack_priorities:
+            squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
+            # TODO DEBUG
+            # if self.debug:
+            #     for unit, priority in squad_attack_priorities.items():
+            #         if unit == squad_target:
+            #             color = 'RED'
+            #         elif priority >= 0.5:
+            #             color = 'YELLOW'
+            #         else:
+            #             color = 'GREEN'
+            #         self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
+        else:
+            squad_target = None
+            squad_target_priority = 0
+
+        if squad_target_priority >= self.attack_priority_threshold:
+            squad.set_status(SquadStatus.COMBAT)
+            self.taunt.taunt()
+        else:
+            if isinstance(squad.task, (SquadAttackTask, SquadDefendTask, SquadRetreatTask)):
+                # TODO: all units?
+                if sum(unit.position in squad.task.target for unit in squad.units) >= max(0.75 * len(squad), 1):
+                    squad.set_status(SquadStatus.AT_TARGET)
+                else:
+                    squad.set_status(SquadStatus.MOVING)
+            elif isinstance(squad.task, SquadJoinTask):
+                squad.set_status(SquadStatus.MOVING)
+            else:
+                squad.set_status(SquadStatus.IDLE)
+
+        #if self.bot.state.game_loop % 20 == 0:
+        #    abilities = await self.get_abilities(units)
+        #else:
+        #    abilities = [[] for _ in range(len(units))]
+        #t0 = perf_counter()
+        #abilities = await self.get_abilities(squad.units)
+        #self.timings['abilities'].add(t0)
+
+        t0 = perf_counter()
+        #for unit, unit_abilities in zip(squad.units, abilities):
+        for unit in squad.units:
+            unit_abilities = []
+            microd = self._micro_unit(
+                unit,
+                enemies=enemies,
+                abilities=unit_abilities,
+                squad=squad,
+                squad_attack_priorities=squad_attack_priorities,
+                squad_target_priority=squad_target_priority,
+                squad_target=squad_target
+            )
+            if not microd:
+                if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
+                    if unit.position not in squad.task.target:
+                        self.order.move(unit, squad.task.target.center)
+                    elif enemies_in_area := enemies.filter(lambda e: e.position in squad.task.target):
+                        self.order.attack(unit, enemies_in_area.closest_to(unit))
+                    elif unit.is_idle:
+                        self.order.move(unit, squad.task.target.random)
+                elif isinstance(squad.task, SquadJoinTask):
+                    self.order.move(unit, squad.task.target.center)
+        self.timings['micro'].add(t0)
 
     def get_strength(self, units: Units | Unit) -> float:
         # TODO
         if isinstance(units, Unit):
             return 0.7 * units.shield_health_percentage + 0.3
         return 0.7 * sum(u.shield_health_percentage for u in units) + 0.3 * len(units)
+
+    # ---
 
     def weapon_ready(self, unit: Unit) -> bool:
         if unit.type_id == UnitTypeId.REAPER:
@@ -239,7 +315,7 @@ class CombatManager(BotManager):
                 self.log.warning("MissAtkBasPrio {}", target.type_id.name)
                 return 0.05 if target.is_structure else 0.50
 
-    def get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
+    def _get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:
         """Attack priority is based on:
             1) Unit Type (i.e., Baneling > Zergling > Drone)
             2) Missing health of target (weakness)
@@ -268,7 +344,7 @@ class CombatManager(BotManager):
             priorities[target] = max(floor, min(ceil, priority))
         return priorities
 
-    def get_defense_priority(self, defender: Unit, threat: Unit) -> float:
+    def _get_defense_priority(self, defender: Unit, threat: Unit) -> float:
         """Defense priority is based on:
             1) Unit Type
             2) Distance
@@ -305,8 +381,8 @@ class CombatManager(BotManager):
             case _ if threat.can_attack: return 0.20
             case _: return 0
 
-    def get_defense_priorities(self, defender: Unit, threats: Units) -> dict[Unit, float]:
-        return {threat: self.get_defense_priority(defender, threat) for threat in threats}
+    def _get_defense_priorities(self, defender: Unit, threats: Units) -> dict[Unit, float]:
+        return {threat: self._get_defense_priority(defender, threat) for threat in threats}
 
     # def get_possible_damage_per_target(self, units: Units, enemies: Units) -> tuple[dict[int, float], dict[int, Units]]:
     #     damage = defaultdict(float)
@@ -321,7 +397,7 @@ class CombatManager(BotManager):
     #
     #     return damage, attackers
 
-    def get_enemies(self, units: Units, *, scan_range: float = 5.0) -> Units:
+    def _get_enemies(self, units: Units, *, scan_range: float = 5.0) -> Units:
         enemies = []
         for enemy in self.api.all_enemy_units:
             for unit in units:
@@ -330,72 +406,6 @@ class CombatManager(BotManager):
                     enemies.append(enemy)
                     break
         return Units(enemies, self.api)
-
-    async def micro_squad(self, squad: Squad, *,
-                          enemies: Optional[Units] = None) -> None:
-        # TODO: Move parts into SquadManager?
-        t0 = perf_counter()
-        if enemies is None:
-            enemies = self.get_enemies(squad.units)
-        self.timings['get_enemies'].add(t0)
-
-        t0 = perf_counter()
-        squad_attack_priorities = self.combat.get_attack_priorities(squad.units, enemies)
-        self.timings['attack_priority'].add(t0)
-
-        if squad_attack_priorities:
-            squad_target, squad_target_priority = max(squad_attack_priorities.items(), key=lambda kv: kv[1])
-            # TODO DEBUG
-            # if self.debug:
-            #     for unit, priority in squad_attack_priorities.items():
-            #         if unit == squad_target:
-            #             color = 'RED'
-            #         elif priority >= 0.5:
-            #             color = 'YELLOW'
-            #         else:
-            #             color = 'GREEN'
-            #         self.debug.box_with_text(unit, f'{100*priority:.0f}', color=color)
-        else:
-            squad_target = None
-            squad_target_priority = 0
-
-        if squad_target_priority >= self.attack_priority_threshold:
-            squad.set_status(SquadStatus.COMBAT)
-            self.taunt.taunt()
-        else:
-            if isinstance(squad.task, (SquadAttackTask, SquadDefendTask, SquadRetreatTask)):
-                # TODO: all units?
-                if sum(unit.position in squad.task.target for unit in squad.units) >= max(0.75 * len(squad), 1):
-                    squad.set_status(SquadStatus.AT_TARGET)
-                else:
-                    squad.set_status(SquadStatus.MOVING)
-            elif isinstance(squad.task, SquadJoinTask):
-                squad.set_status(SquadStatus.MOVING)
-            else:
-                squad.set_status(SquadStatus.IDLE)
-
-        #if self.bot.state.game_loop % 20 == 0:
-        #    abilities = await self.get_abilities(units)
-        #else:
-        #    abilities = [[] for _ in range(len(units))]
-        #t0 = perf_counter()
-        #abilities = await self.get_abilities(squad.units)
-        #self.timings['abilities'].add(t0)
-
-        t0 = perf_counter()
-        #for unit, unit_abilities in zip(squad.units, abilities):
-        for unit in squad.units:
-            unit_abilities = []
-            self._micro_unit(
-                unit,
-                enemies=enemies,
-                abilities=unit_abilities,
-                squad=squad,
-                squad_attack_priorities=squad_attack_priorities,
-                squad_target_priority=squad_target_priority,
-                squad_target=squad_target
-            )
-        self.timings['micro'].add(t0)
 
     def _micro_unit(self, unit: Unit, *,
                     enemies: Units,
@@ -421,71 +431,57 @@ class CombatManager(BotManager):
             target = None
 
         if target:
-            return self.order.attack(unit, target)
+            self.order.attack(unit, target)
+            return True
 
         # --- Ability
         if abilities and squad_attack_priorities:
             ability_prio, ability_id, ability_target = self._evaluate_ability(
                 unit, abilities=abilities, group_attack_priorities=squad_attack_priorities)
             if ability_prio > 0.5:
-                return self.order.ability(unit, ability_id, ability_target)
+                self.order.ability(unit, ability_id, ability_target)
+                return True
 
         if isinstance(squad.task, SquadRetreatTask):
-            return self.order.move(unit, squad.task.target.center)
+            self.order.move(unit, squad.task.target.center)
+            return True
 
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
             dist_sq = (unit.ground_range + unit.radius + squad_target.radius + unit.distance_to_weapon_ready)**2
             if unit.distance_to_squared(squad_target) >= dist_sq:
-                return self.order.attack(unit, squad_target)
+                self.order.attack(unit, squad_target)
                 #intercept_point = self.bot.intercept_unit(unit, squad_target)
                 #return self.order.attack(unit, intercept_point)
+                return True
 
         # --- Defense
         defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
 
         if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
-            return self.order.move(unit, defense_position)
+            self.order.move(unit, defense_position)
+            return True
 
         if defense_position and unit.shield_health_percentage < 0.8:
-            return self.order.move(unit, defense_position)
+            self.order.move(unit, defense_position)
+            return True
 
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
-            return self.order.attack(unit, squad_target)
+            self.order.attack(unit, squad_target)
             #intercept_point = self.bot.intercept_unit(unit, squad_target)
             #return self.order.attack(unit, intercept_point)
+            return True
 
-        # Regroup
-        #scan_sq = self.get_scan_range(unit)**2
+        # --- Regroup
         if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.leash_range**2:
-            return self.order.move(unit, squad.center)
-
-        if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
-            if unit.position not in squad.task.target:
-                 return self.order.move(unit, squad.task.target.center)
-            if unit.is_idle:
-                return self.order.move(unit, squad.task.target.random)
-        elif isinstance(squad.task, SquadJoinTask):
-            return self.order.move(unit, squad.task.target.center)
-
-            ## Move to task location
-            #if squared_distance(unit, squad.task.target) > scan_sq:
-            #    return self.order.move(unit, squad.task.target)
-            ## Attack
-            #else:
-            #    return self.order.move(unit, squad.task.target)
-            #    ## TODO
-            #    #if isinstance(squad.task, SquadAttackTask):
-            #    #    return self.order.move(unit, squad.task.target)
-            #    #elif isinstance(squad.task, SquadDefendTask):
-            #    #    if not unit.orders:
-            #    #        return self.order.move(unit, squad.task.target, queue=True)
+            self.order.move(unit, squad.center)
+            return True
 
         return False
 
     def _evaluate_defense(self, unit: Unit, *, enemies: Units) -> tuple[float, Optional[Point2]]:
         threat_range = self.get_threat_range(unit)
         threats = enemies.closer_than(threat_range, unit)
-        defense_priorities = self.bot.combat.get_defense_priorities(unit, threats)
+        defense_priorities = self.bot.combat._get_defense_priorities(unit, threats)
         if not defense_priorities:
             return 0, None
         threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])

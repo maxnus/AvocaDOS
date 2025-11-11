@@ -4,15 +4,14 @@ from typing import Optional, TYPE_CHECKING
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
-from sc2.position import Point2
 
 from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS
 from avocados.core.manager import BotManager
-from avocados.bot.objective import (Objective, TaskStatus, TaskRequirementType, TaskRequirements,
+from avocados.bot.objective import (Objective, ObjectiveStatus, ObjectiveRequirementType, ObjectiveRequirements,
                                     ObjectiveDependencies,
                                     UnitObjective, ResearchObjective, AttackObjective,
                                     DefenseObjective, ConstructionObjective)
-from avocados.geometry.util import squared_distance, get_best_score
+from avocados.geometry.util import squared_distance, get_best_score, Area
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
 if TYPE_CHECKING:
@@ -43,11 +42,11 @@ class ObjectiveManager(BotManager):
         objective = UnitObjective(self.bot, utype, number, **kwargs)
         return self.add(objective)
 
-    def add_attack_objective(self, target: Point2, strength: float = 100, **kwargs) -> int:
+    def add_attack_objective(self, target: Area, strength: float = 100, **kwargs) -> int:
         objective = AttackObjective(self.bot, target, strength, **kwargs)
         return self.add(objective)
 
-    def add_defense_objective(self, target: Point2, strength: float = 100, **kwargs) -> int:
+    def add_defense_objective(self, target: Area, strength: float = 100, **kwargs) -> int:
         objective = DefenseObjective(self.bot, target, strength, **kwargs)
         return self.add(objective)
 
@@ -67,22 +66,22 @@ class ObjectiveManager(BotManager):
 
         # TODO: Move below to on_step_started?
         for obj in self.current.copy().values():
-            if obj.status == TaskStatus.COMPLETED:
+            if obj.status in {ObjectiveStatus.COMPLETED, ObjectiveStatus.FAILED}:
                 self.current.pop(obj.id)
                 self.completed[obj.id] = obj
-                self.logger.debug("Completed {}", obj)
+                self.logger.debug("Finished {} with status {}", obj, obj.status)
                 if obj.repeat:
-                    self.add(obj.copy(status=TaskStatus.NOT_STARTED))
+                    self.add(obj.copy(status=ObjectiveStatus.NOT_STARTED))
 
         for obj in self.future.copy().values():
             if self._task_ready(obj):
                 obj = self.future.pop(obj.id)
-                obj.status = TaskStatus.STARTED
+                obj.status = ObjectiveStatus.STARTED
                 self.current[obj.id] = obj
                 self.logger.debug("Started {}", obj)
         self.timings['step'].add(t0)
 
-    def get_status(self, objective_id: int) -> Optional[TaskStatus]:
+    def get_status(self, objective_id: int) -> Optional[ObjectiveStatus]:
         if objective_id in self.current:
             return self.current[objective_id].status
         if objective_id in self.future:
@@ -92,20 +91,20 @@ class ObjectiveManager(BotManager):
         self.logger.warning(f"Unknown objective ID: {objective_id}")
         return None
 
-    def _requirements_fulfilled(self, requirements: TaskRequirements) -> bool:
+    def _requirements_fulfilled(self, requirements: ObjectiveRequirements) -> bool:
         fulfilled = True
         for req_type, req_value in requirements:
             if isinstance(req_type, UnitTypeId):
                 value = self.bot.forces(req_type).ready.amount
             elif isinstance(req_type, UpgradeId):
                 value = req_type in self.api.state.upgrades
-            elif req_type == TaskRequirementType.TIME:
+            elif req_type == ObjectiveRequirementType.TIME:
                 value = self.api.time
-            elif req_type == TaskRequirementType.SUPPLY:
+            elif req_type == ObjectiveRequirementType.SUPPLY:
                 value = self.api.supply_used
-            elif req_type == TaskRequirementType.MINERALS:
+            elif req_type == ObjectiveRequirementType.MINERALS:
                 value = self.api.minerals
-            elif req_type == TaskRequirementType.VESPENE:
+            elif req_type == ObjectiveRequirementType.VESPENE:
                 value = self.api.vespene
             else:
                 self.logger.warning(f"Unknown requirement: {req_type}")
@@ -126,20 +125,21 @@ class ObjectiveManager(BotManager):
         completed = False
         if isinstance(objective, UnitObjective):
             if self.step % 2 == 0:
-                completed = await self._on_unit_objective(objective)
+                completed = await self._unit_objective(objective)
         elif isinstance(objective, ConstructionObjective):
-            completed = await self._on_construction_objective(objective)
+            completed = await self._construction_objective(objective)
         elif isinstance(objective, ResearchObjective):
-            completed = self._on_research_objective(objective)
+            completed = self._research_objective(objective)
         elif isinstance(objective, (AttackObjective, DefenseObjective)):
-            completed = self._on_squad_objective(objective)
+            if self.step % 4 == 0:
+                completed = self._squad_objective(objective)
         else:
             self.log.error("ObjectiveNotImplemented-{}", objective)
         if completed:
             objective.mark_complete()
         return completed
 
-    async def _on_construction_objective(self, objective: ConstructionObjective) -> bool:
+    async def _construction_objective(self, objective: ConstructionObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
         units = self.bot.forces(utype).ready
 
@@ -192,7 +192,7 @@ class ObjectiveManager(BotManager):
 
         return False
 
-    async def _on_unit_objective(self, objective: UnitObjective) -> bool:
+    async def _unit_objective(self, objective: UnitObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
         units = self.bot.forces(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
@@ -225,7 +225,7 @@ class ObjectiveManager(BotManager):
                 self.resources.reserve(objective.utype)
         return False
 
-    def _on_research_objective(self, objective: ResearchObjective) -> bool:
+    def _research_objective(self, objective: ResearchObjective) -> bool:
         if objective.upgrade in self.api.state.upgrades:
             self.logger.trace("Upgrade {} complete", objective.upgrade)
             return True
@@ -246,14 +246,18 @@ class ObjectiveManager(BotManager):
         #    self.logger.trace("No researcher for {}", task.upgrade)
         return False
 
-    def _on_squad_objective(self, objective: AttackObjective | DefenseObjective) -> bool:
+    def _squad_objective(self, objective: AttackObjective | DefenseObjective) -> bool:
         task_type = SquadAttackTask if isinstance(objective, AttackObjective) else SquadDefendTask
         squads_with_task = self.squads.with_task(
-            task_type, filter_=lambda t: squared_distance(t.target.center, objective.target) <= 1)
+            task_type, filter_=lambda t: squared_distance(t.target.center, objective.target.center) <= 1)
 
         if (objective.duration is not None and any(s.status == SquadStatus.AT_TARGET
                                                    and self.time > s.status_changed + objective.duration
                                                    for s in squads_with_task)):
+        # TODO
+        # if (len(self.api.all_enemy_units.filter(lambda u: u in objective.target)) == 0
+        #         and max(self.intel.last_visible[objective.target.to_region()].values()) < 20.0):
+
             # Objective complete
             for s in squads_with_task:
                 s.remove_task()
@@ -267,7 +271,7 @@ class ObjectiveManager(BotManager):
 
         # Find best squad or create new
         if squads_with_task:
-            closest_squad = get_best_score(squads_with_task, lambda s: s.center.distance_to(objective.target),
+            closest_squad = get_best_score(squads_with_task, lambda s: s.center.distance_to(objective.target.center),
                                            highest=False)[0]
             # Create new squad and order to join
             units = self.bot.pick_army(strength=missing_strength, position=closest_squad.center,
@@ -278,7 +282,7 @@ class ObjectiveManager(BotManager):
             squad.join(closest_squad, priority=objective.priority)
         else:
             # Create new squad
-            units = self.bot.pick_army(strength=missing_strength, position=objective.target,
+            units = self.bot.pick_army(strength=missing_strength, position=objective.target.center,
                                        max_priority=objective.priority)
             if len(units) < objective.minimum_size:
                 return False

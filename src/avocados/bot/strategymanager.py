@@ -4,6 +4,7 @@ from avocados.core.util import two_point_lerp
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.bot.objective import AttackObjective, DefenseObjective
+from avocados.geometry import Circle
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -21,7 +22,7 @@ class StrategyManager(BotManager):
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.aggression = 0.7
-        self.minimum_attack_strength = 6.0
+        self.minimum_attack_strength = 3.0
 
     async def on_step(self, step: int) -> None:
         if self.aggression >= 0.5:
@@ -41,11 +42,12 @@ class StrategyManager(BotManager):
                                      - 0.1 * exp.center.distance_to(self.bot.army.center))
                                for exp, time in self.intel.get_time_since_expansions_last_visible().items()}
                     target = max(targets.keys(), key=targets.get).center
-                self.objectives.add_attack_objective(target, duration=5, priority=self.aggression,
-                                                     minimum_size=6)
+                area = Circle(target, 16.0)
+                self.objectives.add_attack_objective(area, duration=5, priority=self.aggression,
+                                                     minimum_size=3)
         else:
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
-                self.objectives.add_defense_objective(self.map.base.region_center)
+                self.objectives.add_defense_objective(Circle(self.map.base.region_center, 16))
 
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""

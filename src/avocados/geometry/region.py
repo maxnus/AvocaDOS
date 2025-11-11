@@ -1,21 +1,16 @@
 import random
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.position import Point2
 
-from avocados.core.botobject import BotObject
 from avocados.geometry.util import Rectangle
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
-
-class Region(BotObject):
+class Region:
     points: set[Point2]
 
-    def __init__(self, bot: 'AvocaDOS', points: Optional[set[Point2]] = None):
-        super().__init__(bot)
+    def __init__(self, points: Optional[set[Point2]] = None):
         self.points = points or set()
 
     def __repr__(self) -> str:

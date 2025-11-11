@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class IntelManager(BotManager):
     last_known_enemy_base: Optional[ExpansionLocation]
     visibility: Field[int]
-    _time_last_visible: Field[float]
+    last_visible: Field[float]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -26,13 +26,13 @@ class IntelManager(BotManager):
     async def on_start(self) -> None:
         self.last_known_enemy_base = self.map.known_enemy_start_location
         self.visibility = self.map.create_field_from_pixelmap(self.api.state.visibility)
-        self._time_last_visible = Field((self.map.width, self.map.height), offset=self.map.playable_offset)
+        self.last_visible = Field((self.map.width, self.map.height), offset=self.map.playable_offset)
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
         self.visibility.data = self.api.state.visibility.data_numpy.transpose()[self.map.playable_mask]
         mask: ndarray = (self.visibility.data == 2)  # noqa
-        self._time_last_visible.data[mask] = self.time
+        self.last_visible.data[mask] = self.time
         self.timings['step'].add(t0)
 
     def get_percentage_scouted(self) -> float:
@@ -44,20 +44,11 @@ class IntelManager(BotManager):
 
     def get_time_since_last_visible(self, location: Point2 | Rectangle) -> float:
         if isinstance(location, Point2):
-            return self.time - self._time_last_visible[location]
+            return self.time - self.last_visible[location]
         if isinstance(location, Rectangle):
-            return (self.time - self._time_last_visible[location]).min()
+            return (self.time - self.last_visible[location]).min()
         raise TypeError(f"invalid type: {type(location)}")
 
-    # def time_since_visible_map(self, *, sigma: float = 3.0) -> Field:
-    #     data = gaussian_filter((self.time - self._time_last_visible).data, sigma=sigma)
-    #     # import matplotlib.pyplot as plt
-    #     # plt.imshow(self._time_last_visible, origin="lower")
-    #     # plt.savefig(f"origin-{self.time}.png")
-    #     # plt.imshow(blurred, origin="lower")
-    #     # plt.savefig(f"blurred-{self.time}.png")
-    #     return Field(data, offset=self._time_last_visible.offset)
-    #
     # def get_next_scout_location(self, time_since_scout: float = 30, *, sigma: float = 3.0) -> Circle:
     #     tss = self.time_since_visible_map(sigma=sigma)
     #     dist = distance_transform_edt(tss > time_since_scout)
