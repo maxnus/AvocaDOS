@@ -145,7 +145,7 @@ class Expansion(BotObject):
         return True
 
 
-class MiningManager(BotManager):
+class ExpansionManager(BotManager):
     expansions: dict[ExpansionLocation, Expansion]
     """location -> townhall tag"""
 

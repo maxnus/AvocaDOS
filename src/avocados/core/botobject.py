@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from avocados.bot.historymanager import HistoryManager
     from avocados.bot.intelmanager import IntelManager
     from avocados.bot.ordermanager import OrderManager
-    from avocados.bot.miningmanager import MiningManager
+    from avocados.bot.expansionmanager import ExpansionManager
     from avocados.bot.resourcemanager import ResourceManager
     from avocados.bot.objectivemanager import ObjectiveManager
     from avocados.bot.taunts import TauntManager
@@ -110,8 +110,8 @@ class BotObject(ABC):
         return self.bot.objectives
 
     @property
-    def mining(self) -> 'MiningManager':
-        return self.bot.mining
+    def expand(self) -> 'ExpansionManager':
+        return self.bot.expand
 
     @property
     def squads(self) -> 'SquadManager':

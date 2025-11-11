@@ -24,7 +24,7 @@ from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TY
 from avocados.bot.defensemanager import DefenseManager
 from avocados.bot.historymanager import HistoryManager
 from avocados.bot.intelmanager import IntelManager
-from avocados.bot.miningmanager import MiningManager
+from avocados.bot.expansionmanager import ExpansionManager
 from avocados.bot.strategymanager import StrategyManager
 from avocados.core.unitutil import get_unit_type_counts
 from avocados.core.logmanager import LogManager
@@ -62,7 +62,7 @@ class AvocaDOS:
     objectives: ObjectiveManager
     squads: SquadManager
     combat: CombatManager
-    mining: MiningManager
+    expand: ExpansionManager
     history: HistoryManager
     building: BuildingManager
     strategy: StrategyManager
@@ -80,7 +80,7 @@ class AvocaDOS:
                  log_level: str = "DEBUG",
                  log_file: Optional[str] = None,
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
-                 leave_at: Optional[float] = 20 * 60,
+                 leave_at: Optional[float] = None,
                  ) -> None:
         super().__init__()
         self.api = api
@@ -116,7 +116,7 @@ class AvocaDOS:
         self.squads = SquadManager(self)
         self.combat = CombatManager(self)
         self.defense = DefenseManager(self)
-        self.mining = MiningManager(self)
+        self.expand = ExpansionManager(self)
         self.history = HistoryManager(self)
         self.building = BuildingManager(self)
         self.taunt = TauntManager(self)
@@ -133,13 +133,8 @@ class AvocaDOS:
         return f"{type(self).__name__}({__version__})"
 
     async def on_start(self) -> None:
-        version = __version__.replace('.', '-')
-        matchup = f"{str(self.api.race)[5]}v{str(self.api.enemy_race)[5]}"
-        tag = f"{self.name} v{version} {self.api.game_info.map_name} {matchup}"
-        self.log.tag(tag, add_time=False)
-
         await self.map.on_start()
-        await self.mining.on_start()
+        await self.expand.on_start()
         await self.building.on_start()
         await self.intel.on_start()
         await self.build.on_start()
@@ -149,12 +144,25 @@ class AvocaDOS:
 
     async def on_step_start(self, step: int) -> None:
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
+
+        if step == 50:
+            intro_line1 = "  Artificial Villain of Cheesy and"
+            intro_line2 = "  Dishonorable Offensive Strategies"
+            await self.api.client.chat_send(intro_line1, False)
+            await self.api.client.chat_send(intro_line2, False)
+
+        if step == 150:
+            version = __version__.replace('.', '-')
+            matchup = f"{str(self.api.race)[5]}v{str(self.api.enemy_race)[5]}"
+            tag = f" v{version} {self.api.game_info.map_name} {matchup}"
+            self.log.tag(tag, add_time=False)
+
         await self.log.on_step(step)
         if step % 500 == 0:
             self._report_timings()
 
         # Cleanup steps / internal to manager
-        await self.mining.on_step_start(step)
+        await self.expand.on_step_start(step)
         await self.map.on_step_start(step)
         await self.building.on_step_start(step)
         await self.intel.on_step_start(step)
@@ -183,7 +191,7 @@ class AvocaDOS:
         await self.combat.on_step(step)
         await self.strategy.on_step(step)
         await self.other(step)  # TODO: find a place for this
-        await self.mining.on_step(step)
+        await self.expand.on_step(step)
         if self.debug:
             await self.debug.on_step(step)
 
@@ -312,7 +320,7 @@ class AvocaDOS:
         #result = heapq.nsmallest(number, workers_and_dist.items(), key=lambda item: item[1])
         result = sorted(workers_and_dist.items(), key=lambda x: x[1])[:number]
         with_callbacks = [
-            (WithCallback(worker, self.mining.remove_worker if self.mining.has_worker(worker) else None, worker),
+            (WithCallback(worker, self.expand.remove_worker if self.expand.has_worker(worker) else None, worker),
              distance) for worker, distance in result
         ]
         return with_callbacks
@@ -431,10 +439,10 @@ class AvocaDOS:
                 self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
         for cc in self.townhalls:
-            if not cc.is_flying and self.api.all_enemy_units.closer_than(8, cc):
-                if not self.workers:
-                    self.order.ability(cc, AbilityId.LIFT)
-            elif cc.is_flying:
+            enemies = self.api.all_enemy_units.closer_than(8, cc)
+            if enemies and not self.workers.closer_than(6, cc) and not cc.is_flying:
+                self.order.ability(cc, AbilityId.LIFT)
+            elif not enemies and cc.is_flying:
                 self.order.ability(cc, AbilityId.LAND, self.map.start_location.center)
 
         if step % 8 == 0:
@@ -455,7 +463,7 @@ class AvocaDOS:
             self.intel,
             self.history,
             self.building,
-            self.mining,
+            self.expand,
             self.squads,
             self.defense,
             self.combat,

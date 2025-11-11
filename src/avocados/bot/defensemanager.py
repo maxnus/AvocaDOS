@@ -36,7 +36,7 @@ class DefenseManager(BotManager):
                 if required_defender <= 0:
                     continue
                 # TODO: order army units / squads
-                defenders = self.mining.request_workers(enemy.position, number=required_defender,
+                defenders = self.expand.request_workers(enemy.position, number=required_defender,
                                                         max_distance=self.defense_distance)
                 for defender in defenders:
                     #self.logger.debug("Ordering {} to defend against {}", defender.value, enemy)

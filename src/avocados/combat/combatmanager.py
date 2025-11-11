@@ -181,7 +181,7 @@ class CombatManager(BotManager):
             if structure.type_id in {UnitTypeId.PHOTONCANNON, UnitTypeId.SHIELDBATTERY}:
                 factor = 0.45
             elif structure.type_id == UnitTypeId.STARGATE:
-                factor = 0.4
+                factor = 0.40
             elif structure.type_id == UnitTypeId.ROBOTICSBAY:
                 factor = 0.35
             elif structure.type_id in {UnitTypeId.GATEWAY, UnitTypeId.WARPGATE}:
