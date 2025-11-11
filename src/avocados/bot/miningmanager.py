@@ -244,7 +244,7 @@ class MiningManager(BotManager):
 
     def _check_for_dead_tags(self):
         # Check for dead tags
-        for exp in self.expansions.values():
+        for exp in list(self.expansions.values()):
             if exp.townhall not in self.api.alive_tags:
                 self.logger.info("Townhall at {} died", exp)
                 self.remove_expansion(exp)
