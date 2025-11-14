@@ -146,15 +146,15 @@ class AvocaDOS:
         self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
 
         if step == 50:
-            intro_line1 = "  Artificial Villain of Cheesy and"
-            intro_line2 = "  Dishonorable Offensive Strategies"
+            intro_line1 = "    Artificial  Villain  of  Cheesy  and"
+            intro_line2 = "  Dishonorable  Offensive  Strategies"#.upper()
             await self.api.client.chat_send(intro_line1, False)
             await self.api.client.chat_send(intro_line2, False)
 
-        if step == 150:
+        if step == 600:
             version = __version__.replace('.', '-')
             matchup = f"{str(self.api.race)[5]}v{str(self.api.enemy_race)[5]}"
-            tag = f" v{version} {self.api.game_info.map_name} {matchup}"
+            tag = f" v{version}  {self.api.game_info.map_name}  {matchup}"
             self.log.tag(tag, add_time=False)
 
         await self.log.on_step(step)
@@ -421,7 +421,7 @@ class AvocaDOS:
             units_strength = 0.0
             for index, unit in enumerate(units):
                 units_strength += self.combat.get_strength(unit)
-                if units_strength >= strength:
+                if round(units_strength, 2) >= strength:
                     units = units.take(index + 1)
                     break
         return units
@@ -438,23 +438,22 @@ class AvocaDOS:
             if self.api.enemy_units.not_flying.closer_than(3.5, unit):
                 self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
-        for cc in self.townhalls:
+        for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTER, UnitTypeId.COMMANDCENTERFLYING,
+                                          UnitTypeId.ORBITALCOMMAND, UnitTypeId.ORBITALCOMMANDFLYING)).ready:
             enemies = self.api.all_enemy_units.closer_than(8, cc)
             if enemies and not self.workers.closer_than(6, cc) and not cc.is_flying:
                 self.order.ability(cc, AbilityId.LIFT)
             elif not enemies and cc.is_flying:
                 self.order.ability(cc, AbilityId.LAND, self.map.start_location.center)
 
-        if step % 8 == 0:
-            for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
-                if orbital.energy >= 50:
-                    mineral_fields = self.api.mineral_field.closer_than(8, orbital.position)
-                    if not mineral_fields:
-                        continue
-                    #mineral_field = mineral_fields.closest_to(orbital.position)
-                    mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
-                    self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
-                    self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
+        for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
+            if orbital.energy >= 50:
+                mineral_fields = self.api.mineral_field.closer_than(8, orbital.position)
+                if not mineral_fields:
+                    continue
+                mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
+                self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
+                self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
 
     # --- Private
 

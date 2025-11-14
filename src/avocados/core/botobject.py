@@ -60,7 +60,7 @@ class BotObject(ABC):
         return self.bot.state
 
     @property
-    def step(self) -> float:
+    def step(self) -> int:
         return self.bot.step
 
     @property

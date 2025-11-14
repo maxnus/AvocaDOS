@@ -22,10 +22,20 @@ if TYPE_CHECKING:
 
 class ApiExtensions:
     api: 'BotApi'
+    worker_utype: UnitTypeId
+    townhall_utype: UnitTypeId
+    supply_utype: UnitTypeId
 
     def __init__(self, api: 'BotApi') -> None:
         super().__init__()
         self.api = api
+
+    async def on_start(self) -> None:
+        self.worker_utype, self.townhall_utype, self.supply_utype = {
+            Race.Terran: (UnitTypeId.SCV, UnitTypeId.COMMANDCENTER, UnitTypeId.SUPPLYDEPOT),
+            Race.Zerg: (UnitTypeId.DRONE, UnitTypeId.HATCHERY, UnitTypeId.OVERLORD),
+            Race.Protoss: (UnitTypeId.PROBE, UnitTypeId.NEXUS, UnitTypeId.PYLON),
+        }[self.api.race]
 
     def get_unit_attributes(self, utype: UnitTypeId) -> list[Enum]:
         return self.api.game_data.units[utype.value].attributes
@@ -107,7 +117,6 @@ class ApiExtensions:
     #
     #     return abilities_amount, max_build_progress
 
-
     def get_scv_build_target(self, scv: Unit) -> Optional[Unit]:
         """Return the building unit that this SCV is constructing, or None."""
         if not scv.is_constructing_scv:
@@ -142,7 +151,7 @@ class ApiExtensions:
         else:
             raise ValueError(f"not an SCV or structure: {scv_or_structure}")
 
-        return self.get_cost(structure.type_id).time * (1 - structure.build_progress) * 22.4
+        return self.get_cost(structure.type_id).time * (1 - structure.build_progress) / 22.4
 
     def time_until_tech(self, structure_type: UnitTypeId) -> float:
         requirements = self.get_tech_requirement(structure_type)

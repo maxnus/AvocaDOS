@@ -48,6 +48,7 @@ class BotApi(BotAI):
     # --- Callbacks
 
     async def on_start(self) -> None:
+        await self.ext.on_start()
         self.client.game_step = self.game_step
         self.alive_tags = self.all_units.tags
         await self.bot.on_start()
