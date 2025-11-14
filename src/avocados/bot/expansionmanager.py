@@ -27,6 +27,12 @@ class Expansion(BotObject):
         self.location = location
         self.miners = {}
 
+    def get_required_workers(self) -> int:
+        return 2 * len(self.location.mineral_fields)
+
+    def get_missing_workers(self) -> int:
+        return self.get_required_workers() - len(self.miners)
+
     def get_assigned_worker_count(self) -> Counter[int]:
         return Counter(self.miners.values())
 
@@ -178,6 +184,12 @@ class ExpansionManager(BotManager):
         location = expansion.location if isinstance(expansion, Expansion) else expansion
         self.logger.info("Removing {}", location)
         self.expansions.pop(location)
+
+    def get_required_workers(self) -> int:
+        return sum(exp.get_required_workers() for exp in self.expansions.values())
+
+    def get_missing_workers(self) -> int:
+        return sum(exp.get_missing_workers() for exp in self.expansions.values())
 
     def get_assigned_worker_count_at_expansion(self, location: ExpansionLocation) -> Counter[int]:
         exp = self.expansions.get(location)

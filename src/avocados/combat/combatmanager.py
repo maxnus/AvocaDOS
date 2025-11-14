@@ -225,6 +225,7 @@ class CombatManager(BotManager):
             # Flying
             case UnitTypeId.VIKINGFIGHTER: return 0.53
             case UnitTypeId.MEDIVAC: return 0.69
+            case UnitTypeId.RAVEN: return 0.70
             case UnitTypeId.LIBERATOR: return 0.70
             case UnitTypeId.LIBERATORAG: return 0.71
             case UnitTypeId.BATTLECRUISER: return 0.72
@@ -236,8 +237,8 @@ class CombatManager(BotManager):
             case UnitTypeId.SPINECRAWLERUPROOTED: return 0.05
             case UnitTypeId.SPINECRAWLER: return 0.20
             # Units
-            case UnitTypeId.EGG: return 0.00
-            case UnitTypeId.LARVA: return 0.01
+            #case UnitTypeId.EGG: return 0.00
+            #case UnitTypeId.LARVA: return 0.01
             case UnitTypeId.CHANGELING: return 0.10
             case UnitTypeId.CREEPTUMOR: return 0.12 # Which one is which?
             case UnitTypeId.CREEPTUMORBURROWED: return 0.13
@@ -292,13 +293,13 @@ class CombatManager(BotManager):
             case UnitTypeId.DISRUPTOR: return 0.85
             case UnitTypeId.HIGHTEMPLAR: return 0.90
             case UnitTypeId.WARPPRISM: return 0.90
+            case UnitTypeId.DARKTEMPLAR: return 0.95 if target.is_revealed else 0
             # Flying
             case UnitTypeId.INTERCEPTOR: return 0.40
             case UnitTypeId.OBSERVER: return 0.55
             case UnitTypeId.TEMPEST: return 0.70
             case UnitTypeId.ORACLE: return 0.75
             case UnitTypeId.CARRIER: return 0.80
-
 
             case _ if target.type_id in PRODUCTION_BUILDING_TYPE_IDS:
                 return 0.08
@@ -399,7 +400,8 @@ class CombatManager(BotManager):
 
     def _get_enemies(self, units: Units, *, scan_range: float = 5.0) -> Units:
         enemies = []
-        for enemy in self.api.all_enemy_units:
+        excluded = {UnitTypeId.EGG, UnitTypeId.LARVA, UnitTypeId.DISRUPTORPHASED}
+        for enemy in self.api.all_enemy_units.exclude_type(excluded):
             for unit in units:
                 max_dist = (unit.ground_range + scan_range)**2
                 if squared_distance(unit, enemy) <= max_dist:
@@ -461,7 +463,7 @@ class CombatManager(BotManager):
             self.order.move(unit, defense_position)
             return True
 
-        if defense_position and unit.shield_health_percentage < 0.8:
+        if defense_prio > 0 and unit.shield_health_percentage < 0.8:
             self.order.move(unit, defense_position)
             return True
 

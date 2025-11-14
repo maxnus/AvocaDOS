@@ -438,7 +438,7 @@ class AvocaDOS:
             if self.api.enemy_units.not_flying.closer_than(3.5, unit):
                 self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
-        for cc in self.townhalls:
+        for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTER, UnitTypeId.ORBITALCOMMAND)).ready:
             enemies = self.api.all_enemy_units.closer_than(8, cc)
             if enemies and not self.workers.closer_than(6, cc) and not cc.is_flying:
                 self.order.ability(cc, AbilityId.LIFT)

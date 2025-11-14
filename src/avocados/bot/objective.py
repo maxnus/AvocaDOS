@@ -42,6 +42,7 @@ class Objective(BotObject, ABC):
     deps: ObjectiveDependencies
     priority: float
     repeat: bool = False
+    persistent: bool = False
     status: ObjectiveStatus
     assigned: set[int]
 
@@ -51,6 +52,7 @@ class Objective(BotObject, ABC):
                  deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] =  None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
+                 persistent: bool = False,
                  status: ObjectiveStatus = ObjectiveStatus.NOT_STARTED,
                  ) -> None:
         super().__init__(bot)
@@ -67,6 +69,7 @@ class Objective(BotObject, ABC):
             priority = 0 if priority < 0 else 1
         self.priority = priority
         self.repeat = repeat
+        self.persistent = persistent
         self.status = status
         self.assigned = set()
 
@@ -81,7 +84,8 @@ class Objective(BotObject, ABC):
         return reqs
 
     def mark_complete(self) -> None:
-        self.status = ObjectiveStatus.COMPLETED
+        if not self.persistent:
+            self.status = ObjectiveStatus.COMPLETED
 
     def assign_units(self, units: Unit | Units | set[int]) -> None:
         if isinstance(units, Unit):
@@ -146,8 +150,9 @@ class UnitObjective(Objective):
                  repeat: bool = False,
                  position: Optional[Point2 | Rectangle] = None,
                  max_distance: int = 16,
+                 persistent: bool = False,
                  ) -> None:
-        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat, persistent=persistent)
         self.utype = utype
         self.number = number
         if isinstance(position, Point2):

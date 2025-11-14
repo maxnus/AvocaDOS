@@ -31,7 +31,7 @@ class StrategyManager(BotManager):
                 enemy_structures = self.api.enemy_structures
                 late_game_score = self.get_late_game_score()
                 self.logger.info("Late game score: {:.2%}", late_game_score)
-                if late_game_score <= 0.2:
+                if late_game_score <= 0.3:
                     enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
                 if enemy_structures:
                     target = enemy_structures.closest_to(self.bot.army.center).position
@@ -52,6 +52,6 @@ class StrategyManager(BotManager):
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""
         # TODO
-        time_score = two_point_lerp(self.time, 0, 20)
+        time_score = two_point_lerp(self.time, 0, 15)
         supply_score = two_point_lerp(self.api.supply_used, 12, 200)
         return (time_score + supply_score) / 2
