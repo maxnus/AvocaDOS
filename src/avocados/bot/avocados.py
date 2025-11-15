@@ -16,6 +16,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.__about__ import __version__
+from avocados.bot.rolemanager import RoleManager
 from avocados.bot.taunts import TauntManager
 from avocados.core.apiextensions import ApiExtensions
 from avocados.bot.buildingmanager import BuildingManager
@@ -58,6 +59,7 @@ class AvocaDOS:
     map: Optional[MapManager]
     build: BuildOrderManager
     order: OrderManager
+    roles: RoleManager
     resources: ResourceManager
     objectives: ObjectiveManager
     squads: SquadManager
@@ -109,6 +111,7 @@ class AvocaDOS:
         self.logger.debug("Initializing {}...", self)
         self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
+        self.roles = RoleManager(self)
         self.resources = ResourceManager(self)
         self.map = MapManager(self)
         self.intel = IntelManager(self)     # requires map
