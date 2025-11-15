@@ -119,6 +119,7 @@ class DebugLayers(StrEnum):
     RESERVED = 'reserved'
     CREEP = 'creep'
     HEIGHT = 'height'
+    SPEEDMINE = 'speedmine'
 
 
 class DebugManager(BotManager):
@@ -188,6 +189,8 @@ class DebugManager(BotManager):
             self._show_squads()
         if self.show.get(DebugLayers.COMBAT):
             self._show_combat()
+        if self.show.get(DebugLayers.SPEEDMINE):
+            self._show_speedmining()
         if self.show.get(DebugLayers.EXP):
             self._show_expansions()
         if self.show.get(DebugLayers.EXP_DIST):
@@ -419,6 +422,13 @@ class DebugManager(BotManager):
         #     self.text_world(f"[{self.api.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
         #                     size=12, color=color)
 
+    def _show_speedmining(self) -> None:
+        color = 'Cyan'
+        for loc, exp in self.expand.expansions.items():
+            for worker, mineral in exp.get_assigment().items():
+                self.line(worker, mineral, color=color)
+                self.line(worker, loc.mining_return_targets[mineral.tag], color=color)
+
     def _show_orders(self) -> None:
         for tag, orders in self.api.bot.order.orders.items():
             if not orders:
@@ -464,7 +474,8 @@ class DebugManager(BotManager):
         mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
         self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.78, 0.05))
         self.text_screen(f"worker target={self.objectives.worker_objective.number},"
-                         f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.10))
+                         f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.08))
+        self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(0.78, 0.11))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

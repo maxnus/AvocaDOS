@@ -117,7 +117,6 @@ class ApiExtensions:
     #
     #     return abilities_amount, max_build_progress
 
-
     def get_scv_build_target(self, scv: Unit) -> Optional[Unit]:
         """Return the building unit that this SCV is constructing, or None."""
         if not scv.is_constructing_scv:
@@ -152,7 +151,7 @@ class ApiExtensions:
         else:
             raise ValueError(f"not an SCV or structure: {scv_or_structure}")
 
-        return self.get_cost(structure.type_id).time * (1 - structure.build_progress) * 22.4
+        return self.get_cost(structure.type_id).time * (1 - structure.build_progress) / 22.4
 
     def time_until_tech(self, structure_type: UnitTypeId) -> float:
         requirements = self.get_tech_requirement(structure_type)

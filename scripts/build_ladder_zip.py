@@ -1,7 +1,7 @@
 import shutil
 import zipfile
 from pathlib import Path
-from subprocess import run
+import subprocess
 from typing import Optional
 
 from avocados import __version__
@@ -32,10 +32,11 @@ def build_ladder_zip(scr_path: Path, build_path: Path, *, overwrite: bool = True
     zip_folder.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(scr_path / 'avocados', zip_folder / 'avocados', dirs_exist_ok=True)
     shutil.copy('ladder_files/run.py', zip_folder / 'run.py')
-    run(f'git clone {PYTHON_SC2_GITHUB}', shell=True, cwd=temp_path)
+    subprocess.run(f'git clone {PYTHON_SC2_GITHUB}', shell=True, cwd=temp_path)
     shutil.copytree(temp_path / 'python-sc2/sc2', zip_folder / 'sc2')
     #shutil.rmtree(temp_path / 'python-sc2')
     zip_directory(zip_folder, build_path / f'AvocaDOS_{__version__}.zip' , overwrite=overwrite)
+    subprocess.run(f'git tag v{__version__}', shell=True, cwd=REPO_PATH)
 
 
 if __name__ == "__main__":

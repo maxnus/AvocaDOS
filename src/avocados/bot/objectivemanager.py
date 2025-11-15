@@ -278,8 +278,8 @@ class ObjectiveManager(BotManager):
                 s.remove_task()
             return True
 
-        total_strength = sum(s.strength for s in squads_with_task)
-        missing_strength = objective.strength - total_strength
+        total_strength = round(sum(s.strength for s in squads_with_task), 2)
+        missing_strength = round(objective.strength - total_strength, 2)
         # Enough squad(s) working on it
         if missing_strength <= 0:
             return False

@@ -26,7 +26,7 @@ class StrategyManager(BotManager):
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.aggression = 0.7
-        self.minimum_attack_strength = 3.0
+        self.minimum_attack_strength = 5.0
         self.worker_priority = 0.4
         self.supply_priority = 0.6
         self.bonus_workers = 3

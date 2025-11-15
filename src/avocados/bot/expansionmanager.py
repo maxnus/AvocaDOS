@@ -16,6 +16,20 @@ if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
+def worker_is_mining(worker: Unit, *,
+                     expected_location: Optional[Point2] = None,
+                     location_tolerance: float = 1.0) -> bool:
+    if not worker.orders:
+        return False
+    order = worker.orders[0]
+    if order.ability.id not in {AbilityId.HARVEST_GATHER, AbilityId.HARVEST_RETURN, AbilityId.MOVE}:
+        return False
+    if (expected_location is not None and isinstance(order.target, Point2)
+            and order.target.distance_to(expected_location) > location_tolerance):
+        return False
+    return True
+
+
 class Expansion(BotObject):
     townhall: int
     location: ExpansionLocation
@@ -26,6 +40,14 @@ class Expansion(BotObject):
         self.townhall = townhall.tag
         self.location = location
         self.miners = {}
+
+    def get_assigment(self) -> dict[Unit, Unit]:
+        assignment = {}
+        for worker_tag, mineral_tag in self.miners.items():
+            worker = self.api.workers.by_tag(worker_tag)
+            minerals = self.api.mineral_field.by_tag(mineral_tag)
+            assignment[worker] = minerals
+        return assignment
 
     def get_required_workers(self) -> int:
         return 2 * len(self.location.mineral_fields)
@@ -121,16 +143,19 @@ class Expansion(BotObject):
                 target = mineral_field
 
             distance = worker.distance_to(target_point)
-            if 0.75 < distance < 2:
+
+            if 0.75 < distance < 2:# and len(worker.orders) != 2:
                 self.order.move(worker, target_point)
                 self.order.smart(worker, target, queue=True)
 
             # Get back to work
-            elif not self._worker_is_working(worker, target_point):
-                # self.logger.debug("Sending worker {} with order target {} and ability id {} back to mineral work",
+            elif not worker_is_mining(worker, expected_location=target_point):
+                # self.logger.debug("Sending worker {} with order target {} and ability id {} back to mineral work,"
+                #                   "target: {}",
                 #                   worker, worker.orders[0].target if worker.orders else None,
-                #                   worker.orders[0].ability if worker.orders else None)
-                self.bot.order.smart(worker, target)
+                #                   worker.orders[0].ability if worker.orders else None,
+                #                   target)
+                self.bot.order.smart(worker, target, force=True)
 
             # elif worker.is_idle:
             #     self.logger.info("Restarting idle worker {}", worker)
@@ -138,17 +163,6 @@ class Expansion(BotObject):
             #         self.commander.order.smart(worker, target, force=True)
             #     elif distance >= 2:
             #         self.commander.order.move(worker, target_point, force=True)
-
-    def _worker_is_working(self, worker: Unit, expected_location: Point2, *,
-                           location_tolerance: float = 1.0) -> bool:
-        if not worker.orders:
-            return False
-        order = worker.orders[0]
-        if order.ability.id not in {AbilityId.HARVEST_GATHER, AbilityId.HARVEST_RETURN, AbilityId.MOVE}:
-            return False
-        if isinstance(order.target, Point2) and order.target.distance_to(expected_location) > location_tolerance:
-            return False
-        return True
 
 
 class ExpansionManager(BotManager):
@@ -266,7 +280,7 @@ class ExpansionManager(BotManager):
                     self.logger.info("Empty mineral field={} or dead worker={}", mineral_tag, worker_tag)
                     self.remove_worker(worker_tag)
 
-    def _assign_idle_workers(self) -> bool:
+    def _assign_idle_workers(self) -> None:
         def worker_filter(unit: Unit) -> bool:
             if self.order.has_order(unit):
                 return False
@@ -275,10 +289,6 @@ class ExpansionManager(BotManager):
             if self.has_worker(unit):
                 return False
             return True
-        assigned = False
         for worker in self.bot.workers.filter(worker_filter):
             if self.add_worker(worker):
                 self.logger.debug("Assigning idle worker {}", worker)
-                assigned = True
-                self.update = True
-        return assigned
