@@ -199,6 +199,10 @@ class CombatManager(BotManager):
 
     def _get_attack_base_priority(self, target: Unit) -> float:
 
+        # Can't attack that
+        if not target.is_revealed:
+            return 0.0
+
         match target.type_id:
             # --- Terran
             # Structures
@@ -295,11 +299,11 @@ class CombatManager(BotManager):
             case UnitTypeId.DISRUPTOR: return 0.85
             case UnitTypeId.HIGHTEMPLAR: return 0.90
             case UnitTypeId.WARPPRISM: return 0.90
-            case UnitTypeId.DARKTEMPLAR: return 0.95 if target.is_revealed else 0
+            case UnitTypeId.DARKTEMPLAR: return 0.95
             # Flying
             case UnitTypeId.INTERCEPTOR: return 0.40
-            case UnitTypeId.OBSERVER: return 0.55
             case UnitTypeId.TEMPEST: return 0.70
+            case UnitTypeId.OBSERVER: return 0.74
             case UnitTypeId.ORACLE: return 0.75
             case UnitTypeId.CARRIER: return 0.80
 
