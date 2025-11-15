@@ -10,7 +10,7 @@ from avocados.core.manager import BotManager
 from avocados.bot.objective import (Objective, ObjectiveStatus, ObjectiveRequirementType, ObjectiveRequirements,
                                     ObjectiveDependencies,
                                     UnitObjective, ResearchObjective, AttackObjective,
-                                    DefenseObjective, ConstructionObjective)
+                                    DefenseObjective, ConstructionObjective, WorkerObjective, SupplyObjective)
 from avocados.geometry.util import squared_distance, get_best_score, Area
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 
@@ -22,12 +22,17 @@ class ObjectiveManager(BotManager):
     completed: dict[int, Objective]
     current: dict[int, Objective]
     future: dict[int, Objective]
+    # Persistent objectives
+    worker_objective: Optional[WorkerObjective]
+    supply_objective: Optional[SupplyObjective]
 
     def __init__(self, bot: 'AvocaDOS', objectives: Optional[dict[int, Objective]] = None) -> None:
         super().__init__(bot)
         self.completed = {}
         self.current = {}
         self.future = objectives or {}
+        self.worker_objective = None
+        self.supply_objective = None
 
     def add(self, objective: Objective) -> int:
         self.logger.info("Adding new objective: {}", objective)
@@ -37,6 +42,14 @@ class ObjectiveManager(BotManager):
     def add_construction_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
         objective = ConstructionObjective(self.bot, utype, number, **kwargs)
         return self.add(objective)
+
+    def set_worker_objective(self, number: int = 1, **kwargs) -> int:
+        self.worker_objective = WorkerObjective(self.bot, number, **kwargs)
+        return self.add(self.worker_objective)
+
+    def set_supply_objective(self, number: int = 1, **kwargs) -> int:
+        self.supply_objective = SupplyObjective(self.bot, number, **kwargs)
+        return self.add(self.supply_objective)
 
     def add_unit_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
         objective = UnitObjective(self.bot, utype, number, **kwargs)
@@ -126,9 +139,11 @@ class ObjectiveManager(BotManager):
         if isinstance(objective, UnitObjective):
             if self.step % 2 == 0:
                 completed = await self._unit_objective(objective)
-        elif isinstance(objective, ConstructionObjective):
+        elif isinstance(objective, (ConstructionObjective, SupplyObjective)):
+            #if self.step % 2 == 0:
             completed = await self._construction_objective(objective)
         elif isinstance(objective, ResearchObjective):
+            #if self.step % 2 == 0:
             completed = self._research_objective(objective)
         elif isinstance(objective, (AttackObjective, DefenseObjective)):
             if self.step % 4 == 0:
@@ -139,7 +154,7 @@ class ObjectiveManager(BotManager):
             objective.mark_complete()
         return completed
 
-    async def _construction_objective(self, objective: ConstructionObjective) -> bool:
+    async def _construction_objective(self, objective: ConstructionObjective | SupplyObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
         units = self.bot.forces(utype).ready
 

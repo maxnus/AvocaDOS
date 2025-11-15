@@ -141,6 +141,7 @@ class AvocaDOS:
         await self.building.on_start()
         await self.intel.on_start()
         await self.build.on_start()
+        await self.strategy.on_start()
 
         if self.micro_scenario is not None:
             await self.micro_scenario.on_start()

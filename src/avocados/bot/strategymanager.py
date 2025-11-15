@@ -18,11 +18,24 @@ if TYPE_CHECKING:
 class StrategyManager(BotManager):
     aggression: float
     minimum_attack_strength: float
+    worker_priority: float
+    supply_priority: float
+    bonus_workers: int
+    bonus_supply: int
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.aggression = 0.7
         self.minimum_attack_strength = 3.0
+        self.worker_priority = 0.4
+        self.supply_priority = 0.6
+        self.bonus_workers = 3
+        self.bonus_supply = 6
+
+    async def on_start(self) -> None:
+        self.objectives.set_worker_objective(self.expand.get_required_workers() + self.bonus_workers,
+                                             priority=self.worker_priority)
+        self.objectives.set_supply_objective(1, priority=self.supply_priority)
 
     async def on_step(self, step: int) -> None:
         if self.aggression >= 0.5:
@@ -48,6 +61,28 @@ class StrategyManager(BotManager):
         else:
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
                 self.objectives.add_defense_objective(Circle(self.map.base.region_center, 16))
+
+        self.objectives.worker_objective.number = self.get_worker_target()
+        self.objectives.supply_objective.number = self.get_supply_target()
+
+    def get_worker_target(self) -> int:
+        return self.expand.get_required_workers() + self.bonus_workers
+
+    def get_supply_target(self) -> int:
+        # TODO: fix other races
+        # pending_supply = int(
+        #     self.api.already_pending(self.ext.townhall_utype) * 15
+        #     + self.api.already_pending(self.ext.supply_utype) * 8
+        # )
+        # if self.api.supply_left <= self.bonus_supply:
+        #     supply_target_total = int(min(self.api.supply_cap + self.bonus_supply, 200))
+        # else:
+        #     supply_target_total = int(self.api.supply_cap)
+        supply_target_total = int(min(self.api.supply_used + self.bonus_supply, 200))
+        ccs = len(self.api.townhalls)
+        supply_target = supply_target_total - ccs * 15
+        supply_unit_target = (supply_target + 7) // 8
+        return supply_unit_target
 
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""

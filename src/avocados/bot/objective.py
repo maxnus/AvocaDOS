@@ -165,6 +165,43 @@ class UnitObjective(Objective):
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
 
 
+class WorkerObjective(UnitObjective):
+    def __init__(self,
+                 bot: 'AvocaDOS',
+                 number: int,
+                 *,
+                 priority: float = DEFAULT_PRIORITY,
+                 ) -> None:
+        super().__init__(bot=bot, utype=bot.ext.worker_utype, number=number, priority=priority, persistent=True)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(number={self.number}, priority={self.priority})"
+
+
+class SupplyObjective(Objective):
+    number: int
+
+    def __init__(self,
+                 bot: 'AvocaDOS',
+                 number: int,
+                 *,
+                 priority: float = DEFAULT_PRIORITY,
+                 ) -> None:
+        super().__init__(bot=bot, priority=priority, persistent=True)
+        self.number = number
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(number={self.number}, priority={self.priority})"
+
+    @property
+    def utype(self) -> UnitTypeId:
+        return self.ext.supply_utype
+
+    @property
+    def position(self) -> None:
+        return None
+
+
 class ResearchObjective(Objective):
     upgrade: UpgradeId
     position: Point2
