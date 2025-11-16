@@ -23,6 +23,7 @@ class MemoryManager(BotManager):
     supply: Timeseries[int]
     supply_cap: Timeseries[int]
     supply_workers: Timeseries[int]
+    army_strength: Timeseries[float]
 
     def __init__(self, bot: 'AvocaDOS', *, max_length: int = 1000) -> None:
         super().__init__(bot)
@@ -34,6 +35,7 @@ class MemoryManager(BotManager):
         self.supply = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
         self.supply_cap = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
         self.supply_workers = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
+        self.army_strength = Timeseries.empty(float, initial_size=INITIAL_TIMESERIES_SIZE)
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
@@ -44,6 +46,7 @@ class MemoryManager(BotManager):
         self.supply.append(step, int(self.api.supply_used))
         self.supply_cap.append(step, int(self.api.supply_cap))
         self.supply_workers.append(step, int(self.api.supply_workers))
+        self.army_strength.append(step, self.combat.get_strength(self.bot.army))
 
         # Own
         for unit in self.api.units:

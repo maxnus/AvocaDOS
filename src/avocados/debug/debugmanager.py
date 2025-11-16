@@ -476,6 +476,8 @@ class DebugManager(BotManager):
         self.text_screen(f"worker target={self.objectives.worker_objective.number},"
                          f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.07))
         self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(0.78, 0.09))
+        self.text_screen(f"strength={self.memory.army_strength.value():.2f},"
+                         f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(0.78, 0.11))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

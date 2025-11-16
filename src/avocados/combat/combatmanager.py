@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
@@ -125,12 +126,19 @@ class CombatManager(BotManager):
                     self.order.move(unit, squad.task.target.center)
         self.timings['micro'].add(t0)
 
-    def get_strength(self, units: Units | Unit) -> float:
-        # TODO
+    def get_strength(self, units: Unit | Iterable[Unit], *,
+                     reference_hp: int = 45, reference_dps: float = 6.969937606352808) -> float:
+        # TODO armor, energy, abilities, upgrades
         if isinstance(units, Unit):
-            strength = 0.7 * units.shield_health_percentage + 0.3
+            hp = units.health + units.shield
+            if units.ground_dps != 0:
+                ttk = min(hp / reference_dps, reference_hp / units.ground_dps)
+            else:
+                ttk = hp / reference_dps
+            strength = 2 * (hp + ttk * (units.ground_dps - reference_dps)) / (hp + reference_hp)
         else:
-            strength = 0.7 * sum(u.shield_health_percentage for u in units) + 0.3 * len(units)
+            strength = sum(self.get_strength(unit, reference_hp=reference_hp, reference_dps=reference_dps)
+                           for unit in units)
         return round(strength, 2)
 
     # ---

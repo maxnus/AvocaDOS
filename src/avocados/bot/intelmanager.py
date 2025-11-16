@@ -4,8 +4,11 @@ from typing import TYPE_CHECKING, Optional
 import numpy
 from numpy import ndarray
 from sc2.position import Point2
+from sc2.unit import Unit
 
+from avocados.core.constants import RESOURCE_COLLECTOR_TYPE_IDS
 from avocados.core.manager import BotManager
+from avocados.core.timeseries import Timeseries
 from avocados.geometry.field import Field
 from avocados.geometry.util import Rectangle
 from avocados.mapdata.expansion import ExpansionLocation
@@ -18,10 +21,14 @@ class IntelManager(BotManager):
     last_known_enemy_base: Optional[ExpansionLocation]
     visibility: Field[int]
     last_visible: Field[float]
+    enemy_units: set[Unit]
+    enemy_army_strength: Timeseries[float]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.last_known_enemy_base = None
+        self.enemy_units = set()
+        self.enemy_army_strength = Timeseries.empty(float, initial_size=4096)
 
     async def on_start(self) -> None:
         self.last_known_enemy_base = self.map.known_enemy_start_location
@@ -33,6 +40,10 @@ class IntelManager(BotManager):
         self.visibility.data = self.api.state.visibility.data_numpy.transpose()[self.map.playable_mask]
         mask: ndarray = (self.visibility.data == 2)  # noqa
         self.last_visible.data[mask] = self.time
+        self.enemy_units = {unit for unit in self.enemy_units if unit.tag in self.api.alive_tags}
+        self.enemy_units.update(self.api.enemy_units)
+        enemy_army = {unit for unit in self.enemy_units if unit.type_id not in RESOURCE_COLLECTOR_TYPE_IDS}
+        self.enemy_army_strength.append(step, self.combat.get_strength(enemy_army))
         self.timings['step'].add(t0)
 
     def get_percentage_scouted(self) -> float:

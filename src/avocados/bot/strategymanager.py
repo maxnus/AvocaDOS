@@ -45,7 +45,7 @@ class StrategyManager(BotManager):
                 enemy_structures = self.api.enemy_structures
                 late_game_score = self.get_late_game_score()
                 self.logger.info("Late game score: {:.2%}", late_game_score)
-                if late_game_score <= 0.3:
+                if late_game_score <= 0.4:
                     enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
                 if enemy_structures:
                     target = enemy_structures.closest_to(self.bot.army.center).position
@@ -57,8 +57,15 @@ class StrategyManager(BotManager):
                                for exp, time in self.intel.get_time_since_expansions_last_visible().items()}
                     target = max(targets.keys(), key=targets.get).center
                 area = Circle(target, 16.0)
+
+                if self.memory.army_strength.value() >= 2 * self.intel.enemy_army_strength.value():
+                    squad_size = 3
+                elif self.memory.army_strength.value() >= self.intel.enemy_army_strength.value():
+                    squad_size = 5
+                else:
+                    squad_size = 10
                 self.objectives.add_attack_objective(area, duration=5, priority=self.aggression,
-                                                     minimum_size=3)
+                                                     minimum_size=squad_size)
         else:
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
                 self.objectives.add_defense_objective(Circle(self.map.base.region_center, 16))
