@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.ability_id import AbilityId
@@ -12,9 +12,13 @@ from sc2.units import Units
 
 from avocados.core.constants import UNIT_CREATION_ABILITIES, UPGRADE_ABILITIES
 from avocados.core.manager import BotManager
+from avocados.geometry.util import same_point
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
+
+
+DEFAULT_ORDER_PRIORITY = 0.5
 
 
 @dataclass(repr=False, frozen=True)
@@ -22,6 +26,11 @@ class Order(ABC):
 
     @abstractmethod
     def __repr__(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def priority(self) -> float:
         pass
 
     @property
@@ -47,6 +56,7 @@ class Order(ABC):
 @dataclass(frozen=True)
 class TrainOrder(Order):
     utype: UnitTypeId
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name})"
@@ -63,6 +73,7 @@ class TrainOrder(Order):
 @dataclass(frozen=True)
 class UpgradeOrder(Order):
     upgrade: UpgradeId
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.upgrade.name})"
@@ -78,6 +89,7 @@ class UpgradeOrder(Order):
 
 @dataclass(frozen=True)
 class ReturnResourceOrder(Order):
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}"
@@ -96,7 +108,7 @@ class ReturnResourceOrder(Order):
 
 def is_same_target(target1: Unit | Point2 | None, target2: Unit | Point2 | None) -> bool:
     if isinstance(target1, Point2) and isinstance(target2, Point2):
-        return max(abs(target1.x - target2.x), abs(target1.y - target2.y)) < 0.001
+        return same_point(target1, target2)
     return target1 == target2
 
 
@@ -116,6 +128,7 @@ class TargetOrder(Order, ABC):
 
 @dataclass(frozen=True)
 class MoveOrder(TargetOrder):
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -131,6 +144,7 @@ class MoveOrder(TargetOrder):
 
 @dataclass(frozen=True)
 class AttackOrder(TargetOrder):
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -147,6 +161,7 @@ class AttackOrder(TargetOrder):
 @dataclass(frozen=True)
 class AbilityOrder(TargetOrder):
     ability: AbilityId
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -162,6 +177,7 @@ class AbilityOrder(TargetOrder):
 
 @dataclass(frozen=True)
 class SmartOrder(TargetOrder):
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -178,6 +194,7 @@ class SmartOrder(TargetOrder):
 @dataclass(frozen=True)
 class BuildOrder(TargetOrder):
     utype: UnitTypeId
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.utype.name}, {self.target})"
@@ -193,6 +210,7 @@ class BuildOrder(TargetOrder):
 
 @dataclass(frozen=True)
 class GatherOrder(TargetOrder):
+    priority: float = field(default=DEFAULT_ORDER_PRIORITY, compare=False)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.target})"
@@ -207,77 +225,61 @@ class GatherOrder(TargetOrder):
 
 
 class OrderManager(BotManager):
-    orders: dict[int, list[Order]]
-    """Orders of the current step"""
-    orders_prev: dict[int, list[Order]]
-    """Orders of the previous step"""
-    orders_last: dict[int, list[Order]]
-    """Last order of any previous step"""
+    orders: dict[Unit, list[Order]]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.orders = {}
-        self.orders_prev = {}
-        self.orders_last = {}
 
     async def on_step_start(self, step: int) -> None:
-        # Clean orders of dead units (TODO is this really necessary? why not just keep them)
-        # alive_tags = self.commander.forces.tags
-        # self.orders = {tag: orders for tag, orders in self.orders.items() if tag in alive_tags}
-        # self.last_orders = {tag: orders for tag, orders in self.last_orders.items() if tag in alive_tags}
+        self.orders.clear()
 
-        self.orders_last.update(self.orders)
-        self.orders_prev = self.orders
-        self.orders = {}
-
-    def get_orders(self, unit: Unit) -> Optional[list[Order]]:
-        return self.orders.get(unit.tag)
+    async def on_step_end(self, step: int) -> None:
+        for unit, orders in self.orders.items():
+            for idx, order in enumerate(orders):
+                queue = idx > 0
+                if self._is_new_order(unit, order, queue=queue):
+                    order.issue(unit, queue=queue)
 
     def has_order(self, unit: Unit) -> bool:
-        return unit.tag in self.orders
+        return unit in self.orders
 
     def move(self, unit: Unit | Units, target: Point2 | Unit, *,
-             queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, MoveOrder, target, queue=queue, force=force)
+             queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, MoveOrder, target, queue=queue, priority=priority)
 
     def attack(self, unit: Unit | Units, target: Point2 | Unit, *,
-               queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, AttackOrder, target, queue=queue, force=force)
+               queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, AttackOrder, target, queue=queue, priority=priority)
 
     def ability(self, unit: Unit | Units, ability: AbilityId, target: Optional[Point2 | Unit] = None, *,
-                queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, AbilityOrder, target, ability, queue=queue, force=force)
+                queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, AbilityOrder, target, ability, queue=queue, priority=priority)
 
     def gather(self, unit: Unit | Units, target: Unit, *,
-               queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, GatherOrder, target, queue=queue, force=force)
+               queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, GatherOrder, target, queue=queue, priority=priority)
 
     def return_resource(self, unit: Unit | Units, *,
-                        queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, ReturnResourceOrder, queue=queue, force=force)
+                        queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, ReturnResourceOrder, queue=queue, priority=priority)
 
     def build(self, unit: Unit | Units, utype: UnitTypeId, position: Point2 | Unit, *,
-              queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, BuildOrder, position, utype, queue=queue, force=force)
+              queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, BuildOrder, position, utype, queue=queue, priority=priority)
 
     def train(self, unit: Unit | Units, utype: UnitTypeId, *,
-              queue: bool = False, force: bool = False) -> bool:
+              queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
         # TODO: do not train if already training
-        return self._order(unit, TrainOrder, utype, queue=queue, force=force)
+        return self._order(unit, TrainOrder, utype, queue=queue, priority=priority)
 
     def upgrade(self, unit: Unit | Units, upgrade: UpgradeId, *,
-                queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, UpgradeOrder, upgrade, queue=queue, force=force)
+                queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, UpgradeOrder, upgrade, queue=queue, priority=priority)
 
     def smart(self, unit: Unit | Units, target: Point2 | Unit, *,
-              queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, SmartOrder, target, queue=queue, force=force)
-
-    def _check_unit(self, unit: Unit, *, queue: bool) -> bool:
-        if not queue and unit.tag in self.orders:
-            self.logger.error("Unit {} already has orders: {}", unit, self.orders.get(unit.tag))
-            return False
-        return True
+              queue: bool = False, priority: float = DEFAULT_ORDER_PRIORITY) -> bool:
+        return self._order(unit, SmartOrder, target, queue=queue, priority=priority)
 
     def _is_new_order(self, unit: Unit, order: Order, *, queue: bool) -> bool:
         """Check if the order is new or just repeated (and doesn't need to be sent to the API)."""
@@ -288,17 +290,17 @@ class OrderManager(BotManager):
         return not order.matches(current_order)
 
     def _order(self, unit: Unit | Units, order_cls: type[Order],
-               *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId,
-               queue: bool, force: bool) -> bool:
+               *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId | Order,
+               queue: bool,
+               priority: float
+               ) -> bool:
         if isinstance(unit, Units):
-            return all(self._order(u, order_cls, *order_args, queue=queue, force=force) for u in unit)
-        if not self._check_unit(unit, queue=queue):
-            return False
-        order = order_cls(*order_args)
-        if force or self._is_new_order(unit, order, queue=queue):
-            order.issue(unit, queue=queue)
+            return all(self._order(u, order_cls, *order_args, queue=queue, priority=priority) for u in unit)
+        order = order_cls(*order_args, priority=priority)
         if queue and self.has_order(unit):
-            self.orders[unit.tag].append(order)
+            self.orders[unit].append(order)
         else:
-            self.orders[unit.tag] = [order]
+            current_orders = self.orders.get(unit)
+            if not current_orders or priority > current_orders[0].priority:
+                self.orders[unit] = [order]
         return True

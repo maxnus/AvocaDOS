@@ -18,6 +18,10 @@ def unique_id() -> int:
     return next(_id_counter)
 
 
+def same_point(point1: Point2, point2: Point2) -> bool:
+    return max(abs(point1.x - point2.x), abs(point1.y - point2.y)) < 0.001
+
+
 async def wait_until(predicate: Callable[..., Any], check_interval: float = 1) -> None:
     """Repeatedly check predicate() until it returns True."""
     while not predicate():

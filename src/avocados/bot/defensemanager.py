@@ -11,14 +11,15 @@ if TYPE_CHECKING:
 
 
 class DefenseManager(BotManager):
-    defense_distance: ClassVar[float] = 10.0
+    defense_distance: ClassVar[float] = 8.0
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
 
     async def on_step(self, step: int) -> None:
-        for townhall in self.api.townhalls:
-            enemies = self.api.all_enemy_units.closer_than(self.defense_distance, townhall)
+        for expansion in self.expand.expansions.values():
+            enemies = self.api.all_enemy_units.closer_than(self.defense_distance,
+                                                           expansion.location.mineral_line_center)
             if not enemies:
                 continue
             if len(enemies) == 1 and enemies.first.type_id in WORKER_TYPE_IDS:
@@ -30,7 +31,8 @@ class DefenseManager(BotManager):
                 for defender in units_defending:
                     self.order.attack(defender, enemy)
 
-                #self.logger.debug("Units already defending: {}", units_defending)
+                if enemy.is_flying:
+                    continue
 
                 required_defender = self._workers_to_defend(enemy) - len(units_defending)
                 if required_defender <= 0:

@@ -56,18 +56,15 @@ class BuildOrderManager(BotManager):
 
     def load_proxy_marine(self) -> None:
         bot = self.bot
-        obj = bot.objectives
 
         proxy_location = bot.map.get_proxy_location()
         rax123 = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 3, position=proxy_location,
                                                            include_addon=False, priority=0.8)
-        rax4 = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, priority=0.8,
-                                                         reqs=UnitTypeId.BARRACKS)
-        rax_home = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 2,
-                                                             position=self.map.start_location.region_center,
-                                                             priority=0.3, deps=rax123)
-
-        obj.add_unit_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, priority=0.45)
+        bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, priority=0.8,
+                                                  reqs=UnitTypeId.BARRACKS)
+        bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 2,
+                                                  position=self.map.start_location.region_center,
+                                                  priority=0.3, deps=rax123)
 
         # Units
-        obj.add_unit_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS)
+        bot.objectives.add_unit_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS, priority=0.7)

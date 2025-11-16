@@ -430,14 +430,12 @@ class DebugManager(BotManager):
                 self.line(worker, loc.mining_return_targets[mineral.position], color=color)
 
     def _show_orders(self) -> None:
-        for tag, orders in self.api.bot.order.orders.items():
-            if not orders:
-                continue
-            unit = (self.api.units + self.api.structures).find_by_tag(tag)
-            if unit is None:
-                continue
-            order = orders[0]
-            self.box_with_text(unit, order.short_repr)
+        for unit in self.api.all_units:
+            if not unit.orders:
+                order_repr = "None"
+            else:
+                order_repr = ','.join([str(order) for order in unit.orders])
+            self.box_with_text(unit, order_repr)
 
     def _show_squads(self, color: tuple[int, int, int] | str = Color.PINK) -> None:
         for squad in self.squads:

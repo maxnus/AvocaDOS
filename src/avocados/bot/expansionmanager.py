@@ -8,38 +8,30 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
+from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
+from avocados.geometry.util import same_point
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
-def worker_is_mining(worker: Unit, *,
-                     expected_location: Optional[Point2] = None,
-                     location_tolerance: float = 1.0) -> bool:
-    if not worker.orders:
-        return False
-    order = worker.orders[0]
-    if order.ability.id not in {AbilityId.HARVEST_GATHER, AbilityId.HARVEST_RETURN, AbilityId.MOVE}:
-        return False
-    if (expected_location is not None and isinstance(order.target, Point2)
-            and order.target.distance_to(expected_location) > location_tolerance):
-        return False
-    return True
-
-
 class Expansion(BotObject):
-    townhall: int
+    townhall_tag: int
     location: ExpansionLocation
     miners: dict[int, Point2]
 
     def __init__(self, bot: 'AvocaDOS', townhall: Unit, location: ExpansionLocation) -> None:
         super().__init__(bot)
-        self.townhall = townhall.tag
+        self.townhall_tag = townhall.tag
         self.location = location
         self.miners = {}
+
+    @property
+    def townhall(self) -> Optional[Unit]:
+        return self.api.structures.find_by_tag(self.townhall_tag)
 
     def get_assignment(self) -> dict[Unit, Unit]:
         assignment = {}
@@ -64,7 +56,7 @@ class Expansion(BotObject):
     def add_worker(self, worker: Unit) -> bool:
         if self.has_worker(worker):
             return False
-        empty_fields, single_fields, double_fields, oversaturated_fields = self.get_mineral_field_split()
+        empty_fields, single_fields = self.get_mineral_field_split()[:2]
         if empty_fields:
             mf = empty_fields.closest_to(worker)
         elif single_fields:
@@ -104,9 +96,9 @@ class Expansion(BotObject):
                 self.miners[worker.access().tag] = mineral.position
 
     def speed_mine(self) -> None:
-        townhall = self.bot.townhalls.find_by_tag(self.townhall)
+        townhall = self.townhall
         if townhall is None:
-            self.log.error("NoTownhall-{}", self.townhall)
+            self.log.error("NoTownhall-{}", self.townhall_tag)
             return
 
         enemies = self.api.enemy_units.closer_than(8, townhall)
@@ -117,7 +109,7 @@ class Expansion(BotObject):
                 self.log.error("InvalidWorkerTag-{}", worker_tag)
                 continue
 
-            # Defend yourself
+            # Defend yourself TODO: do for all probes
             if worker.weapon_ready:
                 close_enemies = enemies.in_attack_range_of(worker)
                 if close_enemies:
@@ -142,27 +134,23 @@ class Expansion(BotObject):
                     continue
                 target = mineral_field
 
-            distance = worker.distance_to(target_point)
+            def is_correct_order() -> bool:
+                if not worker.orders:
+                    return False
+                order = worker.orders[0]
+                if order.ability.exact_id in {AbilityId.HARVEST_RETURN_SCV, AbilityId.HARVEST_RETURN_MULE,
+                                              AbilityId.HARVEST_RETURN_DRONE, AbilityId.HARVEST_RETURN_PROBE}:
+                    return True
+                if isinstance(order.target, int) and order.target in {townhall.tag, mineral_field.tag}:
+                    return True
+                if isinstance(order.target, Point2) and same_point(order.target, target_point):
+                    return True
+                return False
 
-            if 0.75 < distance < 2:# and len(worker.orders) != 2:
+            distance = worker.distance_to(target_point)
+            if (0.75 < distance < 2 and len(worker.orders) != 2) or not is_correct_order():
                 self.order.move(worker, target_point)
                 self.order.smart(worker, target, queue=True)
-
-            # Get back to work
-            elif not worker_is_mining(worker, expected_location=target_point):
-                # self.logger.debug("Sending worker {} with order target {} and ability id {} back to mineral work,"
-                #                   "target: {}",
-                #                   worker, worker.orders[0].target if worker.orders else None,
-                #                   worker.orders[0].ability if worker.orders else None,
-                #                   target)
-                self.bot.order.smart(worker, target, force=True)
-
-            # elif worker.is_idle:
-            #     self.logger.info("Restarting idle worker {}", worker)
-            #     if distance <= 0.75:
-            #         self.commander.order.smart(worker, target, force=True)
-            #     elif distance >= 2:
-            #         self.commander.order.move(worker, target_point, force=True)
 
 
 class ExpansionManager(BotManager):
@@ -192,9 +180,26 @@ class ExpansionManager(BotManager):
         self._assign_idle_workers()
         #if self.update:
         #    await self.update_assignment()
-        for exp in self.expansions.values():
-            exp.speed_mine()
+        if step % 4 == 0:
+            for exp in self.expansions.values():
+                exp.speed_mine()
         self.timings['step'].add(t0)
+
+    async def on_building_construction_complete(self, unit: Unit) -> None:
+        if unit.type_id not in TOWNHALL_TYPE_IDS:
+            return
+        if self.has_townhall(unit):
+            return
+        location = min(self.map.expansions, key=lambda expansion: unit.distance_to(expansion.center))
+        if unit.distance_to(location.center) > 3:
+            return
+        self.add_expansion(location, unit)
+
+    def has_townhall(self, townhall: Unit) -> bool:
+        for exp in self.expansions.values():
+            if exp.townhall == townhall:
+                return True
+        return False
 
     def add_expansion(self, location: ExpansionLocation, townhall: Unit) -> None:
         self.logger.info("Adding {} at {}", townhall, location)
@@ -240,7 +245,7 @@ class ExpansionManager(BotManager):
         if self.has_worker(worker):
             self.log.warning("SCV-{}-already-assigned-{}", worker, self)
             return False
-        for exp in self.expansions.values():
+        for exp in sorted(self.expansions.values(), key=lambda exp: worker.distance_to(exp.location.center)):
             if exp.add_worker(worker):
                 return True
         return False
@@ -273,7 +278,7 @@ class ExpansionManager(BotManager):
     def _check_for_dead_tags(self):
         # Check for dead tags
         for exp in list(self.expansions.values()):
-            if exp.townhall not in self.api.alive_tags:
+            if exp.townhall_tag not in self.api.alive_tags:
                 self.logger.info("Townhall at {} died", exp)
                 self.remove_expansion(exp)
         for exp in self.expansions.values():

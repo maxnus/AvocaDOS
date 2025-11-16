@@ -71,7 +71,7 @@ class ObjectiveManager(BotManager):
         objective = DefenseObjective(self.bot, target, strength, **kwargs)
         return self.add(objective)
 
-    def objectives_of_type(self, objective_type: type[Objective] | tuple[type[Objective], ...]) -> list[Objective]:
+    def objectives_of_type[T: Objective](self, objective_type: type[T]) -> list[T]:
         return [obj for obj in self.current.values() if isinstance(obj, objective_type)]
 
     def __bool__(self) -> bool:
@@ -169,11 +169,6 @@ class ObjectiveManager(BotManager):
         if objective.position is not None:
             units = units.filter(lambda u: u.position in objective.position)
         if units.amount >= objective.number:
-            if isinstance(objective, ExpansionObjective):
-                townhall = units.first
-                exp = min(self.map.expansions, key=lambda x: x.center.distance_to(townhall))
-                if exp not in self.expand:
-                    self.expand.add_expansion(exp, townhall)
             return True
 
         pending = int(self.api.already_pending(objective.utype))
@@ -204,13 +199,18 @@ class ObjectiveManager(BotManager):
             worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
             if not worker:
                 break
-            #worker = self.commander.workers.random
-            #self.logger.trace("Found free worker: {} {}", worker, worker.orders[0])
-            if (time_for_tech == 0
+
+            orphaned = (self.api.structures_without_construction_SCVs.of_type(objective.utype)
+                        .filter(lambda unit: objective.position is None or unit.position in objective.position))
+            if orphaned:
+                self.order.smart(worker.access(), target=orphaned.random)
+
+            elif (time_for_tech == 0
                     and self.resources.can_afford(objective.utype)
                     and worker.value.distance_to(wrapped_target.value) <= 2.5):
                 self.logger.trace("{}: ordering worker {} build {} at {}", objective, worker, objective.utype.name, wrapped_target.value)
                 self.order.build(worker.access(), objective.utype, wrapped_target.access())
+
             elif time_for_tech <= travel_time:
                 resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker.value)
                 #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)

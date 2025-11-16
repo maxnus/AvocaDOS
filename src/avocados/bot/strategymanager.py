@@ -2,12 +2,13 @@ import math
 from typing import TYPE_CHECKING
 
 import numpy
+from sc2.ids.unit_typeid import UnitTypeId
 
 from avocados.core.timeseries import Timeseries
 from avocados.core.util import two_point_lerp, lerp
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS
-from avocados.bot.objective import AttackObjective, DefenseObjective
+from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective
 from avocados.geometry import Circle
 
 if TYPE_CHECKING:
@@ -23,6 +24,7 @@ class StrategyManager(BotManager):
     absolute_bonus_supply: int
     relative_bonus_supply: float
     expansion_score_threshold: float
+    max_workers: int = 80
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -30,6 +32,7 @@ class StrategyManager(BotManager):
         self.minimum_attack_strength = 5.0
         self.worker_priority = 0.4
         self.supply_priority = 0.6
+        self.orbital_priority = 0.65
         self.bonus_workers = 3
         self.absolute_bonus_supply = 1
         self.relative_bonus_supply = 0.05
@@ -77,6 +80,17 @@ class StrategyManager(BotManager):
         self.objectives.supply_objective.number = self.get_supply_target()
         self.objectives.expansion_objective.number = self.get_expansion_target()
 
+        if ((ccs := self.api.townhalls.of_type(UnitTypeId.COMMANDCENTER).ready)
+                   and self.ext.time_until_tech(UnitTypeId.ORBITALCOMMAND) == 0):
+            existing_objectives = [obj for obj in self.objectives.objectives_of_type(UnitObjective)
+                                   if obj.utype == UnitTypeId.ORBITALCOMMAND]
+            number = len(ccs) + len(self.api.townhalls.of_type(UnitTypeId.ORBITALCOMMAND).ready)
+            if existing_objectives:
+                existing_objectives[0].number = number
+            else:
+                self.objectives.add_unit_objective(UnitTypeId.ORBITALCOMMAND, number=number,
+                                                   priority=self.orbital_priority)
+
     def get_expansion_score(self) -> float:
         """0 (don't expand) to 1 (expand now)"""
         # TODO base difference
@@ -86,19 +100,24 @@ class StrategyManager(BotManager):
         number_expansions = len(self.expand)
         if number_expansions > 0:
             remaining_minerals_per_expansion = sum(mf.mineral_contents for mf in minerals) / number_expansions
-            mineral_field_score = lerp(remaining_minerals_per_expansion, (0, 1), (10800, 0))
+            mineral_content_score = lerp(remaining_minerals_per_expansion, (0, 1), (10800, 0))
         else:
-            mineral_field_score = 1.0
+            mineral_content_score = 1.0
 
         missing_fields = (len(self.api.workers) - 2 * len(minerals) + 1) // 2
-        worker_score = lerp(missing_fields, (0, 0), (8, 1))
+        mineral_field_score = lerp(missing_fields, (0, 0), (8, 1))
 
-        minerals_score = lerp(self.api.minerals, (300, 0), (500, 1))
+        minerals_score = lerp(self.resources.minerals, (300, 0), (500, 1))
 
-        return 0.3 * mineral_field_score + 0.3 * worker_score + 0.4 * minerals_score
+        return 0.3 * mineral_content_score + 0.3 * mineral_field_score + 0.4 * minerals_score
 
     def get_worker_target(self) -> int:
-        return self.expand.get_required_workers() + self.bonus_workers
+        workers = self.expand.get_required_workers() + self.bonus_workers
+        for townhall, progress in self.ext.structures_in_production(self.ext.townhall_utype):
+            location = min(self.map.expansions, key=lambda exp: townhall.distance_to(exp.center))
+            if townhall.distance_to(townhall) < 3:
+                workers += 2 * len(location.mineral_fields)
+        return min(workers, self.max_workers)
 
     def get_supply_target(self, *, projection_horizon: float = 30.0) -> int:
 

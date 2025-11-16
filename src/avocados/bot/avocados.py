@@ -152,7 +152,7 @@ class AvocaDOS:
 
         if step == 50:
             intro_line1 = "    Artificial  Villain  of  Cheesy  and"
-            intro_line2 = "  Dishonorable  Offensive  Strategies"#.upper()
+            intro_line2 = "  Dishonorable  Offensive  Strategies"
             await self.api.client.chat_send(intro_line1, False)
             await self.api.client.chat_send(intro_line2, False)
 
@@ -195,11 +195,15 @@ class AvocaDOS:
         await self.squads.on_step(step)
         await self.combat.on_step(step)
         await self.strategy.on_step(step)
-        await self.other(step)  # TODO: find a place for this
         await self.expand.on_step(step)
+        await self.other(step)  # TODO: find a place for this
+
+        await self.on_step_end(step)
+
+    async def on_step_end(self, step: int) -> None:
+        await self.order.on_step_end(step)
         if self.debug:
             await self.debug.on_step(step)
-
         if step % 8 == 0:
             await self.taunt.on_step(step)
 
@@ -216,8 +220,11 @@ class AvocaDOS:
     async def on_building_construction_started(self, unit: Unit) -> None:
         pass
 
-    async def on_building_construction_finished(self, unit: Unit) -> None:
-        pass
+    async def on_building_construction_complete(self, unit: Unit) -> None:
+        for manager in self.managers:
+            func = getattr(manager, 'on_building_construction_complete', None)
+            if func is not None:
+                await func(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
         pass
@@ -250,7 +257,7 @@ class AvocaDOS:
     def workers(self) -> Units:
         return self.api.workers
 
-    @property_cache_once_per_frame
+    @property#_cache_once_per_frame
     def army(self) -> Units:
         def army_filter(unit: Unit) -> bool:
             if unit.type_id in RESOURCE_COLLECTOR_TYPE_IDS:
@@ -455,20 +462,38 @@ class AvocaDOS:
 
         for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
             if orbital.energy >= 50:
-                mineral_fields = self.api.mineral_field.closer_than(8, orbital.position)
+                mineral_fields = self.expand.get_mineral_fields()
                 if not mineral_fields:
                     continue
                 mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
                 self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
                 self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
 
+        for structure in self.api.structures_without_construction_SCVs:
+            cancel = True
+            if structure.health + structure.shield > 50:
+                for unit, orders in self.order.orders.items():
+                    if not orders:
+                        continue
+                    if (target := getattr(orders[0], 'target', None)) is not None:
+                        if target == structure:
+                            cancel = False
+                            break
+            if cancel:
+                self.logger.debug("Cancelling {}", structure)
+                self.order.ability(structure, AbilityId.CANCEL)
+            else:
+                self.logger.debug("Keeping {}", structure)
+
+
     # --- Private
 
-    def _get_managers(self) -> list[BotManager]:
-        return [manager for name in dir(self) if isinstance(manager := getattr(self, name), BotManager)]
+    @property
+    def managers(self) -> list[BotManager]:
+        return [manager for name in vars(self) if isinstance(manager := getattr(self, name), BotManager)]
 
     def _report_timings(self) -> None:
-        for manager in self._get_managers():
+        for manager in self.managers:
             if hasattr(manager, 'timings'):
                 for key, timings in manager.timings.items():
                     self.logger.info("{:<16s} : {:<24s}: {}", type(manager).__name__, key, timings)

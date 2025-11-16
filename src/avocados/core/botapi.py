@@ -13,8 +13,8 @@ from avocados.bot.avocados import AvocaDOS
 
 
 class BotApi(BotAI):
-    bot: AvocaDOS
     ext: ApiExtensions
+    bot: AvocaDOS
     game_step: int
     slowdown: float
     # Tag memory: TODO: Migrate to extensions?
@@ -30,8 +30,8 @@ class BotApi(BotAI):
                  ) -> None:
         super().__init__()
         random.seed(seed)
-        self.bot = AvocaDOS(self, **kwargs)
         self.ext = ApiExtensions(self)
+        self.bot = AvocaDOS(self, **kwargs)
         self.game_step = game_step
         self.slowdown = slowdown
         #
@@ -85,8 +85,8 @@ class BotApi(BotAI):
         # self.alive_tags.add(unit.tag)
         await self.bot.on_building_construction_started(unit)
 
-    async def on_building_construction_finished(self, unit: Unit) -> None:
-        await self.bot.on_building_construction_finished(unit)
+    async def on_building_construction_complete(self, unit: Unit) -> None:
+        await self.bot.on_building_construction_complete(unit)
 
     async def on_unit_destroyed(self, unit_tag: int) -> None:
         # self.alive_tags.remove(unit_tag)
