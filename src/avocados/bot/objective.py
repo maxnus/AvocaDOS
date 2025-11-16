@@ -119,10 +119,11 @@ class ConstructionObjective(Objective):
                  deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] = None,
                  priority: float = DEFAULT_PRIORITY,
                  repeat: bool = False,
+                 persistent: bool = False,
                  position: Optional[Point2 | Rectangle] = None,
                  max_distance: int = 16,
                  ) -> None:
-        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat)
+        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, repeat=repeat, persistent=persistent)
         self.utype = utype
         self.number = number
         if isinstance(position, Point2):
@@ -135,6 +136,24 @@ class ConstructionObjective(Objective):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
+
+
+class ExpansionObjective(ConstructionObjective):
+
+    def __init__(self,
+                 bot: 'AvocaDOS',
+                 number: int,
+                 *,
+                 reqs: Optional[ObjectiveRequirements] = None,
+                 deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] = None,
+                 priority: float = DEFAULT_PRIORITY,
+                 position: Optional[Point2 | Rectangle] = None,
+                 max_distance: int = 16,
+                 ) -> None:
+        super().__init__(
+            utype=bot.ext.townhall_utype, number=number, position=position, max_distance=max_distance,
+            bot=bot, reqs=reqs, deps=deps, priority=priority, persistent=True
+        )
 
 
 class UnitObjective(Objective):

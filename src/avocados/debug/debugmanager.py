@@ -425,9 +425,9 @@ class DebugManager(BotManager):
     def _show_speedmining(self) -> None:
         color = 'Cyan'
         for loc, exp in self.expand.expansions.items():
-            for worker, mineral in exp.get_assigment().items():
+            for worker, mineral in exp.get_assignment().items():
                 self.line(worker, mineral, color=color)
-                self.line(worker, loc.mining_return_targets[mineral.tag], color=color)
+                self.line(worker, loc.mining_return_targets[mineral.position], color=color)
 
     def _show_orders(self) -> None:
         for tag, orders in self.api.bot.order.orders.items():
@@ -472,12 +472,16 @@ class DebugManager(BotManager):
 
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
+        x = 0.78
         self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.78, 0.05))
         self.text_screen(f"worker target={self.objectives.worker_objective.number},"
                          f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.07))
         self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(0.78, 0.09))
         self.text_screen(f"strength={self.memory.army_strength.value():.2f},"
                          f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(0.78, 0.11))
+        self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, 0.13))
+        exp_workers = [f'{exp}={exp.get_required_workers()}' for exp in self.expand.expansions.values()]
+        self.text_screen(', '.join(exp_workers), position=(x, 0.15))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

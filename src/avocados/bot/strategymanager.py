@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import numpy
 
 from avocados.core.timeseries import Timeseries
-from avocados.core.util import two_point_lerp
+from avocados.core.util import two_point_lerp, lerp
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS
 from avocados.bot.objective import AttackObjective, DefenseObjective
@@ -22,6 +22,7 @@ class StrategyManager(BotManager):
     bonus_workers: int
     absolute_bonus_supply: int
     relative_bonus_supply: float
+    expansion_score_threshold: float
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -32,17 +33,19 @@ class StrategyManager(BotManager):
         self.bonus_workers = 3
         self.absolute_bonus_supply = 1
         self.relative_bonus_supply = 0.05
+        self.expansion_score_threshold = 0.5
 
     async def on_start(self) -> None:
         self.objectives.set_worker_objective(self.expand.get_required_workers() + self.bonus_workers,
                                              priority=self.worker_priority)
         self.objectives.set_supply_objective(1, priority=self.supply_priority)
+        self.objectives.set_expansion_objective(1)
 
     async def on_step(self, step: int) -> None:
         if self.aggression >= 0.5:
             if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
                     and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
-                enemy_structures = self.api.enemy_structures
+                enemy_structures = self.ext.enemy_major_structures
                 late_game_score = self.get_late_game_score()
                 self.logger.info("Late game score: {:.2%}", late_game_score)
                 if late_game_score <= 0.4:
@@ -72,6 +75,27 @@ class StrategyManager(BotManager):
 
         self.objectives.worker_objective.number = self.get_worker_target()
         self.objectives.supply_objective.number = self.get_supply_target()
+        self.objectives.expansion_objective.number = self.get_expansion_target()
+
+    def get_expansion_score(self) -> float:
+        """0 (don't expand) to 1 (expand now)"""
+        # TODO base difference
+        #time_score = lerp(self.time, (4, 0), (10, 1))
+
+        minerals = self.expand.get_mineral_fields()
+        number_expansions = len(self.expand)
+        if number_expansions > 0:
+            remaining_minerals_per_expansion = sum(mf.mineral_contents for mf in minerals) / number_expansions
+            mineral_field_score = lerp(remaining_minerals_per_expansion, (0, 1), (10800, 0))
+        else:
+            mineral_field_score = 1.0
+
+        missing_fields = (len(self.api.workers) - 2 * len(minerals) + 1) // 2
+        worker_score = lerp(missing_fields, (0, 0), (8, 1))
+
+        minerals_score = lerp(self.api.minerals, (300, 0), (500, 1))
+
+        return 0.3 * mineral_field_score + 0.3 * worker_score + 0.4 * minerals_score
 
     def get_worker_target(self) -> int:
         return self.expand.get_required_workers() + self.bonus_workers
@@ -107,6 +131,11 @@ class StrategyManager(BotManager):
         supply_target = min(supply_target, 200)
         supply_unit_target = (supply_target - 1) // supply_unit_value + 1
         return supply_unit_target
+
+    def get_expansion_target(self) -> int:
+        if self.get_expansion_score() >= self.expansion_score_threshold:
+            return len(self.expand) + 1
+        return len(self.expand)
 
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""

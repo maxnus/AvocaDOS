@@ -2,6 +2,7 @@ from typing import Any, TYPE_CHECKING, Optional, Self
 
 from sc2.game_info import Ramp
 from sc2.position import Point2
+from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.botobject import BotObject
@@ -21,22 +22,25 @@ class ExpansionLocation(BotObject):
     center: Point2
     terrain_height: int
     region_center: Point2
-    mineral_fields_tags: set[int]
-    vespene_geyser_tags: set[int]
+    mineral_fields_locations: set[Point2]
+    vespene_geyser_locations: set[Point2]
     mineral_field_center: Optional[Point2]
     mineral_line_center: Optional[Point2]
-    mining_gather_targets: dict[int, Point2]
-    mining_return_targets: dict[int, Point2]
+    mining_gather_targets: dict[Point2, Point2]
+    mining_return_targets: dict[Point2, Point2]
 
     def __init__(self, bot: 'AvocaDOS', location: Point2) -> None:
         super().__init__(bot)
         self.center = location
         self.terrain_height = self.map.terrain_height[self.center]
 
-        self.mineral_fields_tags = (self.api.mineral_field.closer_than(8, self.center)
-                                    .sorted_by_distance_to(self.center).tags)
-        self.vespene_geyser_tags = (self.api.vespene_geyser.closer_than(8, self.center)
-                                    .sorted_by_distance_to(self.center).tags)
+        self.mineral_fields_locations = {
+            mf.position for mf in self.api.mineral_field.closer_than(8, self.center).sorted_by_distance_to(self.center)}
+        self.vespene_geyser_locations = {
+            vg.position for vg in self.api.vespene_geyser.closer_than(8, self.center).sorted_by_distance_to(self.center)}
+
+        self.logger.debug("Found {} mineral fields and {} vespene geysers at {}",
+                          len(self.mineral_fields_locations), len(self.vespene_geyser_locations), self)
         self.mining_gather_targets = {}
         self.mining_return_targets = {}
         for mineral_field in self.mineral_fields:
@@ -50,9 +54,9 @@ class ExpansionLocation(BotObject):
                 )
                 if points:
                     gather_target = self.center.closest(points)
-            self.mining_gather_targets[mineral_field.tag] = gather_target
+            self.mining_gather_targets[mineral_field.position] = gather_target
             # Return
-            self.mining_return_targets[mineral_field.tag] = self.center.towards(gather_target, RETURN_RADIUS)
+            self.mining_return_targets[mineral_field.position] = self.center.towards(gather_target, RETURN_RADIUS)
         if self.mineral_fields:
             self.mineral_field_center = (sum((mf.position for mf in self.mineral_fields), start=Point2((0, 0)))
                                         / len(self.mineral_fields))
@@ -73,13 +77,25 @@ class ExpansionLocation(BotObject):
     def get_townhall_area(self, *, size: float = 5.0) -> Rectangle:
         return Rectangle(self.center.x - size/2, self.center.y - size/2, width=size, height=size)
 
+    def get_mineral_field(self, position: Point2) -> Optional[Unit]:
+        mf = self.api.mineral_field.closest_to(position)
+        if mf.distance_to(position) > 0:
+            return None
+        return mf
+
+    def get_vespene_geyser(self, position: Point2) -> Optional[Unit]:
+        vg = self.api.vespene_geyser.closest_to(position)
+        if vg.distance_to(position) > 0:
+            return None
+        return vg
+
     @property
     def mineral_fields(self) -> Units:
-        return self.api.mineral_field.tags_in(self.mineral_fields_tags)
+        return self.api.mineral_field.filter(lambda mf: mf.position in self.mineral_fields_locations)
 
     @property
     def vespene_geyser(self) -> Units:
-        return self.api.vespene_geyser.tags_in(self.vespene_geyser_tags)
+        return self.api.vespene_geyser.filter(lambda vg: vg.position in self.vespene_geyser_locations)
 
     def minerals(self) -> int:
         return sum(mf.mineral_contents for mf in self.mineral_fields)

@@ -33,7 +33,7 @@ def worker_is_mining(worker: Unit, *,
 class Expansion(BotObject):
     townhall: int
     location: ExpansionLocation
-    miners: dict[int, int]
+    miners: dict[int, Point2]
 
     def __init__(self, bot: 'AvocaDOS', townhall: Unit, location: ExpansionLocation) -> None:
         super().__init__(bot)
@@ -41,12 +41,12 @@ class Expansion(BotObject):
         self.location = location
         self.miners = {}
 
-    def get_assigment(self) -> dict[Unit, Unit]:
+    def get_assignment(self) -> dict[Unit, Unit]:
         assignment = {}
-        for worker_tag, mineral_tag in self.miners.items():
+        for worker_tag, mineral_position in self.miners.items():
             worker = self.api.workers.by_tag(worker_tag)
-            minerals = self.api.mineral_field.by_tag(mineral_tag)
-            assignment[worker] = minerals
+            if (minerals := self.location.get_mineral_field(mineral_position)) is not None:
+                assignment[worker] = minerals
         return assignment
 
     def get_required_workers(self) -> int:
@@ -55,7 +55,7 @@ class Expansion(BotObject):
     def get_missing_workers(self) -> int:
         return self.get_required_workers() - len(self.miners)
 
-    def get_assigned_worker_count(self) -> Counter[int]:
+    def get_assigned_worker_count(self) -> Counter[Point2]:
         return Counter(self.miners.values())
 
     def has_worker(self, worker: Unit) -> bool:
@@ -64,14 +64,14 @@ class Expansion(BotObject):
     def add_worker(self, worker: Unit) -> bool:
         if self.has_worker(worker):
             return False
-        empty_fields, single_fields, double_fields = self.get_mineral_field_split()
+        empty_fields, single_fields, double_fields, oversaturated_fields = self.get_mineral_field_split()
         if empty_fields:
             mf = empty_fields.closest_to(worker)
         elif single_fields:
             mf = single_fields.closest_to(worker)
         else:
             return False
-        self.miners[worker.tag] = mf.tag
+        self.miners[worker.tag] = mf.position
         return True
 
     def remove_worker(self, unit: Unit | int) -> bool:
@@ -79,13 +79,15 @@ class Expansion(BotObject):
         removed = self.miners.pop(tag, None)
         return bool(removed)
 
-    def get_mineral_field_split(self) -> tuple[Units, Units, Units]:
+    def get_mineral_field_split(self) -> tuple[Units, Units, Units, Units]:
         """fields with no, one, two miners"""
         count = self.get_assigned_worker_count()
-        empty_fields = Units([mf for mf in self.location.mineral_fields if count[mf.tag] == 0], self.api)
-        single_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.tag] == 1], self.api)
-        double_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.tag] == 2], self.api)
-        return empty_fields, single_mining_fields, double_mining_fields
+        empty_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 0], self.api)
+        single_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 1], self.api)
+        double_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 2], self.api)
+        oversaturated_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] >= 3],
+                                            self.api)
+        return empty_fields, single_mining_fields, double_mining_fields, oversaturated_mining_fields
 
     async def update_assignment(self) -> None:
         self.miners.clear()
@@ -96,10 +98,10 @@ class Expansion(BotObject):
         # should already be sorted
         minerals = self.location.mineral_fields.sorted_by_distance_to(self.location.center)
         for mineral in 2 * minerals:
-            workers = await self.bot.pick_workers(mineral.position, number=1)
-            for worker, _ in workers:
+            worker = (await self.bot.pick_worker(mineral.position))[0]
+            if worker is not None:
                 self.logger.debug("Assigning {} to {}", worker.peak(), mineral)
-                self.miners[worker.access().tag] = mineral.tag
+                self.miners[worker.access().tag] = mineral.position
 
     def speed_mine(self) -> None:
         townhall = self.bot.townhalls.find_by_tag(self.townhall)
@@ -109,7 +111,7 @@ class Expansion(BotObject):
 
         enemies = self.api.enemy_units.closer_than(8, townhall)
 
-        for worker_tag, mineral_tag in self.miners.items():
+        for worker_tag, mineral_position in self.miners.items():
             worker = self.bot.workers.find_by_tag(worker_tag)
             if worker is None:
                 self.log.error("InvalidWorkerTag-{}", worker_tag)
@@ -122,21 +124,21 @@ class Expansion(BotObject):
                     worker.attack(close_enemies.closest_to(worker))
                     continue
 
-            mineral_field = self.location.mineral_fields.find_by_tag(mineral_tag)
+            mineral_field = self.location.get_mineral_field(mineral_position)
             if mineral_field is None:
-                self.log.error("InvalidMineralTag-{}", mineral_tag)
+                self.log.error("InvalidMineralTag-{}", mineral_position)
                 continue
 
             if worker.is_carrying_minerals:
-                target_point = self.location.mining_return_targets.get(mineral_tag)
+                target_point = self.location.mining_return_targets.get(mineral_position)
                 if target_point is None:
-                    self.log.error("InvalidReturnTarget-{}", mineral_tag)
+                    self.log.error("InvalidReturnTarget-{}", mineral_position)
                     continue
                 target = townhall
             else:
-                target_point = self.location.mining_gather_targets.get(mineral_tag)
+                target_point = self.location.mining_gather_targets.get(mineral_position)
                 if target_point is None:
-                    self.log.error("InvalidGatherTarget-{}", mineral_tag)
+                    self.log.error("InvalidGatherTarget-{}", mineral_position)
                     continue
                 target = mineral_field
 
@@ -209,7 +211,7 @@ class ExpansionManager(BotManager):
     def get_missing_workers(self) -> int:
         return sum(exp.get_missing_workers() for exp in self.expansions.values())
 
-    def get_assigned_worker_count_at_expansion(self, location: ExpansionLocation) -> Counter[int]:
+    def get_assigned_worker_count_at_expansion(self, location: ExpansionLocation) -> Counter[Point2]:
         exp = self.expansions.get(location)
         if exp is None:
             self.log.error("No expansion at {}", location)
@@ -227,13 +229,9 @@ class ExpansionManager(BotManager):
                 workers.append(worker)
         return Units(workers, self.api)
 
-    def get_mineral_field_split_at_expansion(self, location: ExpansionLocation) -> tuple[Units, Units, Units]:
-        """fields with no, one, two miners"""
-        count = self.get_assigned_worker_count_at_expansion(location)
-        empty_fields = Units([mf for mf in location.mineral_fields if count[mf.tag] == 0], self.api)
-        single_mining_fields = Units([mf for mf in location.mineral_fields if count[mf.tag] == 1], self.api)
-        double_mining_fields = Units([mf for mf in location.mineral_fields if count[mf.tag] == 2], self.api)
-        return empty_fields, single_mining_fields, double_mining_fields
+    def get_mineral_fields(self) -> Units:
+        all_minerals = [mf for exp in self.expansions.keys() for mf in exp.mineral_fields]
+        return Units(all_minerals, self.api)
 
     def has_worker(self, worker: Unit) -> bool:
         return any(exp.has_worker(worker) for exp in self.expansions.values())
@@ -279,9 +277,12 @@ class ExpansionManager(BotManager):
                 self.logger.info("Townhall at {} died", exp)
                 self.remove_expansion(exp)
         for exp in self.expansions.values():
-            for worker_tag, mineral_tag in list(exp.miners.items()):
-                if worker_tag not in self.api.alive_tags or mineral_tag not in self.api.alive_tags:
-                    self.logger.info("Empty mineral field={} or dead worker={}", mineral_tag, worker_tag)
+            for worker_tag, mineral_position in list(exp.miners.items()):
+                if worker_tag not in self.api.alive_tags:
+                    self.logger.debug("Dead worker={}", worker_tag)
+                    self.remove_worker(worker_tag)
+                if exp.location.get_mineral_field(mineral_position) is None:
+                    self.logger.debug("Missing mineral field={}", mineral_position)
                     self.remove_worker(worker_tag)
 
     def _assign_idle_workers(self) -> None:

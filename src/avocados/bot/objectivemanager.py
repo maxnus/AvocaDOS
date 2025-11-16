@@ -10,9 +10,11 @@ from avocados.core.manager import BotManager
 from avocados.bot.objective import (Objective, ObjectiveStatus, ObjectiveRequirementType, ObjectiveRequirements,
                                     ObjectiveDependencies,
                                     UnitObjective, ResearchObjective, AttackObjective,
-                                    DefenseObjective, ConstructionObjective, WorkerObjective, SupplyObjective)
+                                    DefenseObjective, ConstructionObjective, WorkerObjective, SupplyObjective,
+                                    ExpansionObjective)
 from avocados.geometry.util import squared_distance, get_best_score, Area
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
+from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -25,6 +27,7 @@ class ObjectiveManager(BotManager):
     # Persistent objectives
     worker_objective: Optional[WorkerObjective]
     supply_objective: Optional[SupplyObjective]
+    expansion_objective: Optional[ExpansionObjective]
 
     def __init__(self, bot: 'AvocaDOS', objectives: Optional[dict[int, Objective]] = None) -> None:
         super().__init__(bot)
@@ -33,15 +36,12 @@ class ObjectiveManager(BotManager):
         self.future = objectives or {}
         self.worker_objective = None
         self.supply_objective = None
+        self.expansion_objective = None
 
     def add(self, objective: Objective) -> int:
         self.logger.info("Adding new objective: {}", objective)
         self.future[objective.id] = objective
         return objective.id
-
-    def add_construction_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
-        objective = ConstructionObjective(self.bot, utype, number, **kwargs)
-        return self.add(objective)
 
     def set_worker_objective(self, number: int = 1, **kwargs) -> int:
         self.worker_objective = WorkerObjective(self.bot, number, **kwargs)
@@ -50,6 +50,14 @@ class ObjectiveManager(BotManager):
     def set_supply_objective(self, number: int = 1, **kwargs) -> int:
         self.supply_objective = SupplyObjective(self.bot, number, **kwargs)
         return self.add(self.supply_objective)
+
+    def set_expansion_objective(self, number: int, position: Optional[ExpansionLocation] = None, **kwargs) -> int:
+        self.expansion_objective = ExpansionObjective(self.bot, number=number, position=position, **kwargs)
+        return self.add(self.expansion_objective)
+
+    def add_construction_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
+        objective = ConstructionObjective(self.bot, utype, number, **kwargs)
+        return self.add(objective)
 
     def add_unit_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
         objective = UnitObjective(self.bot, utype, number, **kwargs)
@@ -161,6 +169,11 @@ class ObjectiveManager(BotManager):
         if objective.position is not None:
             units = units.filter(lambda u: u.position in objective.position)
         if units.amount >= objective.number:
+            if isinstance(objective, ExpansionObjective):
+                townhall = units.first
+                exp = min(self.map.expansions, key=lambda x: x.center.distance_to(townhall))
+                if exp not in self.expand:
+                    self.expand.add_expansion(exp, townhall)
             return True
 
         pending = int(self.api.already_pending(objective.utype))
