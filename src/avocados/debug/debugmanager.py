@@ -474,8 +474,8 @@ class DebugManager(BotManager):
         mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
         self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.78, 0.05))
         self.text_screen(f"worker target={self.objectives.worker_objective.number},"
-                         f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.08))
-        self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(0.78, 0.11))
+                         f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.07))
+        self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(0.78, 0.09))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

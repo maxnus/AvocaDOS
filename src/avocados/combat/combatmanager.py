@@ -138,7 +138,7 @@ class CombatManager(BotManager):
     def weapon_ready(self, unit: Unit) -> bool:
         if unit.type_id == UnitTypeId.REAPER:
             # Cooldown starts at first shot
-            prev_frame = self.history.get_last_seen(unit)
+            prev_frame = self.memory.get_last_seen(unit)
             #if prev_frame is not None:
             #   self.logger.info("cooldowns {} {}", prev_frame.weapon_cooldown, unit.weapon_cooldown)
             if prev_frame and prev_frame.weapon_cooldown < 1 <= unit.weapon_cooldown:

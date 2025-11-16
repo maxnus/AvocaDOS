@@ -1,10 +1,10 @@
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 
-from sc2.constants import PROTOSS_TECH_REQUIREMENT, TERRAN_TECH_REQUIREMENT, ZERG_TECH_REQUIREMENT, \
-    EQUIVALENTS_FOR_TECH_PROGRESS, CREATION_ABILITY_FIX
+from sc2.constants import (PROTOSS_TECH_REQUIREMENT, TERRAN_TECH_REQUIREMENT, ZERG_TECH_REQUIREMENT,
+                           EQUIVALENTS_FOR_TECH_PROGRESS, CREATION_ABILITY_FIX, abilityid_to_unittypeid)
 from sc2.data import Race
 from sc2.game_data import Cost, UnitTypeData
 from sc2.ids.ability_id import AbilityId
@@ -13,6 +13,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados.core.constants import TRAINERS, TERRANBUILD_TO_STRUCTURE
 from avocados.core.unitutil import UnitCost
 from avocados.geometry.util import dot
 
@@ -96,26 +97,20 @@ class ApiExtensions:
         except AttributeError:
             return CREATION_ABILITY_FIX.get(utype.value, 0)
 
-    # TODO: pending at location
-    # def get_pending(self, utype: UnitTypeId) -> list[float]:
-    #     # replicate: self.bot.already_pending(utype)
-    #
-    #     # tuple[Counter[AbilityId], dict[AbilityId, float]]
-    #     abilities_amount: Counter[AbilityId] = Counter()
-    #     build_progress: dict[AbilityId, list[float]] = defaultdict(list)
-    #     unit: Unit
-    #     for unit in self.units + self.structures:
-    #         for order in unit.orders:
-    #             abilities_amount[order.ability.exact_id] += 1
-    #         if not unit.is_ready and (self.bot.race != Race.Terran or not unit.is_structure):
-    #             # If an SCV is constructing a building, already_pending would count this structure twice
-    #             # (once from the SCV order, and once from "not structure.is_ready")
-    #             creation_ability = CREATION_ABILITY_FIX.get(
-    #                 unit.type_id, self.bot.game_data.units[unit.type_id.value].creation_ability.exact_id)
-    #             abilities_amount[creation_ability] += 2 if unit.type_id == UnitTypeId.ARCHON else 1
-    #             build_progress[creation_ability].append(unit.build_progress)
-    #
-    #     return abilities_amount, max_build_progress
+    def creation_ability_to_unit_type(self, ability: AbilityId) -> Optional[UnitTypeId]:
+        if (type_id := abilityid_to_unittypeid.get(ability)) is not None:
+            return type_id
+        return TERRANBUILD_TO_STRUCTURE.get(ability)
+
+    def get_trainer_type(self, utype: UnitTypeId) -> Optional[UnitTypeId | tuple[UnitTypeId, ...]]:
+        return TRAINERS.get(utype)
+
+    def get_supply_cost(self, utype: UnitTypeId) -> float:
+        return self.api.game_data.units[utype.value]._proto.food_required
+
+    def get_net_supply(self, utype: UnitTypeId) -> float:
+        proto = self.api.game_data.units[utype.value]._proto
+        return proto.food_provided - proto.food_required
 
     def get_scv_build_target(self, scv: Unit) -> Optional[Unit]:
         """Return the building unit that this SCV is constructing, or None."""
@@ -165,6 +160,29 @@ class ApiExtensions:
             for structure in self.api.structures(req):
                 remaining_time = min(self.get_remaining_construction_time(structure), remaining_time)
         return remaining_time
+
+    #@property_cache_once_per_frame # TODO: cache, state
+    def units_in_production(self) -> dict[int, list[tuple[UnitTypeId, float]]]:
+        production: dict[int, list[tuple[UnitTypeId, float]]] = {}
+        for trainer in (self.api.units + self.api.structures):
+            production_size = 2 if trainer.has_reactor else 1
+            orders = trainer.orders[:production_size]
+            prod = [(unit_type, order.progress) for order in orders
+                    if (unit_type := self.creation_ability_to_unit_type(order.ability.exact_id)) is not None]
+            if prod:
+                production[trainer.tag] = prod
+        return production
+
+    def structures_in_production(self, unit_type: Optional[UnitTypeId | Iterable[UnitTypeId]] = None
+                                 ) -> list[tuple[Unit, float]]:
+        """TODO: only consider those with active SCV"""
+        production: list[tuple[Unit, float]] = []
+        structures = self.api.structures.not_ready
+        if unit_type is not None:
+            structures = structures.of_type(unit_type)
+        for structure in structures:
+            production.append((structure, structure.build_progress))
+        return production
 
     def intercept_unit(self, unit: Unit, target: Unit, *,
                        max_intercept_distance: float = 10.0) -> Point2:

@@ -4,30 +4,46 @@ from typing import Optional, TYPE_CHECKING
 from sc2.unit import Unit
 
 from avocados.core.manager import BotManager
+from avocados.core.timeseries import Timeseries
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
-class HistoryManager(BotManager):
-    resource_history: list[tuple[int, int]]
+INITIAL_TIMESERIES_SIZE = 4096
+
+
+class MemoryManager(BotManager):
     units_last_seen: dict[int, tuple[int, Unit]]
     #enemy_units: dict[int, tuple[int, Unit]]
     max_length: int
+    #
+    minerals: Timeseries[int]
+    vespene: Timeseries[int]
+    supply: Timeseries[int]
+    supply_cap: Timeseries[int]
+    supply_workers: Timeseries[int]
 
     def __init__(self, bot: 'AvocaDOS', *, max_length: int = 1000) -> None:
         super().__init__(bot)
-        self.resource_history = []
         self.max_length = max_length
         self.units_last_seen = {}
         #self.enemy_units = {}
+        self.minerals = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
+        self.vespene = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
+        self.supply = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
+        self.supply_cap = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
+        self.supply_workers = Timeseries.empty(int, initial_size=INITIAL_TIMESERIES_SIZE)
 
-    async def on_step_start(self, iteration: int) -> None:
+    async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
-        # Resources
-        self.resource_history.append((self.api.minerals, self.api.vespene))
-        if len(self.resource_history) > self.max_length:
-            self.resource_history.pop(0)
+
+        # Observations
+        self.minerals.append(step, self.api.minerals)
+        self.vespene.append(step, self.api.vespene)
+        self.supply.append(step, int(self.api.supply_used))
+        self.supply_cap.append(step, int(self.api.supply_cap))
+        self.supply_workers.append(step, int(self.api.supply_workers))
 
         # Own
         for unit in self.api.units:

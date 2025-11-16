@@ -1,5 +1,16 @@
+from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
+
+
+TERRANBUILD_TO_STRUCTURE = {
+    # TODO
+    AbilityId.TERRANBUILD_ARMORY: UnitTypeId.ARMORY,
+    AbilityId.TERRANBUILD_BARRACKS: UnitTypeId.BARRACKS,
+    AbilityId.TERRANBUILD_COMMANDCENTER: UnitTypeId.COMMANDCENTER,
+    AbilityId.TERRANBUILD_REFINERY: UnitTypeId.REFINERY,
+    AbilityId.TERRANBUILD_SUPPLYDEPOT: UnitTypeId.SUPPLYDEPOT,
+}
 
 
 TRAINERS: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {

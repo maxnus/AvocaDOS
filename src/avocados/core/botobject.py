@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
     from avocados.mapdata import MapManager
     from avocados.debug.debugmanager import DebugManager
-    from avocados.bot.historymanager import HistoryManager
+    from avocados.bot.memorymanager import MemoryManager
     from avocados.bot.intelmanager import IntelManager
     from avocados.bot.ordermanager import OrderManager
     from avocados.bot.expansionmanager import ExpansionManager
@@ -90,8 +90,8 @@ class BotObject(ABC):
         return self.bot.debug
 
     @property
-    def history(self) -> 'HistoryManager':
-        return self.bot.history
+    def memory(self) -> 'MemoryManager':
+        return self.bot.memory
 
     @property
     def order(self) -> 'OrderManager':
