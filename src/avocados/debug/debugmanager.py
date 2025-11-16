@@ -478,8 +478,6 @@ class DebugManager(BotManager):
         self.text_screen(f"strength={self.memory.army_strength.value():.2f},"
                          f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(0.78, 0.11))
         self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, 0.13))
-        exp_workers = [f'{exp}={exp.get_required_workers()}' for exp in self.expand.expansions.values()]
-        self.text_screen(', '.join(exp_workers), position=(x, 0.15))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

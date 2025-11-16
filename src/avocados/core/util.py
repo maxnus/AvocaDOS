@@ -7,6 +7,10 @@ if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
+def clip(value: float, min_value: float = 0, max_value: float = 1) -> float:
+    return max(min(value, max_value), min_value)
+
+
 def lerp(x, /, *points: tuple[float, float]) -> float:
     # Flat extrapolation
     if x <= points[0][0]:

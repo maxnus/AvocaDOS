@@ -301,6 +301,11 @@ class OrderManager(BotManager):
             self.orders[unit].append(order)
         else:
             current_orders = self.orders.get(unit)
+            if current_orders:
+                if priority <= current_orders[0].priority:
+                    self.logger.debug("Ignoring {} due to {}", order, current_orders[0])
+                else:
+                    self.logger.debug("Overriding {} due to {}", current_orders[0], order)
             if not current_orders or priority > current_orders[0].priority:
                 self.orders[unit] = [order]
         return True

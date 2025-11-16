@@ -15,7 +15,7 @@ from avocados.core.constants import (TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYP
                                      UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS)
 from avocados.core.manager import BotManager
 from avocados.core.unitutil import get_closest_sq_distance
-from avocados.core.util import lerp
+from avocados.core.util import lerp, clip
 from avocados.geometry.util import squared_distance
 
 if TYPE_CHECKING:
@@ -208,7 +208,7 @@ class CombatManager(BotManager):
     def _get_attack_base_priority(self, target: Unit) -> float:
 
         # Can't attack that
-        if not target.is_revealed:
+        if target.is_cloaked and not target.is_revealed:
             return 0.0
 
         match target.type_id:
@@ -345,7 +345,7 @@ class CombatManager(BotManager):
             floor, ceil = 0.0, 1.0
             base = self._get_attack_base_priority(target)
             # t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
-            weakness = 1 - target.shield_health_percentage**2
+            weakness = clip(1 - target.shield_health_percentage**2)
             #distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
             distance = min_sq_distance / max(get_closest_sq_distance(attacker, target), 1)
             priority = (
@@ -356,7 +356,7 @@ class CombatManager(BotManager):
                     + self.attack_priority_base_distance_correlation * base * distance
                     + self.attack_priority_weakness_distance_correlation * weakness * distance
             )
-            priorities[target] = max(floor, min(ceil, priority))
+            priorities[target] = clip(priority, floor, ceil)
         return priorities
 
     def _get_defense_priority(self, defender: Unit, threat: Unit) -> float:
