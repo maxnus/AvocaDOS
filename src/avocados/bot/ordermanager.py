@@ -6,9 +6,11 @@ from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
-from sc2.unit import Unit
+from sc2.unit import Unit, UnitOrder
+from sc2.unit_command import UnitCommand
 from sc2.units import Units
 
+from avocados.core.constants import UNIT_CREATION_ABILITIES, UPGRADE_ABILITIES
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
@@ -27,25 +29,19 @@ class Order(ABC):
     def short_repr(self) -> str:
         pass
 
+    @property
     @abstractmethod
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
+    def ability_id(self) -> AbilityId:
         pass
 
-
-@dataclass(frozen=True)
-class BuildOrder(Order):
-    utype: UnitTypeId
-    position: Point2 | Unit
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.utype.name}, {self.position})"
-
-    @property
-    def short_repr(self) -> str:
-        return f"B({self.utype.name})"
-
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.build(self.utype, position=self.position, queue=queue)
+        unit(self.ability_id, queue=queue)
+
+    def to_command(self, unit: Unit, *, queue: bool = False) -> UnitCommand:
+        return UnitCommand(self.ability_id, unit, queue=queue)
+
+    def matches(self, order: UnitOrder) -> bool:
+        return order.ability.exact_id == self.ability_id
 
 
 @dataclass(frozen=True)
@@ -59,8 +55,9 @@ class TrainOrder(Order):
     def short_repr(self) -> str:
         return f"T({self.utype.name})"
 
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.train(self.utype, queue=queue)
+    @property
+    def ability_id(self) -> AbilityId:
+        return UNIT_CREATION_ABILITIES[self.utype]
 
 
 @dataclass(frozen=True)
@@ -74,84 +71,9 @@ class UpgradeOrder(Order):
     def short_repr(self) -> str:
         return f"U({self.upgrade.name})"
 
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.research(self.upgrade, queue=queue)
-
-
-@dataclass(frozen=True)
-class MoveOrder(Order):
-    target: Point2 | Unit
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.target})"
-
     @property
-    def short_repr(self) -> str:
-        return "M"
-
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.move(self.target, queue=queue)
-
-
-@dataclass(frozen=True)
-class AttackOrder(Order):
-    target: Point2 | Unit
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.target})"
-
-    @property
-    def short_repr(self) -> str:
-        return "A"
-
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.attack(self.target, queue=queue)
-
-
-@dataclass(frozen=True)
-class AbilityOrder(Order):
-    ability: AbilityId
-    target: Point2 | Unit | None
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.target})"
-
-    @property
-    def short_repr(self) -> str:
-        return "C"
-
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit(self.ability, target=self.target, queue=queue)
-
-
-@dataclass(frozen=True)
-class SmartOrder(Order):
-    target: Point2 | Unit
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.target})"
-
-    @property
-    def short_repr(self) -> str:
-        return "S"
-
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.smart(target=self.target, queue=queue)
-
-
-@dataclass(frozen=True)
-class GatherOrder(Order):
-    target: Unit
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.target})"
-
-    @property
-    def short_repr(self) -> str:
-        return "G"
-
-    def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.gather(target=self.target, queue=queue)
+    def ability_id(self) -> AbilityId:
+        return UPGRADE_ABILITIES[self.upgrade]
 
 
 @dataclass(frozen=True)
@@ -164,8 +86,124 @@ class ReturnResourceOrder(Order):
     def short_repr(self) -> str:
         return "R"
 
+    @property
+    def ability_id(self) -> AbilityId:
+        return AbilityId.HARVEST_RETURN
+
+
+# --- Orders with target
+
+
+def is_same_target(target1: Unit | Point2 | None, target2: Unit | Point2 | None) -> bool:
+    if isinstance(target1, Point2) and isinstance(target2, Point2):
+        return max(abs(target1.x - target2.x), abs(target1.y - target2.y)) < 0.001
+    return target1 == target2
+
+
+@dataclass(repr=False, frozen=True)
+class TargetOrder(Order, ABC):
+    target: Unit | Point2 | None
+
     def issue(self, unit: Unit, *, queue: bool = False) -> None:
-        unit.return_resource(queue=queue)
+        unit(self.ability_id, target=self.target, queue=queue)
+
+    def to_command(self, unit: Unit, *, queue: bool = False) -> UnitCommand:
+        return UnitCommand(self.ability_id, unit, target=self.target, queue=queue)
+
+    def matches(self, order: UnitOrder) -> bool:
+        return order.ability.exact_id == self.ability_id and is_same_target(order.target, self.target)
+
+
+@dataclass(frozen=True)
+class MoveOrder(TargetOrder):
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "M"
+
+    @property
+    def ability_id(self) -> AbilityId:
+        return AbilityId.MOVE_MOVE
+
+
+@dataclass(frozen=True)
+class AttackOrder(TargetOrder):
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "A"
+
+    @property
+    def ability_id(self) -> AbilityId:
+        return AbilityId.ATTACK
+
+
+@dataclass(frozen=True)
+class AbilityOrder(TargetOrder):
+    ability: AbilityId
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "C"
+
+    @property
+    def ability_id(self) -> AbilityId:
+        return self.ability
+
+
+@dataclass(frozen=True)
+class SmartOrder(TargetOrder):
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "S"
+
+    @property
+    def ability_id(self) -> AbilityId:
+        return AbilityId.SMART
+
+
+@dataclass(frozen=True)
+class BuildOrder(TargetOrder):
+    utype: UnitTypeId
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.utype.name}, {self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return f"B({self.utype.name})"
+
+    @property
+    def ability_id(self) -> AbilityId:
+        return UNIT_CREATION_ABILITIES[self.utype]
+
+
+@dataclass(frozen=True)
+class GatherOrder(TargetOrder):
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.target})"
+
+    @property
+    def short_repr(self) -> str:
+        return "G"
+
+    @property
+    def ability_id(self) -> AbilityId:
+        return AbilityId.HARVEST_GATHER
 
 
 class OrderManager(BotManager):
@@ -208,7 +246,7 @@ class OrderManager(BotManager):
 
     def ability(self, unit: Unit | Units, ability: AbilityId, target: Optional[Point2 | Unit] = None, *,
                 queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, AbilityOrder, ability, target, queue=queue, force=force)
+        return self._order(unit, AbilityOrder, target, ability, queue=queue, force=force)
 
     def gather(self, unit: Unit | Units, target: Unit, *,
                queue: bool = False, force: bool = False) -> bool:
@@ -220,7 +258,7 @@ class OrderManager(BotManager):
 
     def build(self, unit: Unit | Units, utype: UnitTypeId, position: Point2 | Unit, *,
               queue: bool = False, force: bool = False) -> bool:
-        return self._order(unit, BuildOrder, utype, position, queue=queue, force=force)
+        return self._order(unit, BuildOrder, position, utype, queue=queue, force=force)
 
     def train(self, unit: Unit | Units, utype: UnitTypeId, *,
               queue: bool = False, force: bool = False) -> bool:
@@ -243,46 +281,24 @@ class OrderManager(BotManager):
 
     def _is_new_order(self, unit: Unit, order: Order, *, queue: bool) -> bool:
         """Check if the order is new or just repeated (and doesn't need to be sent to the API)."""
-        #prev_orders = self.orders_prev.get(unit.tag)
-
-        # These orders should always be considered new:
-        if isinstance(order, (AbilityOrder, TrainOrder)):
+        orders = unit.orders
+        if not orders:
             return True
-
-        prev_orders = self.orders_last.get(unit.tag)
-        if not prev_orders:
-            return True
-
-        idx = 0 if not queue else -1
-        return order != prev_orders[idx]
+        current_order = orders[-1] if queue else orders[0]
+        return not order.matches(current_order)
 
     def _order(self, unit: Unit | Units, order_cls: type[Order],
                *order_args: Unit | Point2 | UnitTypeId | AbilityId | UpgradeId,
                queue: bool, force: bool) -> bool:
         if isinstance(unit, Units):
             return all(self._order(u, order_cls, *order_args, queue=queue, force=force) for u in unit)
-
         if not self._check_unit(unit, queue=queue):
             return False
         order = order_cls(*order_args)
-        #self.logger.trace("Order {} to {}", unit, order)
         if force or self._is_new_order(unit, order, queue=queue):
-            #self.logger.info("New order to unit {}: {}", unit, order)
             order.issue(unit, queue=queue)
-        # else:
-        #     self.logger.info("Unit {} already has order {} in orders {}", unit, order, self.orders.get(unit.tag))
-
-        if queue:
-            self._queue_order(unit, order)
-        else:
-            self._set_order(unit, order)
-        return True
-
-    def _set_order(self, unit: Unit, order: Order) -> None:
-        self.orders[unit.tag] = [order]
-
-    def _queue_order(self, unit: Unit, order: Order) -> None:
-        if self.has_order(unit):
+        if queue and self.has_order(unit):
             self.orders[unit.tag].append(order)
         else:
-            self._set_order(unit, order)
+            self.orders[unit.tag] = [order]
+        return True
