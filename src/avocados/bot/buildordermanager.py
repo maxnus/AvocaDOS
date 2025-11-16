@@ -58,24 +58,16 @@ class BuildOrderManager(BotManager):
         bot = self.bot
         obj = bot.objectives
 
-        #scv = obj.add_unit_objective(UnitTypeId.SCV, 13, priority=1)
-        #obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, priority=0.9)
-        #obj.add_unit_objective(UnitTypeId.SCV, 19, priority=0.4, deps=scv)
-
         proxy_location = bot.map.get_proxy_location()
-        rax123 = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 3, position=proxy_location, priority=0.8)
+        rax123 = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 3, position=proxy_location,
+                                                           include_addon=False, priority=0.8)
         rax4 = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, priority=0.8,
                                                          reqs=UnitTypeId.BARRACKS)
         rax_home = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 2,
                                                              position=self.map.start_location.region_center,
                                                              priority=0.3, deps=rax123)
 
-        #supply2 = obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18), priority=0.7)
         obj.add_unit_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, priority=0.45)
-
-        # --- Supply
-        #for number in range(3, 30):
-        #    obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, number, reqs=('S', number * 8 + 1), priority=0.6)
 
         # Units
         obj.add_unit_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS)

@@ -44,11 +44,12 @@ class BuildingManager(BotManager):
         self.timings['step'].add(t0)
 
     async def get_building_location(self, structure: UnitTypeId, *,
-                                    area: Optional[Rectangle] = None
+                                    area: Optional[Rectangle] = None,
+                                    include_addon: bool = True
                                     ) -> Optional[WithCallback[Point2 | Unit]]:
 
         t0 = perf_counter()
-        location = await self._get_building_location(structure=structure, area=area)
+        location = await self._get_building_location(structure=structure, area=area, include_addon=include_addon)
         self.timings['get_building_location'].add(t0)
         if not location:
             return None
@@ -62,7 +63,8 @@ class BuildingManager(BotManager):
     # --- Private
 
     async def _get_building_location(self, structure: UnitTypeId, *,
-                                     area: Optional[Rectangle] = None
+                                     area: Optional[Rectangle] = None,
+                                     include_addon: bool = True
                                      ) -> Optional[Point2 | Unit]:
 
         match structure:
@@ -83,7 +85,7 @@ class BuildingManager(BotManager):
                     return ramp_position
                 if area is None:
                     area = Rectangle.from_center(self.map.start_location.region_center, 24, 24)
-                return await self._find_placement(structure, area)
+                return await self._find_placement(structure, area, include_addon=include_addon)
 
             case UnitTypeId.REFINERY:
                 if area is None:

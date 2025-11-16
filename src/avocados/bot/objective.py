@@ -106,12 +106,14 @@ class ConstructionObjective(Objective):
     number: int
     position: Optional[Rectangle]
     max_workers: int
+    include_addon: bool
 
     def __init__(self,
                  bot: 'AvocaDOS',
                  utype: UnitTypeId,
                  number: int = 1,
                  max_workers: Optional[int] = None,
+                 include_addon: bool = True,
                  *,
                  reqs: Optional[ObjectiveRequirements] = None,
                  deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] = None,
@@ -129,6 +131,7 @@ class ConstructionObjective(Objective):
             position = position.enclosed_rect()
         self.position = position
         self.max_workers = max_workers or number
+        self.include_addon = include_addon
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(utype={self.utype.name}, number={self.number}, position={self.position}, priority={self.priority})"
