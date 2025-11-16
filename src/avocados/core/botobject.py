@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from avocados.bot.resourcemanager import ResourceManager
     from avocados.bot.objectivemanager import ObjectiveManager
     from avocados.bot.taunts import TauntManager
+    from avocados.bot.strategymanager import StrategyManager
     from avocados.combat.squadmanager import SquadManager
     from avocados.combat.combatmanager import CombatManager
 
@@ -116,6 +117,10 @@ class BotObject(ABC):
     @property
     def squads(self) -> 'SquadManager':
         return self.bot.squads
+
+    @property
+    def strategy(self) -> 'StrategyManager':
+        return self.bot.strategy
 
     @property
     def combat(self) -> 'CombatManager':

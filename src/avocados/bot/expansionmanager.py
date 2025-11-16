@@ -69,8 +69,6 @@ class Expansion(BotObject):
             mf = empty_fields.closest_to(worker)
         elif single_fields:
             mf = single_fields.closest_to(worker)
-        elif double_fields:
-            mf = double_fields.closest_to(worker)
         else:
             return False
         self.miners[worker.tag] = mf.tag
@@ -172,6 +170,12 @@ class ExpansionManager(BotManager):
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.expansions = {}
+
+    def __len__(self) -> int:
+        return len(self.expansions)
+
+    def __contains__(self, expansion: ExpansionLocation) -> bool:
+        return expansion in self.expansions
 
     async def on_start(self) -> None:
         self.add_expansion(self.map.base, self.api.townhalls.first)

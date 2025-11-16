@@ -13,6 +13,7 @@ from avocados.geometry.field import Field
 from avocados.geometry.util import Rectangle
 from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
+from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -102,9 +103,24 @@ class BuildingManager(BotManager):
                     return geysers_contents[0][0]
                 return geysers.closest_to(area.center)
 
+            case UnitTypeId.COMMANDCENTER:
+                exp = self._find_next_expansion(area=area)
+                if exp is None:
+                    return None
+                return exp.center
+
             case _:
                 self.log.error("NoImplBuildLoc{}", structure.name)
                 return None
+
+    def _find_next_expansion(self, *, area: Optional[Rectangle] = None) -> Optional[ExpansionLocation]:
+        for exp in self.map.start_location.expansion_order:
+            townhall_area = exp.get_townhall_area()
+            if area is not None and townhall_area not in area:
+                continue
+            if self._can_place_footprint(townhall_area):
+                return exp
+        return None
 
     async def _find_placement(self,
                               structure: UnitTypeId,

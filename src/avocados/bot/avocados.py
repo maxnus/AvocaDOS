@@ -27,6 +27,7 @@ from avocados.bot.memorymanager import MemoryManager
 from avocados.bot.intelmanager import IntelManager
 from avocados.bot.expansionmanager import ExpansionManager
 from avocados.bot.strategymanager import StrategyManager
+from avocados.core.manager import BotManager
 from avocados.core.unitutil import get_unit_type_counts
 from avocados.core.logmanager import LogManager
 from avocados.core.util import WithCallback
@@ -449,7 +450,8 @@ class AvocaDOS:
         for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTERFLYING, UnitTypeId.ORBITALCOMMANDFLYING)).ready:
             enemies = self.api.all_enemy_units.closer_than(8, cc)
             if not enemies:
-                self.order.ability(cc, AbilityId.LAND, self.map.start_location.center)
+                loc = min(self.map.expansions, key=lambda exp: exp.center.distance_to(cc))
+                self.order.ability(cc, AbilityId.LAND, loc.center)
 
         for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
             if orbital.energy >= 50:
@@ -462,21 +464,12 @@ class AvocaDOS:
 
     # --- Private
 
+    def _get_managers(self) -> list[BotManager]:
+        return [manager for name in dir(self) if isinstance(manager := getattr(self, name), BotManager)]
+
     def _report_timings(self) -> None:
-        managers = [
-            self.intel,
-            self.memory,
-            self.building,
-            self.expand,
-            self.squads,
-            self.defense,
-            self.combat,
-            self.objectives,
-            self.debug
-        ]
-        for manager in managers:
-            if manager is None:
-                continue
-            for key, timings in manager.timings.items():
-                self.logger.info("{:<16s} : {:<24s}: {}", type(manager).__name__, key, timings)
-                timings.reset()
+        for manager in self._get_managers():
+            if hasattr(manager, 'timings'):
+                for key, timings in manager.timings.items():
+                    self.logger.info("{:<16s} : {:<24s}: {}", type(manager).__name__, key, timings)
+                    timings.reset()

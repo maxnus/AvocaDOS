@@ -36,7 +36,7 @@ def build_ladder_zip(scr_path: Path, build_path: Path, *, overwrite: bool = True
     shutil.copytree(temp_path / 'python-sc2/sc2', zip_folder / 'sc2')
     #shutil.rmtree(temp_path / 'python-sc2')
     zip_directory(zip_folder, build_path / f'AvocaDOS_{__version__}.zip' , overwrite=overwrite)
-    subprocess.run(f'git tag v{__version__}', shell=True, cwd=REPO_PATH)
+    subprocess.run(f'git tag --force v{__version__}', shell=True, cwd=REPO_PATH)
 
 
 if __name__ == "__main__":
