@@ -3,13 +3,37 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 
 
-TERRANBUILD_TO_STRUCTURE = {
+# --- Mappings
+
+
+TERRANBUILD_TO_STRUCTURE: dict[AbilityId, UnitTypeId] = {
     # TODO
     AbilityId.TERRANBUILD_ARMORY: UnitTypeId.ARMORY,
     AbilityId.TERRANBUILD_BARRACKS: UnitTypeId.BARRACKS,
     AbilityId.TERRANBUILD_COMMANDCENTER: UnitTypeId.COMMANDCENTER,
     AbilityId.TERRANBUILD_REFINERY: UnitTypeId.REFINERY,
     AbilityId.TERRANBUILD_SUPPLYDEPOT: UnitTypeId.SUPPLYDEPOT,
+}
+
+
+UNIT_CREATION_ABILITIES: dict[UnitTypeId, AbilityId] = {
+    UnitTypeId.ARCHON: AbilityId.ARCHON_WARP_TARGET,
+    UnitTypeId.ASSIMILATORRICH: AbilityId.PROTOSSBUILD_ASSIMILATOR,
+    UnitTypeId.BANELINGCOCOON: AbilityId.MORPHZERGLINGTOBANELING_BANELING,
+    UnitTypeId.CHANGELING: AbilityId.SPAWNCHANGELING_SPAWNCHANGELING,
+    UnitTypeId.EXTRACTORRICH: AbilityId.ZERGBUILD_EXTRACTOR,
+    UnitTypeId.INTERCEPTOR: AbilityId.BUILD_INTERCEPTORS,
+    UnitTypeId.LURKERMPEGG: AbilityId.MORPH_LURKER,
+    UnitTypeId.MULE: AbilityId.CALLDOWNMULE_CALLDOWNMULE,
+    UnitTypeId.RAVAGERCOCOON: AbilityId.MORPHTORAVAGER_RAVAGER,
+    UnitTypeId.REFINERYRICH: AbilityId.TERRANBUILD_REFINERY,
+    UnitTypeId.TECHLAB: AbilityId.BUILD_TECHLAB,
+    # Remaining items will get populated at runtime
+}
+
+
+UPGRADE_ABILITIES: dict[UpgradeId, AbilityId] = {
+    # Populated at runtime
 }
 
 
@@ -75,6 +99,13 @@ ALTERNATIVES: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
 
 
 # --- UnitTypeId sets
+
+MINOR_STRUCTURES: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.CREEPTUMOR,
+    UnitTypeId.CREEPTUMORBURROWED,
+    UnitTypeId.CREEPTUMORQUEEN,
+    UnitTypeId.AUTOTURRET,
+})
 
 
 MINERAL_FIELD_TYPE_IDS: frozenset[UnitTypeId] = frozenset({

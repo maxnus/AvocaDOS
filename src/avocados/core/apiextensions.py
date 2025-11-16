@@ -9,11 +9,13 @@ from sc2.data import Race
 from sc2.game_data import Cost, UnitTypeData
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
-from avocados.core.constants import TRAINERS, TERRANBUILD_TO_STRUCTURE
+from avocados.core.constants import (TRAINERS, TERRANBUILD_TO_STRUCTURE, MINOR_STRUCTURES, UNIT_CREATION_ABILITIES,
+                                     UPGRADE_ABILITIES)
 from avocados.core.unitutil import UnitCost
 from avocados.geometry.util import dot
 
@@ -32,11 +34,39 @@ class ApiExtensions:
         self.api = api
 
     async def on_start(self) -> None:
+
+        # Fill UNIT_CREATION_ABILITIES
+        for utype in list(UnitTypeId):
+            unit_data = self.api.game_data.units.get(utype.value)
+            if unit_data is None:
+                continue
+            ability_data = unit_data.creation_ability
+            if ability_data is None:
+                continue
+            if utype not in UNIT_CREATION_ABILITIES:
+                UNIT_CREATION_ABILITIES[utype] = ability_data.exact_id
+
+        # Fill UPGRADE_ABILITIES
+        for upgrade in list(UpgradeId):
+            upgrade_data = self.api.game_data.upgrades.get(upgrade.value)
+            if upgrade_data is None:
+                continue
+            ability_data = upgrade_data.research_ability
+            if ability_data is None:
+                continue
+            UPGRADE_ABILITIES[upgrade] = ability_data.exact_id
+
         self.worker_utype, self.townhall_utype, self.supply_utype = {
             Race.Terran: (UnitTypeId.SCV, UnitTypeId.COMMANDCENTER, UnitTypeId.SUPPLYDEPOT),
             Race.Zerg: (UnitTypeId.DRONE, UnitTypeId.HATCHERY, UnitTypeId.OVERLORD),
             Race.Protoss: (UnitTypeId.PROBE, UnitTypeId.NEXUS, UnitTypeId.PYLON),
         }[self.api.race]
+
+    # ---
+
+    @property
+    def enemy_major_structures(self) -> Units:
+        return self.api.enemy_structures.exclude_type(MINOR_STRUCTURES)
 
     def get_unit_attributes(self, utype: UnitTypeId) -> list[Enum]:
         return self.api.game_data.units[utype.value].attributes
@@ -92,10 +122,10 @@ class ApiExtensions:
         return delta / 22.4
 
     def get_creation_ability(self, utype: UnitTypeId) -> AbilityId:
-        try:
-            return self.api.game_data.units[utype.value].creation_ability.exact_id
-        except AttributeError:
-            return CREATION_ABILITY_FIX.get(utype.value, 0)
+        return UNIT_CREATION_ABILITIES[utype]
+
+    def get_upgrade_ability(self, upgrade: UpgradeId) -> AbilityId:
+        return UPGRADE_ABILITIES[upgrade]
 
     def creation_ability_to_unit_type(self, ability: AbilityId) -> Optional[UnitTypeId]:
         if (type_id := abilityid_to_unittypeid.get(ability)) is not None:
