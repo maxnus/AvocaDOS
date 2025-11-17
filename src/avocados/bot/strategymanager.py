@@ -159,7 +159,7 @@ class StrategyManager(BotManager):
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""
         # TODO
-        time_score = two_point_lerp(self.time, 0, 15)
+        time_score = two_point_lerp(self.time, 0, 900)   # 900s = 15min
         supply_score = two_point_lerp(self.api.supply_used, 12, 200)
         return (time_score + supply_score) / 2
 

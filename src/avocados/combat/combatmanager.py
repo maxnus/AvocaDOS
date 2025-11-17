@@ -339,14 +339,11 @@ class CombatManager(BotManager):
         """
         priorities: dict[Unit, float] = {}
         # TODO testing
-        #min_distance = get_closest_distance(attacker, targets)
         min_sq_distance = max(get_closest_sq_distance(attacker, targets), 1)
         for target in targets:
             floor, ceil = 0.0, 1.0
             base = self._get_attack_base_priority(target)
-            # t_damage, t_speed, t_range = target.calculate_damage_vs_target(attacker)
             weakness = clip(1 - target.shield_health_percentage**2)
-            #distance = min_distance / (attacker.closest_distance_to(target) + 1e-15)
             distance = min_sq_distance / max(get_closest_sq_distance(attacker, target), 1)
             priority = (
                     self.attack_priority_base_weight * base

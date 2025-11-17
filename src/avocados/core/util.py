@@ -26,7 +26,7 @@ def lerp(x, /, *points: tuple[float, float]) -> float:
 
 
 def two_point_lerp(value: float, lower: float, upper: float, *,
-                   lower_value: float = 0, upper_value: float= 1) -> float:
+                   lower_value: float = 0.0, upper_value: float = 1.0) -> float:
     if value <= lower:
         return lower_value
     if value >= upper:
