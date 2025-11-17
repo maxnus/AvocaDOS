@@ -207,8 +207,8 @@ class CombatManager(BotManager):
 
     def _get_attack_base_priority(self, target: Unit) -> float:
 
-        # Can't attack that
-        if target.is_cloaked and not target.is_revealed:
+        #if target.is_cloaked and not target.is_revealed:
+        if not target.can_be_attacked:
             return 0.0
 
         match target.type_id:
