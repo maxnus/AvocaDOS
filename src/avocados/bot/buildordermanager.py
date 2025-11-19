@@ -55,16 +55,14 @@ class BuildOrderManager(BotManager):
         obj.add_defense_objective(target=bot.map.start_location.region_center)
 
     def load_proxy_marine(self) -> None:
-        bot = self.bot
+        proxy_location = self.bot.map.get_proxy_location()
+        self.bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 3, position=proxy_location,
+                                                       include_addon=False, priority=0.8)
+        self.bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, priority=0.8,
+                                                       reqs=UnitTypeId.BARRACKS)
+        self.bot.objectives.add_unit_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS, priority=0.7)
 
-        proxy_location = bot.map.get_proxy_location()
-        rax123 = bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 3, position=proxy_location,
-                                                           include_addon=False, priority=0.8)
-        bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 4, position=proxy_location, priority=0.8,
-                                                  reqs=UnitTypeId.BARRACKS)
-        bot.objectives.add_construction_objective(UnitTypeId.BARRACKS, 2,
-                                                  position=self.map.start_location.region_center,
-                                                  priority=0.3, deps=rax123)
-
-        # Units
-        bot.objectives.add_unit_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS, priority=0.7)
+    def load_eco_test(self) -> None:
+        self.strategy.get_worker_target = lambda *args: 16
+        self.strategy.get_expansion_target = lambda *args: 1
+        self.strategy.get_supply_target = lambda *args: 1

@@ -11,6 +11,12 @@ def clip(value: float, min_value: float = 0, max_value: float = 1) -> float:
     return max(min(value, max_value), min_value)
 
 
+def snap(value: float, previous_value: int, *, tolerance: float = 1.0) -> int:
+    if abs(value - previous_value) < tolerance:
+        return previous_value
+    return int(round(value))
+
+
 def lerp(x, /, *points: tuple[float, float]) -> float:
     # Flat extrapolation
     if x <= points[0][0]:

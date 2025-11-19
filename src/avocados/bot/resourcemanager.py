@@ -47,10 +47,7 @@ class ResourceManager(BotManager):
         return self.api.calculate_cost(item)
 
     def can_afford(self, item: UnitTypeId | UpgradeId | AbilityId | Cost) -> bool:
-        if isinstance(item, Cost):
-            cost = item
-        else:
-            cost = self.calculate_cost(item)
+        cost = item if isinstance(item, Cost) else self.calculate_cost(item)
         return max(self.minerals, 0) >= cost.minerals and max(self.vespene, 0) >= cost.vespene
 
     def can_afford_in(self, item: UnitTypeId | UpgradeId | AbilityId | Cost, *,

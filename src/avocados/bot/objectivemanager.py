@@ -209,6 +209,7 @@ class ObjectiveManager(BotManager):
                     and self.resources.can_afford(objective.utype)
                     and worker.value.distance_to(wrapped_target.value) <= 2.5):
                 self.logger.trace("{}: ordering worker {} build {} at {}", objective, worker, objective.utype.name, wrapped_target.value)
+                self.resources.spend(objective.utype)
                 self.order.build(worker.access(), objective.utype, wrapped_target.access())
 
             elif time_for_tech <= travel_time:
@@ -248,6 +249,7 @@ class ObjectiveManager(BotManager):
             time_for_tech = self.ext.time_until_tech(objective.utype)
             time_for_resources = self.resources.can_afford_in(objective.utype)
             if time_for_tech == 0 and time_for_resources == 0:
+                self.resources.spend(objective.utype)
                 self.order.train(trainer, objective.utype)
                 self.logger.debug("Training {} at {}", objective.utype, trainer)
             elif time_for_tech <= time_for_resources:

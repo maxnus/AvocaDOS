@@ -388,7 +388,7 @@ class AvocaDOS:
             case UnitTypeId.BARRACKSTECHLAB | UnitTypeId.BARRACKSREACTOR:
                 trainers = free_trainers.filter(lambda x: not x.has_add_on)
             case _:
-                self.log.warning("Trainer for {} not implemented", utype)
+                self.log.error("MissingTrainer{}", utype)
                 return None
         if not trainers:
             return None

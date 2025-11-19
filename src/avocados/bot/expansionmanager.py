@@ -81,6 +81,11 @@ class Expansion(BotObject):
                                             self.api)
         return empty_fields, single_mining_fields, double_mining_fields, oversaturated_mining_fields
 
+    def get_expected_mineral_rate(self, *, single_worker_rate: float = 1.068) -> float:
+        """TODO: consider mineral field distance"""
+        single_fields, double_fields, oversaturated_fields = self.get_mineral_field_split()[1:]
+        return (2 * (len(double_fields) + len(oversaturated_fields)) + len(single_fields)) * single_worker_rate
+
     async def update_assignment(self) -> None:
         self.miners.clear()
         # TODO: long distance mining?
@@ -272,6 +277,11 @@ class ExpansionManager(BotManager):
     async def update_assignment(self) -> None:
         for exp in self.expansions.values():
             await exp.update_assignment()
+
+    def get_expected_mineral_rate(self, *, single_worker_rate: float = 1.068) -> float:
+        """TODO: consider close vs far patches"""
+        return sum(exp.get_expected_mineral_rate(single_worker_rate=single_worker_rate)
+                   for exp in self.expansions.values())
 
     # --- Private
 

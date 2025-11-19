@@ -1,6 +1,8 @@
+from pathlib import Path
 from time import perf_counter
 from typing import Optional, TYPE_CHECKING
 
+import numpy
 from sc2.unit import Unit
 
 from avocados.core.manager import BotManager
@@ -68,3 +70,18 @@ class MemoryManager(BotManager):
         tag = unit.tag if isinstance(unit, Unit) else unit
         last_seen = self.units_last_seen.get(tag)
         return last_seen[1] if last_seen is not None else None
+
+    def plot(self, path: Path | str) -> None:
+        from matplotlib import pyplot as plt
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        plt.figure()
+        time = numpy.arange(0, self.step) / 22.4
+        plt.plot(time, self.supply, label='Supply')
+        plt.plot(time, self.supply_cap, label='Supply Cap')
+        plt.plot(time, self.supply_workers, label='Workers')
+        plt.savefig(path / 'supply.png')
+        plt.figure()
+        plt.plot(time, self.minerals, label='Minerals')
+        plt.plot(time, self.vespene, label='Vespene')
+        plt.savefig(path / 'resources.png')

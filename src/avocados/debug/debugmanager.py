@@ -471,13 +471,16 @@ class DebugManager(BotManager):
     def _show_extra(self) -> None:
         mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
         x = 0.78
-        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(0.78, 0.05))
+        y0 = 0.05
+        dy = 0.02
+        self.text_screen(f"{mineral_rate=:.2f}, {vespene_rate=:.2f}", position=(x, y0))
         self.text_screen(f"worker target={self.objectives.worker_objective.number},"
-                         f" supply target={self.objectives.supply_objective.number}", position=(0.78, 0.07))
-        self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(0.78, 0.09))
+                         f" supply target={self.objectives.supply_objective.number}", position=(x, y0 + dy))
+        self.text_screen(f"miners={len(self.expand.get_all_workers())}", position=(x, y0 + 2*dy))
         self.text_screen(f"strength={self.memory.army_strength.value():.2f},"
-                         f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(0.78, 0.11))
-        self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, 0.13))
+                         f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(x, y0 + 3*dy))
+        self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, y0 + 4*dy))
+        self.text_screen(f"barracks target={self.strategy.get_barracks_target():.2f}", position=(x, y0 + 5*dy))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

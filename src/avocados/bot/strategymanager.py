@@ -1,14 +1,14 @@
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy
 from sc2.ids.unit_typeid import UnitTypeId
 
 from avocados.core.timeseries import Timeseries
-from avocados.core.util import two_point_lerp, lerp
+from avocados.core.util import two_point_lerp, lerp, snap
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS
-from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective
+from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective, ConstructionObjective
 from avocados.geometry import Circle
 
 if TYPE_CHECKING:
@@ -24,19 +24,25 @@ class StrategyManager(BotManager):
     absolute_bonus_supply: int
     relative_bonus_supply: float
     expansion_score_threshold: float
-    max_workers: int = 80
+    # Targets
+    barracks_target: int
+    # ClassVars
+    max_workers: ClassVar[int] = 80
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.aggression = 0.7
         self.minimum_attack_strength = 5.0
         self.worker_priority = 0.4
+        self.production_priority = 0.3
         self.supply_priority = 0.6
         self.orbital_priority = 0.65
         self.bonus_workers = 3
         self.absolute_bonus_supply = 1
         self.relative_bonus_supply = 0.05
         self.expansion_score_threshold = 0.5
+        # Targets
+        self.barracks_target: int = 0
 
     async def on_start(self) -> None:
         self.objectives.set_worker_objective(self.expand.get_required_workers() + self.bonus_workers,
@@ -51,7 +57,7 @@ class StrategyManager(BotManager):
                 enemy_structures = self.ext.enemy_major_structures
                 late_game_score = self.get_late_game_score()
                 self.logger.info("Late game score: {:.2%}", late_game_score)
-                if late_game_score <= 0.4:
+                if late_game_score <= 0.25:
                     enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
                 if enemy_structures:
                     target = enemy_structures.closest_to(self.bot.army.center).position
@@ -91,25 +97,14 @@ class StrategyManager(BotManager):
                 self.objectives.add_unit_objective(UnitTypeId.ORBITALCOMMAND, number=number,
                                                    priority=self.orbital_priority)
 
-    def get_expansion_score(self) -> float:
-        """0 (don't expand) to 1 (expand now)"""
-        # TODO base difference
-        #time_score = lerp(self.time, (4, 0), (10, 1))
-
-        minerals = self.expand.get_mineral_fields()
-        number_expansions = len(self.expand)
-        if number_expansions > 0:
-            remaining_minerals_per_expansion = sum(mf.mineral_contents for mf in minerals) / number_expansions
-            mineral_content_score = lerp(remaining_minerals_per_expansion, (0, 1), (10800, 0))
-        else:
-            mineral_content_score = 1.0
-
-        missing_fields = (len(self.api.workers) - 2 * len(minerals) + 1) // 2
-        mineral_field_score = lerp(missing_fields, (0, 0), (8, 1))
-
-        minerals_score = lerp(self.resources.minerals, (300, 0), (500, 1))
-
-        return 0.3 * mineral_content_score + 0.3 * mineral_field_score + 0.4 * minerals_score
+        if step % 16 == 0 and self.ext.time_until_tech(UnitTypeId.BARRACKS) == 0:
+            existing_objectives = [obj for obj in self.objectives.objectives_of_type(ConstructionObjective)
+                                   if obj.utype == UnitTypeId.BARRACKS]
+            if not existing_objectives:
+                self.barracks_target = snap(self.get_barracks_target(), self.barracks_target)
+                if self.barracks_target > len(self.api.structures(UnitTypeId.BARRACKS)):
+                    self.objectives.add_construction_objective(UnitTypeId.BARRACKS, number=self.barracks_target,
+                                                               priority=self.production_priority)
 
     def get_worker_target(self) -> int:
         workers = self.expand.get_required_workers() + self.bonus_workers
@@ -156,12 +151,52 @@ class StrategyManager(BotManager):
             return len(self.expand) + 1
         return len(self.expand)
 
+    def get_barracks_target(self) -> float:
+        mineral_rate = self.expand.get_expected_mineral_rate()
+        marine_rate = 2.778  # 50 minerals / 18 sec
+        return mineral_rate / marine_rate
+
+    # --- Scores
+
     def get_late_game_score(self) -> float:
         """0: game just started, 1: late game"""
         # TODO
         time_score = two_point_lerp(self.time, 0, 900)   # 900s = 15min
         supply_score = two_point_lerp(self.api.supply_used, 12, 200)
         return (time_score + supply_score) / 2
+
+    def get_expansion_score(self) -> float:
+        """0 (don't expand) to 1 (expand now)"""
+        # TODO base difference
+        #time_score = lerp(self.time, (4, 0), (10, 1))
+
+        minerals = self.expand.get_mineral_fields()
+        number_expansions = len(self.expand)
+        if number_expansions > 0:
+            remaining_minerals_per_expansion = sum(mf.mineral_contents for mf in minerals) / number_expansions
+            mineral_content_score = lerp(remaining_minerals_per_expansion, (0, 1), (10800, 0))
+        else:
+            mineral_content_score = 1.0
+
+        missing_fields = (len(self.api.workers) - 2 * len(minerals) + 1) // 2
+        mineral_field_score = lerp(missing_fields, (0, 0), (8, 1))
+
+        minerals_score = lerp(self.resources.minerals, (300, 0), (500, 1))
+
+        return 0.3 * mineral_content_score + 0.3 * mineral_field_score + 0.4 * minerals_score
+
+    def is_opponent_revealed(self) -> bool:
+        # TODO cliffs, line of sight blockers?
+        max_vision_range = 11.0
+        for structure in self.api.enemy_structures:
+            for unit in (self.api.units + self.api.structures).closer_than(max_vision_range, structure.position):
+                if unit.sight_range <= unit.distance_to(structure):
+                    # Found a unit that could be spotting the structure
+                    break
+            else:
+                # No unit can see this, so the opponent must be revealed
+                return True
+        return False
 
     def get_projected_supply_curve(self, *, steps: int = 1000) -> Timeseries[float]:
         """TODO: consider expected unit deaths?"""
