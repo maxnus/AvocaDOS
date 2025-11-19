@@ -190,7 +190,7 @@ class ObjectiveManager(BotManager):
 
         for _ in range(to_build):
             wrapped_target = await self.building.get_building_location(
-                objective.utype, area=objective.position, include_addon=getattr(objective, 'include_addon', True))
+                objective.utype, area=objective.position, include_addon=False)#TODO getattr(objective, 'include_addon', True))
             #position = task.position
             if wrapped_target is None:
                 self.log.warning("NoLocFound_{}_{}", objective.utype, objective.position)

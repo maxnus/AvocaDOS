@@ -77,7 +77,7 @@ class BuildingManager(BotManager):
                 if self._can_place(structure, self.map.start_location.ramp.depot_in_middle):
                     return self.map.start_location.ramp.depot_in_middle
                 if area is None:
-                    area = Rectangle.from_center(self.map.start_location.region_center, 24, 24)
+                    area = Rectangle.from_center(self.map.start_location.center, 40, 40)
                 return await self._find_placement(structure, area)
 
             case UnitTypeId.BARRACKS:
@@ -85,7 +85,7 @@ class BuildingManager(BotManager):
                 if (area is None or ramp_position in area) and self._can_place(structure, ramp_position, clearance=0):
                     return ramp_position
                 if area is None:
-                    area = Rectangle.from_center(self.map.start_location.region_center, 24, 24)
+                    area = Rectangle.from_center(self.map.start_location.center, 40, 40)
                 return await self._find_placement(structure, area, include_addon=include_addon)
 
             case UnitTypeId.REFINERY:

@@ -92,9 +92,16 @@ RESEARCHERS: dict[UpgradeId, UnitTypeId] = {
 }
 
 
-ALTERNATIVES: dict[UnitTypeId, UnitTypeId | tuple[UnitTypeId, ...]] = {
-    UnitTypeId.SUPPLYDEPOT: (UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED),
-    UnitTypeId.SUPPLYDEPOTLOWERED: (UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED),
+ALTERNATIVE_UNIT_TYPES: list[tuple[UnitTypeId, ...]] = [
+    (UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED),
+    (UnitTypeId.BARRACKS, UnitTypeId.BARRACKSFLYING),
+    (UnitTypeId.FACTORY, UnitTypeId.FACTORYFLYING),
+    (UnitTypeId.STARPORT, UnitTypeId.STARPORTFLYING),
+]
+
+
+ALTERNATIVES: dict[UnitTypeId, tuple[UnitTypeId, ...]] = {
+    alt: alts for alts in ALTERNATIVE_UNIT_TYPES for alt in alts
 }
 
 
