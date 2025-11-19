@@ -182,23 +182,24 @@ class StrategyManager(BotManager):
 
     def get_expansion_score(self) -> float:
         """0 (don't expand) to 1 (expand now)"""
-        # TODO base difference
-        #time_score = lerp(self.time, (4, 0), (10, 1))
-
         minerals = self.expand.get_mineral_fields()
-        number_expansions = len(self.expand)
-        if number_expansions > 0:
-            remaining_minerals_per_expansion = sum(mf.mineral_contents for mf in minerals) / number_expansions
-            mineral_content_score = lerp(remaining_minerals_per_expansion, (0, 1), (10800, 0))
-        else:
-            mineral_content_score = 1.0
-
-        missing_fields = (len(self.api.workers) - 2 * len(minerals) + 1) // 2
-        mineral_field_score = lerp(missing_fields, (0, 0), (8, 1))
-
+        remaining_minerals = sum(mf.mineral_contents for mf in minerals)
+        mineral_content_score = lerp(remaining_minerals, (0, 1), (2 * 10800, 0))
+        missing_mining_spots = len(self.api.workers) - 2 * len(minerals)
+        mineral_field_score = lerp(missing_mining_spots, (0, 0), (16, 1))
         minerals_score = lerp(self.resources.minerals, (300, 0), (500, 1))
-
         return 0.3 * mineral_content_score + 0.3 * mineral_field_score + 0.4 * minerals_score
+
+    # def get_expansion_target(self) -> float:
+    #     """How many expansions do we want to mine from based on available workers and available mineral fields."""
+    #     townhalls = len(self.api.townhalls.ready)
+    #     # Bias by 4 workers per townhall
+    #     workers = min(len(self.api.workers) + 4 * townhalls, self.max_workers)
+    #     minerals = self.expand.get_mineral_fields()
+    #     mining_spaces = 2 * len(minerals)
+    #     missing_spaces = max(workers - mining_spaces, 0)
+    #     target = townhalls + missing_spaces / 8
+    #     return target
 
     def is_opponent_revealed(self) -> bool:
         # TODO cliffs, line of sight blockers?

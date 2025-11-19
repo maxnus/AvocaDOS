@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 
-from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS
+from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS, UPGRADED_UNIT_IDS
 from avocados.core.manager import BotManager
 from avocados.bot.objective import (Objective, ObjectiveStatus, ObjectiveRequirementType, ObjectiveRequirements,
                                     ObjectiveDependencies,
@@ -163,8 +163,9 @@ class ObjectiveManager(BotManager):
         return completed
 
     async def _construction_objective(self, objective: ConstructionObjective | SupplyObjective) -> bool:
-        utype = ALTERNATIVES.get(objective.utype, objective.utype)
-        units = (self.api.units + self.api.structures)(utype).ready
+        utypes = {objective.utype, *UPGRADED_UNIT_IDS.get(objective.utype, set())}
+        utypes = {u for utype in utypes for u in ALTERNATIVES.get(utype, {utype})}
+        units = (self.api.units + self.api.structures)(utypes).ready
 
         if objective.position is not None:
             units = units.filter(lambda u: u.position in objective.position)

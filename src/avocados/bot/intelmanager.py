@@ -124,13 +124,13 @@ class IntelManager(BotManager):
         targets: list[tuple[Unit, float]] = []
         for enemy_unit in hidden_enemies + burrowed_enemies:
             # Check if it can be attacked
-            friendly_strength = self.combat.get_strength(self.bot.forces.closer_than(max_distance, enemy_unit))
-            if friendly_strength > min_strength:
+            friendly_strength = self.combat.get_strength(self.bot.forces.closer_than(max_distance, enemy_unit.position))
+            enemy_strength = self.combat.get_strength(self.api.enemy_units.closer_than(max_distance, enemy_unit.position))
+            if friendly_strength >= max(1.2 * enemy_strength, min_strength):
                 targets.append((enemy_unit, 0.5))   # TODO different priorities
         if targets:
             target = max(targets, key=lambda x: x[1])
             self.scan_location(target[0].position)
-
 
     # def get_next_scout_location(self, time_since_scout: float = 30, *, sigma: float = 3.0) -> Circle:
     #     tss = self.time_since_visible_map(sigma=sigma)

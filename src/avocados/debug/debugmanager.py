@@ -94,6 +94,15 @@ class DebugSphere:
 
 
 @dataclass
+class DebugBox:
+    center: Point3
+    size: float
+    color: tuple[int, int, int]
+    created: float
+    duration: float
+
+
+@dataclass
 class DebugWorldText:
     position: Point3 | Unit
     text: str
@@ -107,6 +116,7 @@ class DebugLayers(StrEnum):
     LOG = 'log'
     EXP = 'exp'
     EXP_DIST = 'expdist'
+    TAG = 'tag'
     COMBAT = 'combat'
     TASKS = 'tasks'
     ORDERS = 'orders'
@@ -123,7 +133,7 @@ class DebugLayers(StrEnum):
 
 
 class DebugManager(BotManager):
-    text_size: ClassVar[int] = 16
+    text_size: ClassVar[int] = 14
     # State
     map_revealed: bool
     enemy_control: bool
@@ -177,14 +187,15 @@ class DebugManager(BotManager):
     async def on_step(self, step: int) -> None:
         t0 = perf_counter()
         await self._handle_chat()
+        if step % 4 == 0:
+            if self.show.get(DebugLayers.TAG) or self.show.get(DebugLayers.ORDERS):
+                self._show_unit(steps=4)
         if self.show.get(DebugLayers.GRID):
             self._show_grid()
         if self.show.get(DebugLayers.TASKS):
             self._show_tasks()
         if self.show.get(DebugLayers.EXTRA):
             self._show_extra()
-        if self.show.get(DebugLayers.ORDERS):
-            self._show_orders()
         if self.show.get(DebugLayers.SQUADS):
             self._show_squads()
         if self.show.get(DebugLayers.COMBAT):
@@ -217,6 +228,8 @@ class DebugManager(BotManager):
                 self._show_line(item)
             elif isinstance(item, DebugSphere):
                 self._show_sphere(item)
+            elif isinstance(item, DebugBox):
+                self._show_box(item)
             if self.api.time >= item.created + item.duration:
                 self.debug_items.remove(item)
 
@@ -262,7 +275,8 @@ class DebugManager(BotManager):
 
     def box(self, center: Unit | Point3 | Point2, size: Optional[float] = None, *,
             z_offset: float = 1.0,
-            color: ColorType = Color.YELLOW) -> None:
+            color: ColorType = Color.YELLOW,
+            duration: float = 0) -> DebugBox:
         center = self._normalize_point3(center, z_offset=z_offset)
         color = normalize_color(color)
         if size is None:
@@ -273,7 +287,9 @@ class DebugManager(BotManager):
                     size = 2*center.radius
             else:
                 size = 1
-        self.client.debug_box2_out(center, half_vertex_length=size/2, color=color)
+        item = DebugBox(center, size, color=color, created=self.api.time, duration=duration)
+        self.debug_items.append(item)
+        return item
 
     def sphere(self, center: Unit | Point3 | Point2 | Circle, radius: Optional[float] = None, *,
                color: tuple[int, int, int] | str = Color.YELLOW,
@@ -292,6 +308,9 @@ class DebugManager(BotManager):
     def _show_sphere(self, item: DebugSphere) -> None:
         self.client.debug_sphere_out(item.center, item.radius, color=item.color)
 
+    def _show_box(self, item: DebugBox) -> None:
+        self.client.debug_box2_out(item.center, item.size/2, color=item.color)
+
     def sphere_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
                          color: tuple[int, int, int] | str = Color.YELLOW) -> None:
         color = normalize_color(color)
@@ -299,10 +318,11 @@ class DebugManager(BotManager):
         self.text(text, center, color=color)
 
     def box_with_text(self, center: Unit | Point3 | Point2, text: str | list[str], size: Optional[float] = None, *,
-                      color: tuple[int, int, int] | str = Color.YELLOW) -> None:
+                      color: tuple[int, int, int] | str = Color.YELLOW,
+                      duration: float = 0) -> None:
         color = normalize_color(color)
-        self.box(center, size, color=color)
-        self.text(text, center, color=color)
+        self.box(center, size, color=color, duration=duration)
+        self.text(text, center, color=color, duration=duration)
 
     def line(self, start: Point2 | Point3 | Unit | int, end: Point2 | Point3 | Unit | int, *,
              text_center: Optional[str] = None,
@@ -429,14 +449,6 @@ class DebugManager(BotManager):
                 self.line(worker, mineral, color=color)
                 self.line(worker, loc.mining_return_targets[mineral.position], color=color)
 
-    def _show_orders(self) -> None:
-        for unit in self.api.all_units:
-            if not unit.orders:
-                order_repr = "None"
-            else:
-                order_repr = ','.join([str(order) for order in unit.orders])
-            self.box_with_text(unit, order_repr)
-
     def _show_squads(self, color: tuple[int, int, int] | str = Color.PINK) -> None:
         for squad in self.squads:
             if len(squad) == 0:
@@ -480,7 +492,7 @@ class DebugManager(BotManager):
         self.text_screen(f"strength={self.memory.army_strength.value():.2f},"
                          f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(x, y0 + 3*dy))
         self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, y0 + 4*dy))
-        self.text_screen(f"barracks target={self.strategy.barracks_target:.2f}", position=(x, y0 + 5*dy))
+        self.text_screen(f"barracks target={self.strategy.barracks_target:.0f}", position=(x, y0 + 5*dy))
         self.text_screen(f"scan target={self.strategy.scan_target:.2f}", position=(x, y0 + 6*dy))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
@@ -542,6 +554,18 @@ class DebugManager(BotManager):
         for x in range(int(rectangle.x), int(rectangle.x_end)):
             for y in range(int(rectangle.y), int(rectangle.y_end)):
                 self.draw_tile(Point2((x + 0.5, y + 0.5)), color=color)
+
+    def _show_unit(self, steps: int):
+        for unit in self.api.all_units:
+            info = []
+            if self.show.get(DebugLayers.TAG):
+                info.append(str(unit.tag)[-5:])
+            if self.show.get(DebugLayers.ORDERS):
+                for order in unit.orders:
+                    info.append(str(order))
+            if info:
+                text = ','.join(info)
+                self.box_with_text(unit, text, duration=steps/22.4)
 
     def _show_grid(self, *, color: ColorType = 'Blue') -> None:
         view_area = self._get_camera_view_area()

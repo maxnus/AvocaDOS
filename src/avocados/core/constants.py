@@ -92,16 +92,30 @@ RESEARCHERS: dict[UpgradeId, UnitTypeId] = {
 }
 
 
-ALTERNATIVE_UNIT_TYPES: list[tuple[UnitTypeId, ...]] = [
-    (UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED),
-    (UnitTypeId.BARRACKS, UnitTypeId.BARRACKSFLYING),
-    (UnitTypeId.FACTORY, UnitTypeId.FACTORYFLYING),
-    (UnitTypeId.STARPORT, UnitTypeId.STARPORTFLYING),
+# Alternatives are reversible
+ALTERNATIVE_UNIT_TYPES: list[set[UnitTypeId]] = [
+    {UnitTypeId.BARRACKS, UnitTypeId.BARRACKSFLYING},
+    {UnitTypeId.COMMANDCENTER, UnitTypeId.COMMANDCENTERFLYING},
+    {UnitTypeId.ORBITALCOMMAND, UnitTypeId.ORBITALCOMMANDFLYING},
+    {UnitTypeId.FACTORY, UnitTypeId.FACTORYFLYING},
+    {UnitTypeId.STARPORT, UnitTypeId.STARPORTFLYING},
+    {UnitTypeId.SUPPLYDEPOT, UnitTypeId.SUPPLYDEPOTLOWERED},
+    {UnitTypeId.SPINECRAWLER, UnitTypeId.SPINECRAWLERUPROOTED},
+    {UnitTypeId.SPORECRAWLER, UnitTypeId.SPORECRAWLERUPROOTED},
+    {UnitTypeId.GATEWAY, UnitTypeId.WARPGATE},
 ]
 
 
-ALTERNATIVES: dict[UnitTypeId, tuple[UnitTypeId, ...]] = {
+ALTERNATIVES: dict[UnitTypeId, set[UnitTypeId]] = {
     alt: alts for alts in ALTERNATIVE_UNIT_TYPES for alt in alts
+}
+
+
+UPGRADED_UNIT_IDS: dict[UnitTypeId, set[UnitTypeId]] = {
+    UnitTypeId.COMMANDCENTER: {UnitTypeId.ORBITALCOMMAND, UnitTypeId.PLANETARYFORTRESS},
+    UnitTypeId.HATCHERY: {UnitTypeId.LAIR, UnitTypeId.HIVE},
+    UnitTypeId.LAIR: {UnitTypeId.HIVE},
+    UnitTypeId.SPIRE: {UnitTypeId.GREATERSPIRE},
 }
 
 
