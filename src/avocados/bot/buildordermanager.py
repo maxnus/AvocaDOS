@@ -29,30 +29,11 @@ class BuildOrderManager(BotManager):
         raise NotImplementedError
         bot = self.bot
         obj = bot.objectives
-
-        scv1 = obj.add_unit_objective(UnitTypeId.SCV, 13, priority=1)
-        obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, 1, priority=0.9)
-
-        # SCV
-        scv2 = obj.add_unit_objective(UnitTypeId.SCV, 16, priority=0.7, deps=scv1)
-        obj.add_unit_objective(UnitTypeId.SCV, 19, priority=0.4, deps=scv2)
-
         # Buildings
-
         rax123 = obj.add_construction_objective(UnitTypeId.BARRACKS, 3)
         rax456 = obj.add_construction_objective(UnitTypeId.BARRACKS, 6, reqs=('S', 23))
-
-        obj.add_unit_objective(UnitTypeId.ORBITALCOMMAND, 1, reqs=UnitTypeId.BARRACKS, priority=0.4)
-
-        # --- Supply
-        obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, 2, reqs=('S', 18))
-        for number in range(3, 30):
-            obj.add_construction_objective(UnitTypeId.SUPPLYDEPOT, number, reqs=('S', number * 8 + 2))
-
         # Units
         obj.add_unit_objective(UnitTypeId.MARINE, 200, reqs=UnitTypeId.BARRACKS)
-
-        obj.add_defense_objective(target=bot.map.start_location.region_center)
 
     def load_proxy_marine(self) -> None:
         proxy_location = self.bot.map.get_proxy_location()

@@ -41,7 +41,7 @@ class BuildingManager(BotManager):
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
-        if step % 16 == 0:
+        if step % 128 == 0:
             self._update_resource_blocking_grid()
             self._update_static_reserved_grid()
         self.reserved_grid.data[:] = self.static_reserved_grid.data
@@ -265,6 +265,7 @@ class BuildingManager(BotManager):
             mineral_area = exp.get_mineral_area()
             if mineral_area:
                 self.static_reserved_grid[mineral_area] = True
+                self.static_reserved_grid[exp.get_townhall_area()] = False
 
     # --- Not in Use
 

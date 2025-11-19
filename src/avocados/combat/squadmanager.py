@@ -21,7 +21,7 @@ MAX_SQUAD_SIZE = 24
 #RETREAT_STRENGTH_PERCENTAGE = 0.8
 RETREAT_MIN_BASE_DISTANCE = 16.0
 RETREAT_DISTANCE = 25.0
-RETREAT_HEALTH_PERCENTAGE = 0.30
+RETREAT_HEALTH_PERCENTAGE = 0.40
 
 
 class SquadManager(BotManager):
@@ -61,7 +61,8 @@ class SquadManager(BotManager):
         # Order retreat
         for squad in self.not_with_task(task_type=SquadRetreatTask):
             #if (squad.strength < RETREAT_STRENGTH_PERCENTAGE * squad.target_strength
-            if (squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
+            if ((squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
+                    or squad.strength < self.combat.get_strength(self.api.all_enemy_units.closer_than(8, squad.center)))
                     and squad.center.distance_to(self.map.base.center) > RETREAT_MIN_BASE_DISTANCE):
                 retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.center, RETREAT_DISTANCE))
                 retreat_area = Circle(retreat_point, 1.5)

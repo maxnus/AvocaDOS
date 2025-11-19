@@ -130,6 +130,9 @@ class CombatManager(BotManager):
                      reference_hp: int = 45, reference_dps: float = 6.969937606352808) -> float:
         # TODO armor, energy, abilities, upgrades
         if isinstance(units, Unit):
+            # TODO: phoenix, oracle, etc
+            if not units.can_attack_ground:
+                return 0
             hp = units.health + units.shield
             if units.ground_dps != 0:
                 ttk = min(hp / reference_dps, reference_hp / units.ground_dps)
