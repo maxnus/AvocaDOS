@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 class BuildingManager(BotManager):
     reserved_grid: Field[bool]
+    static_reserved_grid: Field[bool]
     blocking_grid: Field[bool]
     resource_blocking_grid: Field[bool]
 
@@ -31,6 +32,8 @@ class BuildingManager(BotManager):
     async def on_start(self) -> None:
         self.reserved_grid = Field(numpy.full_like(self.map.placement_grid.data, False, dtype=bool),
                                    offset=self.map.placement_grid.offset)
+        self.static_reserved_grid = Field(numpy.full_like(self.map.placement_grid.data, False, dtype=bool),
+                                          offset=self.map.placement_grid.offset)
         self.blocking_grid = Field(numpy.full_like(self.map.placement_grid.data, False, dtype=bool),
                                    offset=self.map.placement_grid.offset)
         self.resource_blocking_grid = Field(numpy.full_like(self.map.placement_grid.data, False, dtype=bool),
@@ -38,9 +41,10 @@ class BuildingManager(BotManager):
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
-        self.reserved_grid.data[:] = False
         if step % 16 == 0:
             self._update_resource_blocking_grid()
+            self._update_static_reserved_grid()
+        self.reserved_grid.data[:] = self.static_reserved_grid.data
         self._update_blocking_grid()
         self.timings['step'].add(t0)
 
@@ -255,6 +259,12 @@ class BuildingManager(BotManager):
         for structure in self.api.mineral_field + self.api.vespene_geyser:
             footprint = self._get_footprint(structure.type_id, structure.position)
             self.resource_blocking_grid[footprint] = False
+
+    def _update_static_reserved_grid(self) -> None:
+        for exp in self.map.expansions:
+            mineral_area = exp.get_mineral_area()
+            if mineral_area:
+                self.static_reserved_grid[mineral_area] = True
 
     # --- Not in Use
 

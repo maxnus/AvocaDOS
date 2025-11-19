@@ -121,7 +121,7 @@ class Rectangle:
     def characteristic_length(self) -> float:
         return math.sqrt(self.width * self.height)
 
-    def __contains__(self, point: 'Point2 | Rectangle') -> bool:
+    def __contains__(self, point: 'Point2 | tuple[int, int] | Rectangle') -> bool:
         if isinstance(point, Rectangle):
             return (
                     self.x <= point.x
@@ -129,7 +129,7 @@ class Rectangle:
                     and self.x_end >= point.x_end
                     and self.y_end >= point.y_end
             )
-        return (self.x <= point.x < self.x_end) and (self.y <= point.y < self.y_end)
+        return (self.x <= point[0] < self.x_end) and (self.y <= point[1] < self.y_end)
 
     def __add__(self, other: Point2) -> 'Rectangle':
         if isinstance(other, Point2):

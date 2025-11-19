@@ -77,6 +77,27 @@ class ExpansionLocation(BotObject):
     def get_townhall_area(self, *, size: float = 5.0) -> Rectangle:
         return Rectangle(self.center.x - size/2, self.center.y - size/2, width=size, height=size)
 
+    def get_mineral_area(self) -> Optional[Rectangle]:
+        if not self.mineral_fields:
+            return None
+        townhall_area = self.get_townhall_area()
+        xmin = int(townhall_area.x)
+        xmax = int(townhall_area.x_end)
+        ymin = ymin0 = int(townhall_area.y)
+        ymax = ymax0 = int(townhall_area.y_end)
+        size = 3
+        for x in range(xmin - size, xmax + size + 1):
+            for y in range(ymin0 - size, ymax0 + size + 1):
+                point = Point2((x, y))
+                if point in townhall_area:
+                    continue
+                if self.mineral_fields.closest_distance_to(point) <= size:
+                    xmin = min(x, xmin)
+                    xmax = max(x, xmax)
+                    ymin = min(y, ymin)
+                    ymax = max(y, ymax)
+        return Rectangle(xmin, ymin, xmax-xmin, ymax-ymin)
+
     def get_mineral_field(self, position: Point2) -> Optional[Unit]:
         mf = self.api.mineral_field.closest_to(position)
         if mf.distance_to(position) > 0:

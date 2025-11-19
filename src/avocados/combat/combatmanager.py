@@ -267,6 +267,7 @@ class CombatManager(BotManager):
             case UnitTypeId.ROACHBURROWED : return 0.50
             case UnitTypeId.ROACH: return 0.55
             case UnitTypeId.ZERGLINGBURROWED: return 0.55
+            case UnitTypeId.OVERLORDTRANSPORT: return 0.56
             case UnitTypeId.ZERGLING: return 0.60
             case UnitTypeId.QUEENBURROWED: return 0.55
             case UnitTypeId.QUEEN: return 0.60

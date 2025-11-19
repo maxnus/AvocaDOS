@@ -12,7 +12,7 @@ from sc2.unit import Unit, UnitOrder
 
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
-from avocados.geometry import Circle, Region
+from avocados.geometry import Circle, Region, Rectangle
 from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 
 if TYPE_CHECKING:
@@ -500,6 +500,8 @@ class DebugManager(BotManager):
             self.text(f"{idx} exp", exp.center, z_offset=2)
         for exp, time in self.intel.get_time_since_expansions_last_visible().items():
             self.text(f"{exp}, Viz: {time:.2f}", exp.center, color='CYAN', z_offset=3.0)
+        for exp in self.map.expansions:
+            self._draw_rectangle(exp.get_mineral_area(), color=Color.ORANGE)
 
     def _show_expansion_distances(self) -> None:
         for idx1, exp1 in enumerate(self.map.expansions):
@@ -534,6 +536,11 @@ class DebugManager(BotManager):
     def _draw_region(self, region: Region, *, color: ColorType = Color.YELLOW) -> None:
         for point in region:
             self.draw_tile(point, color=color)
+
+    def _draw_rectangle(self, rectangle: Rectangle, *, color: ColorType = Color.YELLOW) -> None:
+        for x in range(int(rectangle.x), int(rectangle.x_end)):
+            for y in range(int(rectangle.y), int(rectangle.y_end)):
+                self.draw_tile(Point2((x + 0.5, y + 0.5)), color=color)
 
     def _show_grid(self, *, color: ColorType = 'Blue') -> None:
         view_area = self._get_camera_view_area()
