@@ -88,7 +88,7 @@ class ExpansionLocation(BotObject):
         size = 3
         for x in range(xmin - size, xmax + size + 1):
             for y in range(ymin0 - size, ymax0 + size + 1):
-                point = Point2((x, y))
+                point = Point2((x, y))  # TODO: why not +0.5, +0.5?
                 if point in townhall_area:
                     continue
                 if self.mineral_fields.closest_distance_to(point) <= size:

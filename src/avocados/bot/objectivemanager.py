@@ -116,7 +116,7 @@ class ObjectiveManager(BotManager):
         fulfilled = True
         for req_type, req_value in requirements:
             if isinstance(req_type, UnitTypeId):
-                value = self.bot.forces(req_type).ready.amount
+                value = (self.api.units + self.api.structures)(req_type).ready.amount
             elif isinstance(req_type, UpgradeId):
                 value = req_type in self.api.state.upgrades
             elif req_type == ObjectiveRequirementType.TIME:
@@ -164,7 +164,7 @@ class ObjectiveManager(BotManager):
 
     async def _construction_objective(self, objective: ConstructionObjective | SupplyObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
-        units = self.bot.forces(utype).ready
+        units = (self.api.units + self.api.structures)(utype).ready
 
         if objective.position is not None:
             units = units.filter(lambda u: u.position in objective.position)
@@ -224,7 +224,7 @@ class ObjectiveManager(BotManager):
 
     async def _unit_objective(self, objective: UnitObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
-        units = self.bot.forces(utype).ready
+        units = (self.api.units + self.api.structures)(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
         #self.logger.trace("units for {}: {}", task, units)
         if objective.position is not None:

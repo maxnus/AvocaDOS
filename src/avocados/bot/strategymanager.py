@@ -2,12 +2,13 @@ import math
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy
+from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
 
 from avocados.core.timeseries import Timeseries
 from avocados.core.util import two_point_lerp, lerp, snap
 from avocados.core.manager import BotManager
-from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS
+from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, CLOACKABLE_TYPE_IDS
 from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective, ConstructionObjective
 from avocados.geometry import Circle
 
@@ -26,6 +27,7 @@ class StrategyManager(BotManager):
     expansion_score_threshold: float
     # Targets
     barracks_target: int
+    scan_target: int
     # ClassVars
     max_workers: ClassVar[int] = 80
 
@@ -43,6 +45,7 @@ class StrategyManager(BotManager):
         self.expansion_score_threshold = 0.5
         # Targets
         self.barracks_target: int = 0
+        self.scan_target: int = 0
 
     async def on_start(self) -> None:
         self.objectives.set_worker_objective(self.expand.get_required_workers() + self.bonus_workers,
@@ -80,7 +83,7 @@ class StrategyManager(BotManager):
                                                      minimum_size=squad_size)
         else:
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
-                self.objectives.add_defense_objective(Circle(self.map.base.region_center, 16))
+                self.objectives.add_defense_objective(Circle(self.map.base.center, 16))
 
         self.objectives.worker_objective.number = self.get_worker_target()
         self.objectives.supply_objective.number = self.get_supply_target()
@@ -105,6 +108,9 @@ class StrategyManager(BotManager):
                 if self.barracks_target > len(self.api.structures(UnitTypeId.BARRACKS)):
                     self.objectives.add_construction_objective(UnitTypeId.BARRACKS, number=self.barracks_target,
                                                                priority=self.production_priority)
+
+        if step % 16 == 0:
+            self.scan_target = snap(self.get_scan_target(), self.scan_target)
 
     def get_worker_target(self) -> int:
         workers = self.expand.get_required_workers() + self.bonus_workers
@@ -155,6 +161,15 @@ class StrategyManager(BotManager):
         mineral_rate = self.expand.get_expected_mineral_rate()
         marine_rate = 2.778  # 50 minerals / 18 sec
         return mineral_rate / marine_rate
+
+    def get_scan_target(self) -> float:
+        if self.time < 180:
+            return 0
+        if self.intel.enemy_race in {Race.Terran, Race.Protoss}:
+            last_step_cloakable = max(self.intel.enemy_utype_last_spotted.get(utype, -1) for utype in CLOACKABLE_TYPE_IDS)
+            if last_step_cloakable == -1 or last_step_cloakable < self.step - 1344:
+                return 0
+        return max(len(self.api.structures(UnitTypeId.ORBITALCOMMAND).ready), 1)
 
     # --- Scores
 

@@ -21,7 +21,7 @@ from avocados.bot.taunts import TauntManager
 from avocados.core.apiextensions import ApiExtensions
 from avocados.bot.buildingmanager import BuildingManager
 from avocados.bot.buildordermanager import BuildOrderManager
-from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS
+from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS
 from avocados.bot.defensemanager import DefenseManager
 from avocados.bot.memorymanager import MemoryManager
 from avocados.bot.intelmanager import IntelManager
@@ -167,13 +167,13 @@ class AvocaDOS:
             self._report_timings()
 
         # Cleanup steps / internal to manager
+        await self.order.on_step_start(step)
         await self.expand.on_step_start(step)
         await self.map.on_step_start(step)
         await self.building.on_step_start(step)
         await self.intel.on_step_start(step)
         await self.resources.on_step_start(step)
         await self.memory.on_step_start(step)
-        await self.order.on_step_start(step)
         await self.squads.on_step_start(step)
 
     async def on_step(self, step: int):
@@ -191,6 +191,7 @@ class AvocaDOS:
         # if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
         await self.objectives.on_step(step)
+        await self.intel.on_step(step)
         await self.defense.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)
@@ -275,7 +276,7 @@ class AvocaDOS:
 
     @property
     def forces(self) -> Units:
-        return self.units + self.structures
+        return self.army + self.structures.of_type(STATIC_DEFENSE_TYPE_IDS)
 
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.forces)
@@ -459,15 +460,6 @@ class AvocaDOS:
             if not enemies:
                 loc = min(self.map.expansions, key=lambda exp: exp.center.distance_to(cc))
                 self.order.ability(cc, AbilityId.LAND, loc.center)
-
-        for orbital in self.structures(UnitTypeId.ORBITALCOMMAND).ready:
-            if orbital.energy >= 50:
-                mineral_fields = self.expand.get_mineral_fields()
-                if not mineral_fields:
-                    continue
-                mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
-                self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
-                self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
 
         for structure in self.api.structures_without_construction_SCVs:
             cancel = True

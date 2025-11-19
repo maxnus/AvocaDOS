@@ -480,7 +480,8 @@ class DebugManager(BotManager):
         self.text_screen(f"strength={self.memory.army_strength.value():.2f},"
                          f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(x, y0 + 3*dy))
         self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, y0 + 4*dy))
-        self.text_screen(f"barracks target={self.strategy.get_barracks_target():.2f}", position=(x, y0 + 5*dy))
+        self.text_screen(f"barracks target={self.strategy.barracks_target:.2f}", position=(x, y0 + 5*dy))
+        self.text_screen(f"scan target={self.strategy.scan_target:.2f}", position=(x, y0 + 6*dy))
 
         min_step, avg_step, max_step, last_step = self.api.step_time
         if last_step <= 10:

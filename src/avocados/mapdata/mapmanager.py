@@ -25,7 +25,7 @@ class MapManager(BotManager):
     pathing_grid: Field[bool]
     creep: Field[bool]
     terrain_height: Field[int]
-    base: StartLocation
+    base: ExpansionLocation
     expansions: list[ExpansionLocation]
     expansion_distance_matrix: ndarray
     expansion_path_distance_matrix: ndarray

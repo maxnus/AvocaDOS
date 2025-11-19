@@ -3,6 +3,7 @@ from time import perf_counter
 from typing import TYPE_CHECKING, Optional
 
 from sc2.ids.ability_id import AbilityId
+from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
@@ -11,7 +12,7 @@ from avocados.core.botobject import BotObject
 from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
-from avocados.geometry.util import same_point
+from avocados.geometry.util import same_point, get_best_score
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -173,7 +174,7 @@ class ExpansionManager(BotManager):
         return expansion in self.expansions
 
     async def on_start(self) -> None:
-        self.add_expansion(self.map.base, self.api.townhalls.first)
+        self.add_expansion(self.map.start_location, self.api.townhalls.first)
         # TODO: repeat, when needed
         await self.update_assignment()
 
@@ -188,6 +189,7 @@ class ExpansionManager(BotManager):
         if step % 4 == 0:
             for exp in self.expansions.values():
                 exp.speed_mine()
+            self._drop_mules()
         self.timings['step'].add(t0)
 
     async def on_building_construction_complete(self, unit: Unit) -> None:
@@ -312,3 +314,19 @@ class ExpansionManager(BotManager):
         for worker in self.bot.workers.filter(worker_filter):
             if self.add_worker(worker):
                 self.logger.debug("Assigning idle worker {}", worker)
+
+    def _drop_mules(self) -> None:
+        scan_target = self.strategy.scan_target
+        for orbital in self.api.structures(UnitTypeId.ORBITALCOMMAND).ready.sorted_by_distance_to(
+                self.map.base.center):
+            available_spells = int(orbital.energy // 50)
+            reserved_spells = min(scan_target, available_spells)
+            scan_target -= reserved_spells
+            remaining_spells = available_spells - reserved_spells
+            for spell in range(remaining_spells):
+                mineral_fields = self.expand.get_mineral_fields()
+                if not mineral_fields:
+                    continue
+                mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
+                self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
+                self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)

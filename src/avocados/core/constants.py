@@ -107,6 +107,32 @@ ALTERNATIVES: dict[UnitTypeId, tuple[UnitTypeId, ...]] = {
 
 # --- UnitTypeId sets
 
+
+CLOACKABLE_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.WIDOWMINE,   # TODO: check for upgrade
+    UnitTypeId.BANSHEE,     # TODO: check for upgrade
+    UnitTypeId.GHOST,       # TODO: check for upgrade
+    UnitTypeId.LURKER,
+    UnitTypeId.OBSERVER,
+    UnitTypeId.DARKTEMPLAR,
+})
+
+
+BURROWED_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.DRONEBURROWED,
+    UnitTypeId.QUEENBURROWED,
+    UnitTypeId.ZERGLINGBURROWED,
+    UnitTypeId.BANELINGBURROWED,
+    UnitTypeId.ROACHBURROWED,
+    UnitTypeId.RAVAGERBURROWED,
+    UnitTypeId.HYDRALISKBURROWED,
+    UnitTypeId.LURKERMPBURROWED,
+    UnitTypeId.SWARMHOSTBURROWEDMP,
+    UnitTypeId.INFESTORBURROWED,
+    UnitTypeId.ULTRALISKBURROWED,
+})
+
+
 MINOR_STRUCTURES: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.CREEPTUMOR,
     UnitTypeId.CREEPTUMORBURROWED,
