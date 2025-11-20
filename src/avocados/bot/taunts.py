@@ -29,7 +29,7 @@ cheese_taunts = [
     "Cheese fast, win faster.",
     "Straight from the Terran Dairy.",
     "This batch has extra rinds.",
-    "Hope you brought detection for the smell."
+    "Hope you brought detection for the smell.",
     "Hot cheese, straight off the proxy line.",
     "Welcome to the dairy of despair.",
     "No scouting? No problem.",
@@ -73,7 +73,7 @@ race_cheese_taunts = {
         "We both build rax, but mine have flavor.",
         "Early aggression, extra seasoning.",
         "Terran on Terran, dairy on dairy.",
-        "May the best cheeser win."
+        "May the best cheeser win.",
     ],
     Race.Zerg: [
         "Zerg detected. Preparing pest control cheese.",
@@ -95,7 +95,7 @@ race_cheese_taunts = {
         "Zerg evolution: lactose intolerance unlocked.",
         "Hot and ready before your spire.",
         "Hope your overlords packed snacks.",
-        "Fresh cheese, now with anti-zerg enzymes."
+        "Fresh cheese, now with anti-zerg enzymes.",
     ],
     Race.Protoss: [
         "Ah, Protoss — the fine wine to my cheese.",
@@ -117,7 +117,7 @@ race_cheese_taunts = {
         "You can warp, but you can't hide from dairy.",
         "Made fresh while your core spins.",
         "Your nexus is my serving plate.",
-        "GG stands for Grilled Gouda."
+        "GG stands for Grilled Gouda.",
     ]
 }
 

@@ -246,5 +246,4 @@ class StrategyManager(BotManager):
                 squad_size = 5
             else:
                 squad_size = 10
-            self.objectives.add_attack_objective(area, duration=5, priority=self.aggression,
-                                                 minimum_size=squad_size)
+            self.objectives.add_attack_objective(area, priority=self.aggression, minimum_size=squad_size, max_time=120)

@@ -162,6 +162,12 @@ UNBURROWED_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
 })
 
 
+assert len(BURROWED_TYPE_IDS) == len(UNBURROWED_TYPE_IDS)
+BURROWED_TO_UNBURROWED_TYPE_IDS: dict[UnitTypeId, UnitTypeId] = {
+    burrowed_id: unburrowed_id for burrowed_id, unburrowed_id in zip(BURROWED_TYPE_IDS, UNBURROWED_TYPE_IDS)
+}
+
+
 MINOR_STRUCTURES: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.CREEPTUMOR,
     UnitTypeId.CREEPTUMORBURROWED,

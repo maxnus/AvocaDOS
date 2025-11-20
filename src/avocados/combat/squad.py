@@ -50,7 +50,6 @@ class SquadRetreatTask(SquadTask):
 @dataclass
 class SquadJoinTask(SquadTask):
     target: 'Squad'
-    distance: float
     priority: float = field(default=0.5, compare=False)
     started: float = field(default=0.0, compare=False)
 
@@ -195,9 +194,9 @@ class Squad(BotObject):
         self._add_task(task, queue=queue)
         return task
 
-    def join(self, squad: 'Squad', *, distance: float = 2.0, priority: float = 0.5,
+    def join(self, squad: 'Squad', *, priority: float = 0.5,
              queue: bool = False) -> SquadJoinTask:
-        task = SquadJoinTask(squad, distance=distance, priority=priority, started=self.time)
+        task = SquadJoinTask(squad, priority=priority, started=self.time)
         self._add_task(task, queue=queue)
         return task
 

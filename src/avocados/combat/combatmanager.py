@@ -22,6 +22,11 @@ if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
+STRENGTH_OVERRIDES: dict[UnitTypeId, float] = {
+    UnitTypeId.BUNKER: 4.0,
+}
+
+
 class CombatManager(BotManager):
     # Parameters
     attack_priority_base_weight: float
@@ -128,9 +133,13 @@ class CombatManager(BotManager):
 
     def get_strength(self, units: Unit | Iterable[Unit], *,
                      reference_hp: int = 45, reference_dps: float = 6.969937606352808) -> float:
+        """Unupgraded marine has strength = 1.0"""
         # TODO armor, energy, abilities, upgrades
         if isinstance(units, Unit):
             # TODO: phoenix, oracle, etc
+            if (strength_override := STRENGTH_OVERRIDES.get(units.type_id)) is not None:
+                return strength_override
+
             if not units.can_attack_ground:
                 return 0
             hp = units.health + units.shield
@@ -265,21 +274,22 @@ class CombatManager(BotManager):
             case UnitTypeId.OVERLORD: return 0.40
             case UnitTypeId.OVERLORDCOCOON: return 0.42
             case UnitTypeId.OVERSEER: return 0.45
-            case UnitTypeId.DRONEBURROWED: return 0.49
             case UnitTypeId.DRONE: return 0.50
-            case UnitTypeId.ROACHBURROWED : return 0.50
+            case UnitTypeId.DRONEBURROWED: return 0.55
             case UnitTypeId.ROACH: return 0.55
-            case UnitTypeId.ZERGLINGBURROWED: return 0.55
+            case UnitTypeId.ROACHBURROWED : return 0.60
             case UnitTypeId.OVERLORDTRANSPORT: return 0.56
             case UnitTypeId.ZERGLING: return 0.60
-            case UnitTypeId.QUEENBURROWED: return 0.55
-            case UnitTypeId.QUEEN: return 0.60
-            case UnitTypeId.HYDRALISKBURROWED: return 0.60
+            case UnitTypeId.ZERGLINGBURROWED: return 0.65
+            case UnitTypeId.QUEEN: return lerp(target.energy_percentage, (0, 0.55), (1, 0.65))
+            case UnitTypeId.QUEENBURROWED: return lerp(target.energy_percentage, (0, 0.60), (1, 0.70))
             case UnitTypeId.RAVAGERCOCOON: return 0.52
             case UnitTypeId.RAVAGER: return 0.62
+            case UnitTypeId.RAVAGERBURROWED: return 0.67
             case UnitTypeId.HYDRALISK: return 0.65
+            case UnitTypeId.HYDRALISKBURROWED: return 0.70
             case UnitTypeId.BANELINGCOCOON: return 0.50
-            case UnitTypeId.BANELINGBURROWED: return 0.90
+            case UnitTypeId.BANELINGBURROWED: return 0.95
             case UnitTypeId.BANELING: return 1.00
             # --- Protoss
             # Structures

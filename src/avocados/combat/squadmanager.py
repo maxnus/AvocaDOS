@@ -22,6 +22,7 @@ MAX_SQUAD_SIZE = 24
 RETREAT_MIN_BASE_DISTANCE = 16.0
 RETREAT_DISTANCE = 25.0
 RETREAT_HEALTH_PERCENTAGE = 0.40
+SQUAD_JOIN_DISTANCE = 2.0
 
 
 class SquadManager(BotManager):
@@ -46,35 +47,15 @@ class SquadManager(BotManager):
     async def on_step(self, step: int) -> None:
         t0 = perf_counter()
         # Join squads
-        for squad in self.with_task(task_type=SquadJoinTask):
-            target_squad = squad.task.target
-            if len(target_squad) == 0:
-                squad.remove_task()
-                continue
-            if squad.spacing_to_squad(target_squad) <= squad.task.distance:
-                self.join(target_squad, squad)
+
+        self._join_squads()
 
         for squad in self:
             damage = sum(self.api.damage_received[unit.tag] for unit in squad.units)
             squad.damage_taken.appendleft(damage)
 
-        # Order retreat
-        for squad in self.not_with_task(task_type=SquadRetreatTask):
-            #if (squad.strength < RETREAT_STRENGTH_PERCENTAGE * squad.target_strength
-            if ((squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
-                    or squad.strength < self.combat.get_strength(self.api.all_enemy_units.closer_than(8, squad.center)))
-                    and squad.center.distance_to(self.map.base.center) > RETREAT_MIN_BASE_DISTANCE):
-                retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.center, RETREAT_DISTANCE))
-                retreat_area = Circle(retreat_point, 1.5)
-                self.logger.debug("Ordering {} to retreat to {}", squad, retreat_area)
-                squad.retreat(retreat_area, priority=1)#, priority=min(squad.task_priority+0.1, ))
-
-        # Stop retreat
-        for squad in self.with_task(task_type=SquadRetreatTask):
-            #if squad.all_units_in_area(squad.task.target):
-            if squad.center in squad.task.target or self.time > squad.task.started + 20:
-                self.logger.debug("{} has retreated to {}", squad, squad.task.target)
-                squad.remove_task()
+        self._start_retreat()
+        self._stop_retreat()
 
         # Remove far units
         for squad in list(self._squads.values()):
@@ -245,3 +226,32 @@ class SquadManager(BotManager):
                       filter_: Optional[Callable[[SquadTask], bool]] = None) -> list[Squad]:
         return [s for s in self if not isinstance(s.task, task_type)
                 and len(s) > 0 and (filter_ is None or filter_(s.task))]
+
+    # --- Private
+
+    def _join_squads(self) -> None:
+        for squad in self.with_task(task_type=SquadJoinTask):
+            target_squad = squad.task.target
+            if len(target_squad) == 0:
+                squad.remove_task()
+                continue
+            if squad.spacing_to_squad(target_squad) <= SQUAD_JOIN_DISTANCE:
+                self.join(target_squad, squad)
+
+    def _start_retreat(self) -> None:
+        for squad in self.not_with_task(task_type=SquadRetreatTask):
+            # if (squad.strength < RETREAT_STRENGTH_PERCENTAGE * squad.target_strength
+            if ((squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
+                 or squad.strength < self.combat.get_strength(self.api.all_enemy_units.closer_than(8, squad.center)))
+                    and squad.center.distance_to(self.map.base.center) > RETREAT_MIN_BASE_DISTANCE):
+                retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.center, RETREAT_DISTANCE))
+                retreat_area = Circle(retreat_point, 1.5)
+                self.logger.debug("Ordering {} to retreat to {}", squad, retreat_area)
+                squad.retreat(retreat_area, priority=1)  # , priority=min(squad.task_priority+0.1, ))
+
+    def _stop_retreat(self) -> None:
+        for squad in self.with_task(task_type=SquadRetreatTask):
+            # if squad.all_units_in_area(squad.task.target):
+            if squad.center in squad.task.target or self.time > squad.task.started + 20:
+                self.logger.debug("{} has retreated to {}", squad, squad.task.target)
+                squad.remove_task()

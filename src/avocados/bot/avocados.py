@@ -168,6 +168,7 @@ class AvocaDOS:
 
         # Cleanup steps / internal to manager
         await self.order.on_step_start(step)
+        await self.objectives.on_step_start(step)
         await self.expand.on_step_start(step)
         await self.map.on_step_start(step)
         await self.building.on_step_start(step)

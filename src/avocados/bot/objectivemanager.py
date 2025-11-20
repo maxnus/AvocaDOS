@@ -80,27 +80,37 @@ class ObjectiveManager(BotManager):
     def __iter__(self) -> Iterator[Objective]:
         yield from sorted(self.current.values(), key=lambda obj: obj.priority, reverse=True)
 
+    async def on_step_start(self, step: int) -> None:
+        for objective in self.current.values():
+            if objective.max_time is not None and self.time > objective.start_time + objective.max_time:
+                objective.status = ObjectiveStatus.FAILED
+
     async def on_step(self, step: int) -> None:
         t0 = perf_counter()
-        for obj in self:
-            await self._dispatch_objective(obj)
+        for objective in self.current.values():
+            await self._dispatch_objective(objective)
 
         # TODO: Move below to on_step_started?
-        for obj in self.current.copy().values():
-            if obj.status in {ObjectiveStatus.COMPLETED, ObjectiveStatus.FAILED}:
-                self.current.pop(obj.id)
-                self.completed[obj.id] = obj
-                self.logger.debug("Finished {} with status {}", obj, obj.status)
-                if obj.repeat:
-                    self.add(obj.copy(status=ObjectiveStatus.NOT_STARTED))
+        for objective in list(self.current.values()):
+            if objective.status in {ObjectiveStatus.COMPLETED, ObjectiveStatus.FAILED}:
+                self._complete_objective(objective)
 
-        for obj in self.future.copy().values():
-            if self._task_ready(obj):
-                obj = self.future.pop(obj.id)
-                obj.status = ObjectiveStatus.STARTED
-                self.current[obj.id] = obj
-                self.logger.debug("Started {}", obj)
+        for objective in list(self.future.values()):
+            if self._task_ready(objective):
+                self._start_objective(objective)
         self.timings['step'].add(t0)
+
+    def _start_objective(self, objective: Objective) -> None:
+        self.future.pop(objective.id, None)
+        objective.status = ObjectiveStatus.STARTED
+        objective.start_time = self.time
+        self.current[objective.id] = objective
+        self.logger.info("Started {}", objective)
+
+    def _complete_objective(self, objective: Objective) -> None:
+        self.current.pop(objective.id)
+        self.completed[objective.id] = objective
+        self.logger.info("Finished {} with status {}", objective, objective.status)
 
     def get_status(self, objective_id: int) -> Optional[ObjectiveStatus]:
         if objective_id in self.current:
@@ -283,9 +293,7 @@ class ObjectiveManager(BotManager):
         squads_with_task = self.squads.with_task(
             task_type, filter_=lambda t: squared_distance(t.target.center, objective.target.center) <= 1)
 
-        if (objective.duration is not None and any(s.status == SquadStatus.AT_TARGET
-                                                   and self.time > s.status_changed + objective.duration
-                                                   for s in squads_with_task)):
+        if any(s.status == SquadStatus.AT_TARGET and self.time > s.status_changed + 5 for s in squads_with_task):
         # TODO
         # if (len(self.api.all_enemy_units.filter(lambda u: u in objective.target)) == 0
         #         and max(self.intel.last_visible[objective.target.to_region()].values()) < 20.0):
