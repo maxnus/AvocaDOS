@@ -89,6 +89,9 @@ class Field[T]:
         else:
             raise TypeError(f'invalid type: {type(item)}')
 
+    def fill(self, value: T) -> None:
+        self.data[:] = value
+
     def __add__(self, other: Any) -> Self:
         if isinstance(other, (int, float)):
             return type(self)(self.data + other, offset=self.offset)

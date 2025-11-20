@@ -55,32 +55,7 @@ class StrategyManager(BotManager):
 
     async def on_step(self, step: int) -> None:
         if self.aggression >= 0.5:
-            if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
-                    and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
-                enemy_structures = self.ext.enemy_major_structures
-                late_game_score = self.get_late_game_score()
-                self.logger.info("Late game score: {:.2%}", late_game_score)
-                if late_game_score <= 0.25:
-                    enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
-                if enemy_structures:
-                    target = enemy_structures.closest_to(self.bot.army.center).position
-                else:
-                    reference_point = self.intel.last_known_enemy_base.center or self.map.center
-                    targets = {exp: (time
-                                     - 0.1 * exp.center.distance_to(reference_point)
-                                     - 0.1 * exp.center.distance_to(self.bot.army.center))
-                               for exp, time in self.intel.get_time_since_expansions_last_visible().items()}
-                    target = max(targets.keys(), key=targets.get).center
-                area = Circle(target, 16.0)
-
-                if self.memory.army_strength.value() >= 2 * self.intel.enemy_army_strength.value():
-                    squad_size = 3
-                elif self.memory.army_strength.value() >= self.intel.enemy_army_strength.value():
-                    squad_size = 5
-                else:
-                    squad_size = 10
-                self.objectives.add_attack_objective(area, duration=5, priority=self.aggression,
-                                                     minimum_size=squad_size)
+            self._issue_attack_objective()
         else:
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
                 self.objectives.add_defense_objective(Circle(self.map.base.center, 16))
@@ -243,3 +218,33 @@ class StrategyManager(BotManager):
                 steps_left = int(self.ext.get_cost(structure.type_id).time * (1 - progress))
                 values[steps_left:] += supply
         return Timeseries(values=values, start=self.step, length=steps)
+
+    # --- Private
+
+    def _issue_attack_objective(self) -> None:
+        if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
+                and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
+            enemy_structures = self.ext.enemy_major_structures
+            late_game_score = self.get_late_game_score()
+            self.logger.info("Late game score: {:.2%}", late_game_score)
+            if late_game_score <= 0.25:
+                enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
+            if enemy_structures:
+                target = enemy_structures.closest_to(self.bot.army.center).position
+            else:
+                reference_point = self.intel.last_known_enemy_base.center or self.map.center
+                targets = {exp: (time
+                                 - 0.1 * exp.center.distance_to(reference_point)
+                                 - 0.1 * exp.center.distance_to(self.bot.army.center))
+                           for exp, time in self.intel.get_time_since_expansions_last_visible().items()}
+                target = max(targets.keys(), key=targets.get).center
+            area = Circle(target, 16.0)
+
+            if self.memory.army_strength.value() >= 2 * self.intel.enemy_army_strength.value():
+                squad_size = 3
+            elif self.memory.army_strength.value() >= self.intel.enemy_army_strength.value():
+                squad_size = 5
+            else:
+                squad_size = 10
+            self.objectives.add_attack_objective(area, duration=5, priority=self.aggression,
+                                                 minimum_size=squad_size)

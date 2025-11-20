@@ -147,6 +147,21 @@ BURROWED_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
 })
 
 
+UNBURROWED_TYPE_IDS: frozenset[UnitTypeId] = frozenset({
+    UnitTypeId.DRONE,
+    UnitTypeId.QUEEN,
+    UnitTypeId.ZERGLING,
+    UnitTypeId.BANELING,
+    UnitTypeId.ROACH,
+    UnitTypeId.RAVAGER,
+    UnitTypeId.HYDRALISK,
+    UnitTypeId.LURKERMP,
+    UnitTypeId.SWARMHOSTMP,
+    UnitTypeId.INFESTOR,
+    UnitTypeId.ULTRALISK,
+})
+
+
 MINOR_STRUCTURES: frozenset[UnitTypeId] = frozenset({
     UnitTypeId.CREEPTUMOR,
     UnitTypeId.CREEPTUMORBURROWED,
