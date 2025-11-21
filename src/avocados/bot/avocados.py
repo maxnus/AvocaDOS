@@ -17,6 +17,7 @@ from sc2.units import Units
 
 from avocados.__about__ import __version__
 from avocados.bot.rolemanager import RoleManager
+from avocados.bot.scanmanager import ScanManager
 from avocados.bot.taunts import TauntManager
 from avocados.core.apiextensions import ApiExtensions
 from avocados.bot.buildingmanager import BuildingManager
@@ -64,6 +65,8 @@ class AvocaDOS:
     resources: ResourceManager
     objectives: ObjectiveManager
     squads: SquadManager
+    intel: IntelManager
+    scan: ScanManager
     combat: CombatManager
     expand: ExpansionManager
     memory: MemoryManager
@@ -116,6 +119,7 @@ class AvocaDOS:
         self.resources = ResourceManager(self)
         self.map = MapManager(self)
         self.intel = IntelManager(self)     # requires map
+        self.scan = ScanManager(self)
         self.objectives = ObjectiveManager(self)
         self.squads = SquadManager(self)
         self.combat = CombatManager(self)
@@ -173,6 +177,7 @@ class AvocaDOS:
         await self.map.on_step_start(step)
         await self.building.on_step_start(step)
         await self.intel.on_step_start(step)
+        await self.scan.on_step_start(step)
         await self.resources.on_step_start(step)
         await self.memory.on_step_start(step)
         await self.squads.on_step_start(step)
@@ -192,7 +197,7 @@ class AvocaDOS:
         # if self.time >= 180:
         #    self.logger.info("Minerals at 3 min = {}", self.minerals)
         await self.objectives.on_step(step)
-        await self.intel.on_step(step)
+        await self.scan.on_step(step)
         await self.defense.on_step(step)
         await self.squads.on_step(step)
         await self.combat.on_step(step)

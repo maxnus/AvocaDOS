@@ -5,14 +5,12 @@ from typing import TYPE_CHECKING, Optional
 import numpy
 from numpy import ndarray
 from sc2.data import Race
-from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
-from sc2.units import Units
 
-from avocados.core.constants import RESOURCE_COLLECTOR_TYPE_IDS, CLOACKABLE_TYPE_IDS, BURROWED_TYPE_IDS, \
-    UNBURROWED_TYPE_IDS
+from avocados.core.constants import (RESOURCE_COLLECTOR_TYPE_IDS, BURROWED_TYPE_IDS,
+                                     UNBURROWED_TYPE_IDS)
 from avocados.core.manager import BotManager
 from avocados.core.timeseries import Timeseries
 from avocados.geometry.field import Field
@@ -23,14 +21,7 @@ if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
-SCAN_DURATION: int = 196
 BURROW_TRACK_DURATION: int = 224  # 10 seconds
-
-
-@dataclass(frozen=True)
-class Scan:
-    started: int
-    location: Point2
 
 
 @dataclass(frozen=True)
@@ -58,7 +49,6 @@ class IntelManager(BotManager):
     enemy_burrowed_units: dict[int, BurrowedUnit]
     enemy_army_strength: Timeseries[float]
     enemy_utype_last_spotted: dict[UnitTypeId, int]
-    ongoing_scans: list[Scan]
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
@@ -68,7 +58,6 @@ class IntelManager(BotManager):
         self.enemy_burrowed_units = {}
         self.enemy_army_strength = Timeseries.empty(float, initial_size=4096)
         self.enemy_utype_last_spotted = {}
-        self.ongoing_scans = []
 
     async def on_start(self) -> None:
         self.last_known_enemy_base = self.map.known_enemy_start_location
@@ -77,8 +66,6 @@ class IntelManager(BotManager):
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
-        self.ongoing_scans = [scan for scan in self.ongoing_scans if step <= scan.started + SCAN_DURATION]
-
         self.visibility.data = self.api.state.visibility.data_numpy.transpose()[self.map.playable_mask]
         mask: ndarray = (self.visibility.data == 2)  # noqa
         self.last_visible.data[mask] = self.time
@@ -98,11 +85,6 @@ class IntelManager(BotManager):
         self.enemy_army_strength.append(step, self.combat.get_strength(enemy_army))
         self.timings['step_start'].add(t0)
 
-    async def on_step(self, step: int) -> None:
-        t0 = perf_counter()
-        self._check_for_scans()
-        self.timings['step'].add(t0)
-
     def get_percentage_scouted(self) -> float:
         return numpy.sum(self.visibility.data > 0) / self.visibility.size
 
@@ -116,45 +98,6 @@ class IntelManager(BotManager):
         if isinstance(location, Rectangle):
             return (self.time - self.last_visible[location]).min()
         raise TypeError(f"invalid type: {type(location)}")
-
-    def scan_location(self, location: Point2, *, min_separation: float = 13.0) -> bool:
-        for scan in self.ongoing_scans:
-            if scan.location.distance_to(location) < min_separation:
-                return False
-        for orbital in self.api.structures(UnitTypeId.ORBITALCOMMAND).ready:
-            if orbital.energy >= 50:
-                scan = Scan(self.step, location)
-                self.logger.debug("Ordering {} to scan {}", orbital, scan)
-                self.ongoing_scans.append(scan)
-                self.order.ability(orbital, AbilityId.SCANNERSWEEP_SCAN, location)
-                return True
-        return False
-
-    def get_available_scans(self) -> int:
-        scans = 0
-        for orbital in self.api.structures(UnitTypeId.ORBITALCOMMAND).ready:
-            scans += int(orbital.energy // 50)
-        return scans
-
-    def _check_for_scans(self, *, min_strength: float = 3.0, max_distance: float = 6.0) -> None:
-        available_scans = self.get_available_scans()
-        if available_scans == 0:
-            return
-        hidden_enemies = self.api.enemy_units.of_type(CLOACKABLE_TYPE_IDS)
-        burrowed_enemies = list(self.enemy_burrowed_units.values())
-        targets: list[tuple[Point2, float]] = []
-
-        # Careful: we loop over both units and BurrowedUnit - but they both have the position attribute
-        for enemy_unit in [*hidden_enemies, *burrowed_enemies]:
-            # Check if it can be attacked
-            friendly_strength = self.combat.get_strength(self.bot.forces.closer_than(max_distance, enemy_unit.position))
-            enemy_strength = self.combat.get_strength(self.api.enemy_units.closer_than(max_distance, enemy_unit.position))
-            if friendly_strength >= max(1.2 * enemy_strength, min_strength):
-                targets.append((enemy_unit.position, 0.5))   # TODO different priorities
-        if targets:
-            target = max(targets, key=lambda x: x[1])
-            self.scan_location(target[0])
-
 
     # def get_next_scout_location(self, time_since_scout: float = 30, *, sigma: float = 3.0) -> Circle:
     #     tss = self.time_since_visible_map(sigma=sigma)
