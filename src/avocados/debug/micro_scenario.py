@@ -12,6 +12,7 @@ from avocados.combat.squadmanager import SquadManager
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import UnitCost
 from avocados.combat.squad import Squad
+from avocados.mapdata import MapManager
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -34,6 +35,7 @@ class MicroScenarioResults:
 
 class MicroScenario(BotObject):
     squads: SquadManager
+    map: MapManager
 
     id: int
     units_types: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
@@ -52,6 +54,7 @@ class MicroScenario(BotObject):
 
     def __init__(self, bot: 'AvocaDOS', *,
                  squad_manager: SquadManager,
+                 map_manager: MapManager,
                  unit_types: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
                  location: Optional[Point2] = None,
                  spawns: Optional[tuple[Point2, Point2]] = None,
@@ -59,13 +62,14 @@ class MicroScenario(BotObject):
                  ) -> None:
         super().__init__(bot)
         self.squads = squad_manager
+        self.map = map_manager
 
         self.id = next(MicroScenario._id_counter)
         if isinstance(unit_types, dict):
             unit_types = (unit_types, unit_types)
         self.units_types = unit_types
         if location is None:
-            location = self.bot.map.center
+            location = self.map.center
         self.location = location
         if spawns is None:
             spawns = (location.offset(Point2((-8, 0))), location.offset(Point2((+8, 0))))

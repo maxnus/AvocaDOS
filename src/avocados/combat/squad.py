@@ -98,7 +98,7 @@ class Squad(BotObject):
 
     @property
     def units(self) -> Units:
-        return self.bot.units.tags_in(self._tags)
+        return api.units.tags_in(self._tags)
 
     def __contains__(self, tag: int) -> bool:
         return tag in self._tags

@@ -10,6 +10,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados.core.apiextensions import ApiExtensions
+from avocados.core.ordermanager import OrderManager
 
 
 class Api(BotAI):
@@ -59,6 +60,10 @@ class Api(BotAI):
     def step(self) -> int:
         return self.state.game_loop
 
+    @property
+    def order(self) -> OrderManager:
+        return self.ext.order
+
     # --- Units
 
     @property
@@ -107,9 +112,12 @@ class Api(BotAI):
         self.dead_tags.update(self.state.dead_units)
         self.alive_tags.difference_update(self.dead_tags)
 
+        await self.order.on_step_start(step)
+
         for callback in self._on_step_callbacks:
             await callback(step)
 
+        await self.order.on_step_end(step)
         self.damage_received.clear()
         if self.slowdown:
             sleep = self.slowdown / 1000 - (perf_counter() - frame_start)

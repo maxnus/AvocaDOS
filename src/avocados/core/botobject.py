@@ -6,20 +6,8 @@ from loguru._logger import Logger
 from avocados.geometry.util import unique_id
 
 if TYPE_CHECKING:
-    from avocados.bot.buildingmanager import BuildingManager
     from avocados.core.logmanager import LogManager
     from avocados.bot.avocados import AvocaDOS
-    from avocados.debug.debugmanager import DebugManager
-    from avocados.bot.memorymanager import MemoryManager
-    from avocados.bot.intelmanager import IntelManager
-    from avocados.bot.ordermanager import OrderManager
-    from avocados.bot.expansionmanager import ExpansionManager
-    from avocados.bot.resourcemanager import ResourceManager
-    from avocados.bot.objectivemanager import ObjectiveManager
-    from avocados.bot.taunts import TauntManager
-    from avocados.bot.strategymanager import StrategyManager
-    from avocados.combat.squadmanager import SquadManager
-    from avocados.combat.combatmanager import CombatManager
 
 
 class BotObject(ABC):
@@ -53,11 +41,3 @@ class BotObject(ABC):
     @property
     def log(self) -> 'LogManager':
         return self.bot.log
-
-    @property
-    def debug(self) -> Optional['DebugManager']:
-        return self.bot.debug
-
-    @property
-    def order(self) -> 'OrderManager':
-        return self.bot.order

@@ -132,13 +132,13 @@ class CombatManager(BotManager):
             if not microd:
                 if isinstance(squad.task, (SquadAttackTask, SquadDefendTask)):
                     if unit.position not in squad.task.target:
-                        self.order.move(unit, squad.task.target.center)
+                        api.order.move(unit, squad.task.target.center)
                     elif enemies_in_area := enemies.filter(lambda e: e.position in squad.task.target):
-                        self.order.attack(unit, enemies_in_area.closest_to(unit))
+                        api.order.attack(unit, enemies_in_area.closest_to(unit))
                     elif unit.is_idle:
-                        self.order.move(unit, squad.task.target.random)
+                        api.order.move(unit, squad.task.target.random)
                 elif isinstance(squad.task, SquadJoinTask):
-                    self.order.move(unit, squad.task.target.center)
+                    api.order.move(unit, squad.task.target.center)
         self.timings['micro'].add(t0)
 
     # ---
@@ -276,6 +276,8 @@ class CombatManager(BotManager):
             case UnitTypeId.RAVAGERBURROWED: return 0.67
             case UnitTypeId.HYDRALISK: return 0.65
             case UnitTypeId.HYDRALISKBURROWED: return 0.70
+            case UnitTypeId.INFESTOR: return 0.75
+            case UnitTypeId.INFESTORBURROWED: return 0.80
             case UnitTypeId.BANELINGCOCOON: return 0.50
             case UnitTypeId.BANELINGBURROWED: return 0.95
             case UnitTypeId.BANELING: return 1.00
@@ -446,7 +448,7 @@ class CombatManager(BotManager):
             target = None
 
         if target:
-            self.order.attack(unit, target)
+            api.order.attack(unit, target)
             return True
 
         # --- Ability
@@ -454,41 +456,41 @@ class CombatManager(BotManager):
             ability_prio, ability_id, ability_target = self._evaluate_ability(
                 unit, abilities=abilities, group_attack_priorities=squad_attack_priorities)
             if ability_prio > 0.5:
-                self.order.ability(unit, ability_id, ability_target)
+                api.order.ability(unit, ability_id, ability_target)
                 return True
 
         if isinstance(squad.task, SquadRetreatTask):
-            self.order.move(unit, squad.task.target.center)
+            api.order.move(unit, squad.task.target.center)
             return True
 
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
             dist_sq = (unit.ground_range + unit.radius + squad_target.radius + unit.distance_to_weapon_ready)**2
             if unit.distance_to_squared(squad_target) >= dist_sq:
-                self.order.attack(unit, squad_target)
+                api.order.attack(unit, squad_target)
                 #intercept_point = self.bot.intercept_unit(unit, squad_target)
-                #return self.order.attack(unit, intercept_point)
+                #return api.order.attack(unit, intercept_point)
                 return True
 
         # --- Defense
         defense_prio, defense_position = self._evaluate_defense(unit, enemies=enemies)
 
         if defense_prio >= self.defense_priority_threshold:  # or (defense_position and unit.shield_health_percentage < 0.2):
-            self.order.move(unit, defense_position)
+            api.order.move(unit, defense_position)
             return True
 
         if defense_prio > 0 and unit.shield_health_percentage < 0.8:
-            self.order.move(unit, defense_position)
+            api.order.move(unit, defense_position)
             return True
 
         if squad_target_priority >= self.attack_priority_threshold and squad_target:
-            self.order.attack(unit, squad_target)
+            api.order.attack(unit, squad_target)
             #intercept_point = self.bot.intercept_unit(unit, squad_target)
-            #return self.order.attack(unit, intercept_point)
+            #return api.order.attack(unit, intercept_point)
             return True
 
         # --- Regroup
         if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.leash_range**2:
-            self.order.move(unit, squad.center)
+            api.order.move(unit, squad.center)
             return True
 
         return False
@@ -496,7 +498,7 @@ class CombatManager(BotManager):
     def _evaluate_defense(self, unit: Unit, *, enemies: Units) -> tuple[float, Optional[Point2]]:
         threat_range = self.get_threat_range(unit)
         threats = enemies.closer_than(threat_range, unit)
-        defense_priorities = self.bot.combat._get_defense_priorities(unit, threats)
+        defense_priorities = self._get_defense_priorities(unit, threats)
         if not defense_priorities:
             return 0, None
         threat, defense_prio = max(defense_priorities.items(), key=lambda kv: kv[1])

@@ -5,6 +5,7 @@ from sc2.unit import Unit
 
 from avocados import api
 from avocados.bot.expansionmanager import ExpansionManager
+from avocados.core.ordermanager import OrderManager
 from avocados.core.constants import WORKER_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS, TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 
@@ -33,7 +34,7 @@ class DefenseManager(BotManager):
                 units_defending = api.ext.get_units_with_target(
                     enemy, condition=lambda u: u.distance_to(enemy) <= self.defense_distance)
                 for defender in units_defending:
-                    self.order.attack(defender, enemy)
+                    api.order.attack(defender, enemy)
 
                 if enemy.is_flying:
                     continue
@@ -46,7 +47,7 @@ class DefenseManager(BotManager):
                                                         max_distance=self.defense_distance)
                 for defender in defenders:
                     #self.logger.debug("Ordering {} to defend against {}", defender.value, enemy)
-                    self.order.attack(defender.access(), enemy)
+                    api.order.attack(defender.access(), enemy)
 
     def _workers_to_defend(self, target: Unit) -> int:
         if target.type_id in WORKER_TYPE_IDS:

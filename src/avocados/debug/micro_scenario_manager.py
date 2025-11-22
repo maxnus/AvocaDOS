@@ -4,16 +4,22 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
 from avocados import api
+from avocados.combat.squadmanager import SquadManager
 from avocados.core.manager import BotManager
 from avocados.core.unitutil import UnitCost
+from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario import MicroScenario, MicroScenarioResults
+from avocados.mapdata import MapManager
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
 class MicroScenarioManager(BotManager):
-    bot: 'AvocaDOS'
+    map: MapManager
+    squads: SquadManager
+    debug: DebugManager
+
     units: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     running: bool
     number_scenarios: int
@@ -23,11 +29,17 @@ class MicroScenarioManager(BotManager):
     results: list[MicroScenarioResults]
 
     def __init__(self, bot: 'AvocaDOS', *,
-                 units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]) -> None:
+                 units: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
+                 map_manager: MapManager,
+                 squad_manager: SquadManager,
+                 debug_manager: DebugManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
+        self.squads = squad_manager
+        self.debug = debug_manager
+
         if isinstance(units, dict):
             units = (units, units)
-        self.bot = bot
         self.units = units
         self.running = False
         self.number_scenarios = 0
@@ -64,7 +76,8 @@ class MicroScenarioManager(BotManager):
         self.number_scenarios = number_scenarios
         for idx in range(min(self.number_scenarios, len(self.locations))):
             location = self.free_locations.pop(0)
-            scenario = MicroScenario(self.bot, unit_types=self.units, location=location)
+            scenario = MicroScenario(self.bot, unit_types=self.units, location=location, squad_manager=self.squads,
+                                     map_manager=self.map)
             self.scenarios[scenario.id] = scenario
             await scenario.start()
 
@@ -86,7 +99,8 @@ class MicroScenarioManager(BotManager):
             finished_scenario = self.scenarios.pop(scenario_id)
             # Restart
             if len(self.results) + len(self.scenarios) < self.number_scenarios:
-                scenario = MicroScenario(self.bot, unit_types=self.units, location=finished_scenario.location)
+                scenario = MicroScenario(self.bot, unit_types=self.units, location=finished_scenario.location,
+                                         squad_manager=self.squads, map_manager=self.map)
                 self.scenarios[scenario.id] = scenario
                 await scenario.start()
 

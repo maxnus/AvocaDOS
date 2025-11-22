@@ -62,7 +62,7 @@ class ScanManager(BotManager):
                 scan = Scan(api.step, location)
                 self.logger.debug("Ordering {} to scan {}", orbital, scan)
                 self.ongoing_scans.append(scan)
-                self.order.ability(orbital, AbilityId.SCANNERSWEEP_SCAN, location)
+                api.order.ability(orbital, AbilityId.SCANNERSWEEP_SCAN, location)
                 return True
         return False
 

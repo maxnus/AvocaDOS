@@ -1,14 +1,12 @@
-import copy
 from abc import ABC
 from enum import Enum, StrEnum
-from typing import Optional, Self, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 
 from avocados import api
-from avocados.core.botobject import BotObject
 from avocados.geometry.util import unique_id, Rectangle, Area
 
 if TYPE_CHECKING:
@@ -36,7 +34,8 @@ ObjectiveDependencies = dict[int, ObjectiveStatus]
 ObjectiveRequirements = list[tuple[ObjectiveRequirementType | UnitTypeId | UpgradeId, int | bool]]
 
 
-class Objective(BotObject, ABC):
+class Objective(ABC):
+    id: int
     reqs: ObjectiveRequirements
     deps: ObjectiveDependencies
     priority: float
@@ -46,7 +45,6 @@ class Objective(BotObject, ABC):
     max_time: Optional[float]
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  reqs: Optional[ObjectiveRequirements | UnitTypeId | UpgradeId] = None,
                  deps: Optional[ObjectiveDependencies | ObjectiveStatus | int] =  None,
                  priority: float = DEFAULT_PRIORITY,
@@ -54,7 +52,8 @@ class Objective(BotObject, ABC):
                  status: ObjectiveStatus = ObjectiveStatus.NOT_STARTED,
                  max_time: Optional[float] = None
                  ) -> None:
-        super().__init__(bot)
+        super().__init__()
+        self.id = unique_id()
         self.reqs = self._normalize_reqs(reqs)
         if deps is None:
             deps = {}
@@ -64,7 +63,6 @@ class Objective(BotObject, ABC):
             deps = {self.id - 1: deps} if self.id > 0 else {}
         self.deps = deps
         if not (0 <= priority <= 1):
-            self.log.error("Priority must be between 0 and 1")
             priority = 0 if priority < 0 else 1
         self.priority = priority
         self.persistent = persistent
@@ -95,7 +93,6 @@ class ConstructionObjective(Objective):
     include_addon: bool
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  utype: UnitTypeId,
                  number: int = 1,
                  max_workers: Optional[int] = None,
@@ -109,7 +106,7 @@ class ConstructionObjective(Objective):
                  max_distance: int = 16,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, persistent=persistent, **kwargs)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, persistent=persistent, **kwargs)
         self.utype = utype
         self.number = number
         if isinstance(position, Point2):
@@ -127,7 +124,6 @@ class ConstructionObjective(Objective):
 class ExpansionObjective(ConstructionObjective):
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  number: int,
                  *,
                  reqs: Optional[ObjectiveRequirements] = None,
@@ -139,7 +135,7 @@ class ExpansionObjective(ConstructionObjective):
                  ) -> None:
         super().__init__(
             utype=api.ext.townhall_utype, number=number, position=position, max_distance=max_distance,
-            bot=bot, reqs=reqs, deps=deps, priority=priority, persistent=True, **kwargs
+            reqs=reqs, deps=deps, priority=priority, persistent=True, **kwargs
         )
 
 
@@ -149,7 +145,6 @@ class UnitObjective(Objective):
     position: Optional[Rectangle]
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  utype: UnitTypeId,
                  number: int = 1,
                  *,
@@ -161,7 +156,7 @@ class UnitObjective(Objective):
                  persistent: bool = False,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, persistent=persistent,
+        super().__init__(reqs=reqs, deps=deps, priority=priority, persistent=persistent,
                          **kwargs)
         self.utype = utype
         self.number = number
@@ -177,13 +172,12 @@ class UnitObjective(Objective):
 
 class WorkerObjective(UnitObjective):
     def __init__(self,
-                 bot: 'AvocaDOS',
                  number: int,
                  *,
                  priority: float = DEFAULT_PRIORITY,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, utype=api.ext.worker_utype, number=number, priority=priority, persistent=True,
+        super().__init__(utype=api.ext.worker_utype, number=number, priority=priority, persistent=True,
                          **kwargs)
 
     def __repr__(self) -> str:
@@ -194,13 +188,12 @@ class SupplyObjective(Objective):
     number: int
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  number: int,
                  *,
                  priority: float = DEFAULT_PRIORITY,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, priority=priority, persistent=True, **kwargs)
+        super().__init__(priority=priority, persistent=True, **kwargs)
         self.number = number
 
     def __repr__(self) -> str:
@@ -221,7 +214,6 @@ class ResearchObjective(Objective):
     max_distance: float
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  upgrade: UpgradeId,
                  *,
                  reqs: Optional[ObjectiveRequirements] = None,
@@ -231,7 +223,7 @@ class ResearchObjective(Objective):
                  max_distance: Optional[float] = 10,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, **kwargs)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, **kwargs)
         self.upgrade = upgrade
         self.position = position
         self.max_distance = max_distance
@@ -246,7 +238,6 @@ class AttackOrDefenseObjective(Objective, ABC):
     minimum_size: int
 
     def __init__(self,
-                 bot: 'AvocaDOS',
                  target: Area,
                  strength: float = 100.0,
                  *,
@@ -256,7 +247,7 @@ class AttackOrDefenseObjective(Objective, ABC):
                  priority: float = DEFAULT_PRIORITY,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, reqs=reqs, deps=deps, priority=priority, **kwargs)
+        super().__init__(reqs=reqs, deps=deps, priority=priority, **kwargs)
         self.target = target
         self.strength = strength
         self.minimum_size = minimum_size

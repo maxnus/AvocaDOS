@@ -59,31 +59,31 @@ class ObjectiveManager(BotManager):
         return objective.id
 
     def set_worker_objective(self, number: int = 1, **kwargs) -> int:
-        self.worker_objective = WorkerObjective(self.bot, number, **kwargs)
+        self.worker_objective = WorkerObjective(number, **kwargs)
         return self.add(self.worker_objective)
 
     def set_supply_objective(self, number: int = 1, **kwargs) -> int:
-        self.supply_objective = SupplyObjective(self.bot, number, **kwargs)
+        self.supply_objective = SupplyObjective(number, **kwargs)
         return self.add(self.supply_objective)
 
     def set_expansion_objective(self, number: int, position: Optional[ExpansionLocation] = None, **kwargs) -> int:
-        self.expansion_objective = ExpansionObjective(self.bot, number=number, position=position, **kwargs)
+        self.expansion_objective = ExpansionObjective(number=number, position=position, **kwargs)
         return self.add(self.expansion_objective)
 
     def add_construction_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
-        objective = ConstructionObjective(self.bot, utype, number, **kwargs)
+        objective = ConstructionObjective(utype, number, **kwargs)
         return self.add(objective)
 
     def add_unit_objective(self, utype: UnitTypeId, number: int = 1, **kwargs) -> int:
-        objective = UnitObjective(self.bot, utype, number, **kwargs)
+        objective = UnitObjective(utype, number, **kwargs)
         return self.add(objective)
 
     def add_attack_objective(self, target: Area, strength: float = 100, **kwargs) -> int:
-        objective = AttackObjective(self.bot, target, strength, **kwargs)
+        objective = AttackObjective(target, strength, **kwargs)
         return self.add(objective)
 
     def add_defense_objective(self, target: Area, strength: float = 100, **kwargs) -> int:
-        objective = DefenseObjective(self.bot, target, strength, **kwargs)
+        objective = DefenseObjective(target, strength, **kwargs)
         return self.add(objective)
 
     def objectives_of_type[T: Objective](self, objective_type: type[T]) -> list[T]:
@@ -229,21 +229,21 @@ class ObjectiveManager(BotManager):
             orphaned = (api.structures_without_construction_SCVs.of_type(objective.utype)
                         .filter(lambda unit: objective.position is None or unit.position in objective.position))
             if orphaned:
-                self.order.smart(worker.access(), target=orphaned.random)
+                api.order.smart(worker.access(), target=orphaned.random)
 
             elif (time_for_tech == 0
                     and self.resources.can_afford(objective.utype)
                     and worker.value.distance_to(wrapped_target.value) <= 2.5):
                 self.logger.trace("{}: ordering worker {} build {} at {}", objective, worker, objective.utype.name, wrapped_target.value)
                 self.resources.spend(objective.utype)
-                self.order.build(worker.access(), objective.utype, wrapped_target.access())
+                api.order.build(worker.access(), objective.utype, wrapped_target.access())
 
             elif time_for_tech <= travel_time:
                 resource_time = self.resources.can_afford_in(objective.utype, excluded_workers=worker.value)
                 #self.logger.debug("{}: resource_time={:.2f}, travel_time={:.2f}", objective, resource_time, travel_time)
                 if resource_time <= travel_time:
                     #self.logger.trace("{}: send it", task)
-                    self.order.move(worker.access(), wrapped_target.access())
+                    api.order.move(worker.access(), wrapped_target.access())
                     self.resources.reserve(objective.utype)
 
         return False
@@ -276,7 +276,7 @@ class ObjectiveManager(BotManager):
             time_for_resources = self.resources.can_afford_in(objective.utype)
             if time_for_tech == 0 and time_for_resources == 0:
                 self.resources.spend(objective.utype)
-                self.order.train(trainer, objective.utype)
+                api.order.train(trainer, objective.utype)
                 self.logger.debug("Training {} at {}", objective.utype, trainer)
             elif time_for_tech <= time_for_resources:
                 self.resources.reserve(objective.utype)
@@ -297,7 +297,7 @@ class ObjectiveManager(BotManager):
             return False
         researcher = self.bot.pick_researcher(objective.upgrade)
         if researcher is not None:
-            self.order.upgrade(researcher, objective.upgrade)
+            api.order.upgrade(researcher, objective.upgrade)
             self.logger.info("Starting {} at {}", objective.upgrade.name, researcher)
         #else:
         #    self.logger.trace("No researcher for {}", task.upgrade)

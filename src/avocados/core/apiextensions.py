@@ -16,6 +16,7 @@ from sc2.units import Units
 
 from avocados.core.constants import (TRAINERS, TERRANBUILD_TO_STRUCTURE, MINOR_STRUCTURES, UNIT_CREATION_ABILITIES,
                                      UPGRADE_ABILITIES)
+from avocados.core.ordermanager import OrderManager
 from avocados.core.unitutil import UnitCost
 from avocados.geometry.util import dot
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
 
 class ApiExtensions:
+    order: OrderManager
     worker_utype: UnitTypeId
     townhall_utype: UnitTypeId
     supply_utype: UnitTypeId
@@ -31,6 +33,7 @@ class ApiExtensions:
     def __init__(self, api: 'Api') -> None:
         super().__init__()
         self.api = api
+        self.order = OrderManager()
 
     async def on_start(self) -> None:
 

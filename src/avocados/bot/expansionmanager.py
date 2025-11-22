@@ -113,7 +113,7 @@ class Expansion(BotObject):
         enemies = api.enemy_units.closer_than(8, townhall)
 
         for worker_tag, mineral_position in self.miners.items():
-            worker = self.bot.workers.find_by_tag(worker_tag)
+            worker = api.workers.find_by_tag(worker_tag)
             if worker is None:
                 self.log.error("InvalidWorkerTag-{}", worker_tag)
                 continue
@@ -158,8 +158,8 @@ class Expansion(BotObject):
 
             distance = worker.distance_to(target_point)
             if (0.75 < distance < 2 and len(worker.orders) != 2) or not is_correct_order():
-                self.order.move(worker, target_point)
-                self.order.smart(worker, target, queue=True)
+                api.order.move(worker, target_point)
+                api.order.smart(worker, target, queue=True)
 
 
 class ExpansionManager(BotManager):
@@ -312,14 +312,14 @@ class ExpansionManager(BotManager):
 
     def _assign_idle_workers(self) -> None:
         def worker_filter(unit: Unit) -> bool:
-            if self.order.has_order(unit):
+            if api.order.has_order(unit):
                 return False
             if unit.is_constructing_scv:
                 return False
             if self.has_worker(unit):
                 return False
             return True
-        for worker in self.bot.workers.filter(worker_filter):
+        for worker in api.workers.filter(worker_filter):
             if self.add_worker(worker):
                 self.logger.debug("Assigning idle worker {}", worker)
 
@@ -337,4 +337,4 @@ class ExpansionManager(BotManager):
                     continue
                 mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)
                 self.logger.debug("Dropping mule at {} with {} minerals", mineral_field, contents)
-                self.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)
+                api.order.ability(orbital, AbilityId.CALLDOWNMULE_CALLDOWNMULE, target=mineral_field)

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -11,11 +11,7 @@ from sc2.unit_command import UnitCommand
 from sc2.units import Units
 
 from avocados.core.constants import UNIT_CREATION_ABILITIES, UPGRADE_ABILITIES
-from avocados.core.manager import BotManager
 from avocados.geometry.util import same_point
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 DEFAULT_ORDER_PRIORITY = 0.5
@@ -224,11 +220,11 @@ class GatherOrder(TargetOrder):
         return AbilityId.HARVEST_GATHER
 
 
-class OrderManager(BotManager):
+class OrderManager:
     orders: dict[Unit, list[Order]]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
-        super().__init__(bot)
+    def __init__(self) -> None:
+        super().__init__()
         self.orders = {}
 
     async def on_step_start(self, step: int) -> None:
@@ -301,11 +297,11 @@ class OrderManager(BotManager):
             self.orders[unit].append(order)
         else:
             current_orders = self.orders.get(unit)
-            if current_orders:
-                if priority <= current_orders[0].priority:
-                    self.logger.debug("Ignoring {} due to {}", order, current_orders[0])
-                else:
-                    self.logger.debug("Overriding {} due to {}", current_orders[0], order)
+            # if current_orders:
+            #     if priority <= current_orders[0].priority:
+            #         self.logger.debug("Ignoring {} due to {}", order, current_orders[0])
+            #     else:
+            #         self.logger.debug("Overriding {} due to {}", current_orders[0], order)
             if not current_orders or priority > current_orders[0].priority:
                 self.orders[unit] = [order]
         return True

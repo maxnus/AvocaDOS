@@ -18,7 +18,6 @@ from avocados.bot.rolemanager import RoleManager
 from avocados.bot.scanmanager import ScanManager
 from avocados.bot.taunts import TauntManager
 from avocados.combat.util import get_strength
-from avocados.core.apiextensions import ApiExtensions
 from avocados.bot.buildingmanager import BuildingManager
 from avocados.bot.buildordermanager import BuildOrderManager
 from avocados.core.constants import TRAINERS, RESEARCHERS, RESOURCE_COLLECTOR_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS
@@ -34,7 +33,6 @@ from avocados.core.util import WithCallback
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
 from avocados.mapdata.mapmanager import MapManager
-from avocados.bot.ordermanager import Order, OrderManager
 from avocados.bot.resourcemanager import ResourceManager
 from avocados.bot.objectivemanager import ObjectiveManager
 from avocados.geometry.util import LineSegment
@@ -55,7 +53,6 @@ class AvocaDOS:
     log: LogManager
     map: Optional[MapManager]
     build: BuildOrderManager
-    order: OrderManager
     roles: RoleManager
     resources: ResourceManager
     objectives: ObjectiveManager
@@ -71,8 +68,6 @@ class AvocaDOS:
     debug: Optional[DebugManager]
     micro_scenario: Optional[MicroScenarioManager]
     leave_at: Optional[float]
-    # Other
-    previous_orders: dict[int, Optional[Order]]
 
     def __init__(self,
                  *,
@@ -108,7 +103,6 @@ class AvocaDOS:
         # Manager
         self.log = LogManager(self)
         self.logger.debug("Initializing {}...", self)
-        self.order = OrderManager(self)
         self.roles = RoleManager(self)
         self.map = MapManager(self)
 
@@ -128,7 +122,7 @@ class AvocaDOS:
         self.building = BuildingManager(self, map_manager=self.map)
         self.objectives = ObjectiveManager(self, building_manager=self.building, resource_manager=self.resources,
                                            squad_manager=self.squads)
-        self.build = BuildOrderManager(self, build=build, objective_manager=self.objectives)
+        self.build = BuildOrderManager(self, build=build, map_manager=self.map, objective_manager=self.objectives)
         self.strategy = StrategyManager(self, map_manager=self.map, memory_manager=self.memory,
                                         resource_manager=self.resources, intel_manager=self.intel,
                                         expansion_manager=self.expand, objective_manager=self.objectives)
@@ -138,7 +132,8 @@ class AvocaDOS:
                                    squad_manager=self.squads, scan_manager=self.scan, strategy_manager=self.strategy)
                       if (debug or micro_scenario) else None)
         if micro_scenario is not None:
-            self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
+            self.micro_scenario = MicroScenarioManager(self, units=micro_scenario, map_manager=self.map,
+                                                       squad_manager=self.squads, debug_manager=self.debug)
         else:
             self.micro_scenario = None
         self.leave_at = leave_at
@@ -189,7 +184,6 @@ class AvocaDOS:
             self._report_timings()
 
         # Cleanup steps / internal to manager
-        await self.order.on_step_start(step)
         await self.objectives.on_step_start(step)
         await self.expand.on_step_start(step)
         await self.map.on_step_start(step)
@@ -226,7 +220,6 @@ class AvocaDOS:
         await self.on_step_end(step)
 
     async def on_step_end(self, step: int) -> None:
-        await self.order.on_step_end(step)
         if self.debug:
             await self.debug.on_step(step)
         if step % 8 == 0:
@@ -300,7 +293,7 @@ class AvocaDOS:
                            ) -> list[tuple[WithCallback[Unit], float]]:
 
         def worker_filter(worker: Unit) -> bool:
-            if self.order.has_order(worker):
+            if api.order.has_order(worker):
                 return False
             if worker.is_idle:
                 return True
@@ -368,7 +361,7 @@ class AvocaDOS:
             self.log.error("No trainer for {}", utype)
             return None
 
-        free_trainers = self.structures(trainer_utype).ready.idle.filter(lambda x: not self.order.has_order(x))
+        free_trainers = self.structures(trainer_utype).ready.idle.filter(lambda x: not api.order.has_order(x))
         #self.logger.trace("free trainers for {}: {}", utype.name, free_trainers)
         if not free_trainers:
             return None
@@ -405,7 +398,7 @@ class AvocaDOS:
 
     def pick_researcher(self, upgrade: UpgradeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
         researcher_utype = RESEARCHERS[upgrade]
-        researchers = self.structures(researcher_utype).idle.filter(lambda x: not self.order.has_order(x))
+        researchers = self.structures(researcher_utype).idle.filter(lambda x: not api.order.has_order(x))
         if not researchers:
             return None
         if position is None:
@@ -452,25 +445,25 @@ class AvocaDOS:
 
         for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
             if not api.enemy_units.not_flying.closer_than(4.5, unit):
-                self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
+                api.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
         for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
             if api.enemy_units.not_flying.closer_than(3.5, unit):
-                self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
+                api.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
         for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTER, UnitTypeId.ORBITALCOMMAND)).ready:
             enemies = api.all_enemy_units.closer_than(7, cc)
             if enemies and not self.workers.closer_than(6, cc):
-                self.order.ability(cc, AbilityId.LIFT)
+                api.order.ability(cc, AbilityId.LIFT)
         for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTERFLYING, UnitTypeId.ORBITALCOMMANDFLYING)).ready:
             enemies = api.all_enemy_units.closer_than(8, cc)
             if not enemies:
                 loc = min(self.map.expansions, key=lambda exp: exp.center.distance_to(cc))
-                self.order.ability(cc, AbilityId.LAND, loc.center)
+                api.order.ability(cc, AbilityId.LAND, loc.center)
 
         for structure in api.structures_without_construction_SCVs:
             cancel = True
             if structure.health + structure.shield > 50:
-                for unit, orders in self.order.orders.items():
+                for unit, orders in api.order.orders.items():
                     if not orders:
                         continue
                     if (target := getattr(orders[0], 'target', None)) is not None:
@@ -479,7 +472,7 @@ class AvocaDOS:
                             break
             if cancel:
                 self.logger.debug("Cancelling {}", structure)
-                self.order.ability(structure, AbilityId.CANCEL)
+                api.order.ability(structure, AbilityId.CANCEL)
             else:
                 self.logger.debug("Keeping {}", structure)
 
