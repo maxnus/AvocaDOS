@@ -8,6 +8,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados import api
+from avocados.combat.squadmanager import SquadManager
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import UnitCost
 from avocados.combat.squad import Squad
@@ -32,6 +33,8 @@ class MicroScenarioResults:
 
 
 class MicroScenario(BotObject):
+    squads: SquadManager
+
     id: int
     units_types: tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]
     location: Point2
@@ -48,12 +51,15 @@ class MicroScenario(BotObject):
     _id_counter = itertools.count()
 
     def __init__(self, bot: 'AvocaDOS', *,
+                 squad_manager: SquadManager,
                  unit_types: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
                  location: Optional[Point2] = None,
                  spawns: Optional[tuple[Point2, Point2]] = None,
                  max_duration: float = 60,
                  ) -> None:
         super().__init__(bot)
+        self.squads = squad_manager
+
         self.id = next(MicroScenario._id_counter)
         if isinstance(unit_types, dict):
             unit_types = (unit_types, unit_types)

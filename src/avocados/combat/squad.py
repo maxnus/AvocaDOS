@@ -10,6 +10,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados import api
+from avocados.combat.util import get_strength
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
 from avocados.geometry import Area, Circle
@@ -102,12 +103,6 @@ class Squad(BotObject):
     def __contains__(self, tag: int) -> bool:
         return tag in self._tags
 
-    def add(self, units: Unit | int | Units | set[int], *, remove_from_squads: bool = False) -> None:
-        self.squads.add_units(self, units, remove_from_squads=remove_from_squads)
-
-    def remove(self, units: Unit | int | Units | set[int]) -> None:
-        self.squads.remove_units(self, units)
-
     def set_status(self, status: SquadStatus) -> None:
         if status != self.status:
             self.status_changed = api.time
@@ -118,7 +113,7 @@ class Squad(BotObject):
     #@property_cache_once_per_frame
     @property
     def strength(self) -> float:
-        return self.combat.get_strength(self.units)
+        return get_strength(self.units)
 
     def get_unit_type_counts(self) -> Counter[UnitTypeId]:
         return get_unit_type_counts(self.units)

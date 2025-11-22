@@ -17,6 +17,7 @@ from avocados.__about__ import __version__
 from avocados.bot.rolemanager import RoleManager
 from avocados.bot.scanmanager import ScanManager
 from avocados.bot.taunts import TauntManager
+from avocados.combat.util import get_strength
 from avocados.core.apiextensions import ApiExtensions
 from avocados.bot.buildingmanager import BuildingManager
 from avocados.bot.buildordermanager import BuildOrderManager
@@ -107,25 +108,34 @@ class AvocaDOS:
         # Manager
         self.log = LogManager(self)
         self.logger.debug("Initializing {}...", self)
-        self.build = BuildOrderManager(self, build=build)
         self.order = OrderManager(self)
         self.roles = RoleManager(self)
-        self.resources = ResourceManager(self)
         self.map = MapManager(self)
-        self.intel = IntelManager(self, map_manager=self.map)     # requires map
+
+        self.memory = MemoryManager(self)
+        self.taunt = TauntManager(self)
+        # One dependency
+        self.intel = IntelManager(self, map_manager=self.map)
         self.scan = ScanManager(self, intel_manager=self.intel)
         self.squads = SquadManager(self, map_manager=self.map)
-        self.defense = DefenseManager(self)
-        self.expand = ExpansionManager(self, map_manager=self.map)
-        self.memory = MemoryManager(self)
-        self.combat = CombatManager(self, memory_manager=self.memory)
+        #
+        self.combat = CombatManager(self, memory_manager=self.memory, taunt_manager=self.taunt,
+                                    squad_manager=self.squads)
+
+        self.expand = ExpansionManager(self, map_manager=self.map, scan_manager=self.scan)
+        self.defense = DefenseManager(self, expansion_manager=self.expand)
+        self.resources = ResourceManager(self, expansion_manager=self.expand)
         self.building = BuildingManager(self, map_manager=self.map)
-        self.objectives = ObjectiveManager(self, building_manager=self.building, resource_manager=self.resources)
-        self.taunt = TauntManager(self)
+        self.objectives = ObjectiveManager(self, building_manager=self.building, resource_manager=self.resources,
+                                           squad_manager=self.squads)
+        self.build = BuildOrderManager(self, build=build, objective_manager=self.objectives)
         self.strategy = StrategyManager(self, map_manager=self.map, memory_manager=self.memory,
-                                        resource_manager=self.resources, intel_manager=self.intel)
+                                        resource_manager=self.resources, intel_manager=self.intel,
+                                        expansion_manager=self.expand, objective_manager=self.objectives)
         self.debug = (DebugManager(self, map_manager=self.map, building_manager=self.building,
-                                   memory_manager=self.memory, intel_manager=self.intel)
+                                   memory_manager=self.memory, intel_manager=self.intel,
+                                   expansion_manager=self.expand, objective_manager=self.objectives,
+                                   squad_manager=self.squads, scan_manager=self.scan, strategy_manager=self.strategy)
                       if (debug or micro_scenario) else None)
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
@@ -429,7 +439,7 @@ class AvocaDOS:
         if strength is not None:
             units_strength = 0.0
             for index, unit in enumerate(units):
-                units_strength += self.combat.get_strength(unit)
+                units_strength += get_strength(unit)
                 if round(units_strength, 2) >= strength:
                     units = units.take(index + 1)
                     break

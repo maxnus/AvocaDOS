@@ -61,27 +61,3 @@ class BotObject(ABC):
     @property
     def order(self) -> 'OrderManager':
         return self.bot.order
-
-    @property
-    def objectives(self) -> 'ObjectiveManager':
-        return self.bot.objectives
-
-    @property
-    def expand(self) -> 'ExpansionManager':
-        return self.bot.expand
-
-    @property
-    def squads(self) -> 'SquadManager':
-        return self.bot.squads
-
-    @property
-    def strategy(self) -> 'StrategyManager':
-        return self.bot.strategy
-
-    @property
-    def combat(self) -> 'CombatManager':
-        return self.bot.combat
-
-    @property
-    def taunt(self) -> 'TauntManager':
-        return self.bot.taunt

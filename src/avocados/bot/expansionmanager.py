@@ -9,6 +9,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados import api
+from avocados.bot.scanmanager import ScanManager
 from avocados.core.botobject import BotObject
 from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
@@ -163,12 +164,15 @@ class Expansion(BotObject):
 
 class ExpansionManager(BotManager):
     map: MapManager
+    scan: ScanManager
     expansions: dict[ExpansionLocation, Expansion]
     """location -> townhall tag"""
 
-    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
+    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager, scan_manager: ScanManager) -> None:
         super().__init__(bot)
         self.map = map_manager
+        self.scan = scan_manager
+
         self.expansions = {}
 
     def __len__(self) -> int:
@@ -320,7 +324,7 @@ class ExpansionManager(BotManager):
                 self.logger.debug("Assigning idle worker {}", worker)
 
     def _drop_mules(self) -> None:
-        scan_target = self.strategy.scan_target
+        scan_target = self.scan.scan_target
         for orbital in api.structures(UnitTypeId.ORBITALCOMMAND).ready.sorted_by_distance_to(
                 self.map.base.center):
             available_spells = int(orbital.energy // 50)
@@ -328,7 +332,7 @@ class ExpansionManager(BotManager):
             scan_target -= reserved_spells
             remaining_spells = available_spells - reserved_spells
             for spell in range(remaining_spells):
-                mineral_fields = self.expand.get_mineral_fields()
+                mineral_fields = self.get_mineral_fields()
                 if not mineral_fields:
                     continue
                 mineral_field, contents = get_best_score(mineral_fields, lambda mf: mf.mineral_contents)

@@ -12,8 +12,13 @@ from sc2.unit import Unit, UnitOrder
 
 from avocados import api
 from avocados.bot.buildingmanager import BuildingManager
+from avocados.bot.expansionmanager import ExpansionManager
 from avocados.bot.intelmanager import IntelManager
 from avocados.bot.memorymanager import MemoryManager
+from avocados.bot.objectivemanager import ObjectiveManager
+from avocados.bot.scanmanager import ScanManager
+from avocados.bot.strategymanager import StrategyManager
+from avocados.combat.squadmanager import SquadManager
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
 from avocados.geometry import Circle, Region, Rectangle
@@ -142,6 +147,11 @@ class DebugManager(BotManager):
     building: BuildingManager
     memory: MemoryManager
     intel: IntelManager
+    expand: ExpansionManager
+    objectives: ObjectiveManager
+    squads: SquadManager
+    scan: ScanManager
+    strategy: StrategyManager
 
     text_size: ClassVar[int] = 14
     # State
@@ -154,13 +164,26 @@ class DebugManager(BotManager):
     # Temporary displays
     debug_items: list[DebugItem]
 
-    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager, building_manager: BuildingManager,
-                 memory_manager: MemoryManager, intel_manager: IntelManager) -> None:
+    def __init__(self, bot: 'AvocaDOS', *,
+                 map_manager: MapManager,
+                 building_manager: BuildingManager,
+                 memory_manager: MemoryManager,
+                 intel_manager: IntelManager,
+                 expansion_manager: ExpansionManager,
+                 objective_manager: ObjectiveManager,
+                 squad_manager: SquadManager,
+                 scan_manager: ScanManager,
+                 strategy_manager: StrategyManager) -> None:
         super().__init__(bot)
         self.map = map_manager
         self.building = building_manager
         self.memory = memory_manager
         self.intel = intel_manager
+        self.expand = expansion_manager
+        self.objectives = objective_manager
+        self.squads = squad_manager
+        self.scan = scan_manager
+        self.strategy = strategy_manager
 
         self.damage_taken = {}
         self.shot_last_frame = set()
@@ -436,7 +459,7 @@ class DebugManager(BotManager):
         raise TypeError(f"invalid argument: {point}")
 
     def _show_tasks(self) -> None:
-        lines = [repr(task) for task in api.bot.objectives]
+        lines = [repr(task) for task in self.objectives]
         self.text_screen(lines, position=(0.005, 0.006))
 
     def _show_combat(self, *, show_weapon_cooldown: bool = False) -> None:
@@ -509,7 +532,7 @@ class DebugManager(BotManager):
                          f" enemy={self.intel.enemy_army_strength.value():.2f}", position=(x, y0 + 3*dy))
         self.text_screen(f"expansion score={self.strategy.get_expansion_score():.2f}", position=(x, y0 + 4*dy))
         self.text_screen(f"barracks target={self.strategy.barracks_target:.0f}", position=(x, y0 + 5*dy))
-        self.text_screen(f"scan target={self.strategy.scan_target:.2f}", position=(x, y0 + 6*dy))
+        self.text_screen(f"scan target={self.scan.scan_target:.2f}", position=(x, y0 + 6*dy))
 
         min_step, avg_step, max_step, last_step = api.step_time
         if last_step <= 10:

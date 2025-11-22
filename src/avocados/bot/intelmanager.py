@@ -10,6 +10,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 
 from avocados import api
+from avocados.combat.util import get_strength
 from avocados.core.constants import (RESOURCE_COLLECTOR_TYPE_IDS, BURROWED_TYPE_IDS,
                                      UNBURROWED_TYPE_IDS)
 from avocados.core.manager import BotManager
@@ -44,6 +45,7 @@ class BurrowedUnit:
 
 class IntelManager(BotManager):
     map: MapManager
+
     last_known_enemy_base: Optional[ExpansionLocation]
     visibility: Field[int]
     last_visible: Field[float]
@@ -56,6 +58,7 @@ class IntelManager(BotManager):
     def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
         super().__init__(bot)
         self.map = map_manager
+
         self.last_known_enemy_base = None
         self.enemy_race = api.enemy_race if api.enemy_race != Race.Random else None   # Update for random players
         self.enemy_units = set()
@@ -86,7 +89,7 @@ class IntelManager(BotManager):
                 self.enemy_burrowed_units.pop(unit.tag, None)
 
         enemy_army = {unit for unit in self.enemy_units if unit.type_id not in RESOURCE_COLLECTOR_TYPE_IDS}
-        self.enemy_army_strength.append(step, self.combat.get_strength(enemy_army))
+        self.enemy_army_strength.append(step, get_strength(enemy_army))
         self.timings['step_start'].add(t0)
 
     def get_percentage_scouted(self) -> float:

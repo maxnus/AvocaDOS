@@ -8,6 +8,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados import api
+from avocados.bot.expansionmanager import ExpansionManager
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
@@ -15,13 +16,15 @@ if TYPE_CHECKING:
 
 
 class ResourceManager(BotManager):
+    expand: ExpansionManager
     spent_minerals: int
     spent_vespene: int
     reserved_minerals: int
     reserved_vespene: int
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', *, expansion_manager: ExpansionManager) -> None:
         super().__init__(bot)
+        self.expand = expansion_manager
         self.spent_minerals = 0
         self.spent_vespene = 0
         self.reserved_minerals = 0

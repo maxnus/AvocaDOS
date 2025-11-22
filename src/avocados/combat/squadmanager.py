@@ -8,6 +8,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados import api
+from avocados.combat.util import get_strength
 from avocados.core.manager import BotManager
 from avocados.geometry import Circle
 from avocados.geometry.util import squared_distance
@@ -29,12 +30,14 @@ SQUAD_JOIN_DISTANCE = 2.0
 
 class SquadManager(BotManager):
     map: MapManager
+
     _squads: dict[int, Squad]
     _tag_to_squad: dict[int, int]
 
-    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
+    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager) -> None:
         super().__init__(bot)
         self.map = map_manager
+
         self._squads = {}
         self._tag_to_squad = {}
 
@@ -125,7 +128,7 @@ class SquadManager(BotManager):
         if not units:
             raise ValueError("No units given")
         if target_strength is None:
-            target_strength = self.combat.get_strength(units)
+            target_strength = get_strength(units)
         squad = Squad(self.bot, target_strength=target_strength, _code=True)
         self.add_units(squad, units, remove_from_squads=remove_from_squads)
         self._squads[squad.id] = squad
@@ -246,7 +249,7 @@ class SquadManager(BotManager):
         for squad in self.not_with_task(task_type=SquadRetreatTask):
             # if (squad.strength < RETREAT_STRENGTH_PERCENTAGE * squad.target_strength
             if ((squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
-                 or squad.strength < self.combat.get_strength(api.all_enemy_units.closer_than(8, squad.center)))
+                 or squad.strength < get_strength(api.all_enemy_units.closer_than(8, squad.center)))
                     and squad.center.distance_to(self.map.base.center) > RETREAT_MIN_BASE_DISTANCE):
                 retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.center, RETREAT_DISTANCE))
                 retreat_area = Circle(retreat_point, 1.5)

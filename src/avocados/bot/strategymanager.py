@@ -2,17 +2,19 @@ import math
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy
-from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
 
 from avocados import api
+from avocados.bot.expansionmanager import ExpansionManager
 from avocados.bot.intelmanager import IntelManager
 from avocados.bot.memorymanager import MemoryManager
+from avocados.bot.objectivemanager import ObjectiveManager
 from avocados.bot.resourcemanager import ResourceManager
+from avocados.combat.util import get_strength
 from avocados.core.timeseries import Timeseries
 from avocados.core.util import two_point_lerp, lerp, snap
 from avocados.core.manager import BotManager
-from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, CLOACKABLE_TYPE_IDS
+from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS
 from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective, ConstructionObjective
 from avocados.geometry import Circle
 from avocados.mapdata import MapManager
@@ -26,6 +28,9 @@ class StrategyManager(BotManager):
     memory: MemoryManager
     intel: IntelManager
     resources: ResourceManager
+    expand: ExpansionManager
+    objectives: ObjectiveManager
+
     aggression: float
     minimum_attack_strength: float
     worker_priority: float
@@ -36,17 +41,23 @@ class StrategyManager(BotManager):
     expansion_score_threshold: float
     # Targets
     barracks_target: int
-    scan_target: int
     # ClassVars
     max_workers: ClassVar[int] = 80
 
-    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager, memory_manager: MemoryManager,
-                 resource_manager: ResourceManager, intel_manager: IntelManager) -> None:
+    def __init__(self, bot: 'AvocaDOS', *,
+                 map_manager: MapManager,
+                 memory_manager: MemoryManager,
+                 resource_manager: ResourceManager,
+                 intel_manager: IntelManager,
+                 expansion_manager: ExpansionManager,
+                 objective_manager: ObjectiveManager) -> None:
         super().__init__(bot)
         self.map = map_manager
         self.memory = memory_manager
         self.resources = resource_manager
         self.intel = intel_manager
+        self.expand = expansion_manager
+        self.objectives = objective_manager
 
         self.aggression = 0.7
         self.minimum_attack_strength = 5.0
@@ -60,7 +71,6 @@ class StrategyManager(BotManager):
         self.expansion_score_threshold = 0.5
         # Targets
         self.barracks_target: int = 0
-        self.scan_target: int = 0
 
     async def on_start(self) -> None:
         self.objectives.set_worker_objective(self.expand.get_required_workers() + self.bonus_workers,
@@ -98,9 +108,6 @@ class StrategyManager(BotManager):
                 if self.barracks_target > len(api.structures(UnitTypeId.BARRACKS)):
                     self.objectives.add_construction_objective(UnitTypeId.BARRACKS, number=self.barracks_target,
                                                                priority=self.production_priority)
-
-        if step % 16 == 0:
-            self.scan_target = snap(self.get_scan_target(), self.scan_target)
 
     def get_worker_target(self) -> int:
         workers = self.expand.get_required_workers() + self.bonus_workers
@@ -152,14 +159,6 @@ class StrategyManager(BotManager):
         marine_rate = 2.778  # 50 minerals / 18 sec
         return mineral_rate / marine_rate
 
-    def get_scan_target(self) -> float:
-        if api.time < 180:
-            return 0
-        if self.intel.enemy_race in {Race.Terran, Race.Protoss}:
-            last_step_cloakable = max(self.intel.enemy_utype_last_spotted.get(utype, -1) for utype in CLOACKABLE_TYPE_IDS)
-            if last_step_cloakable == -1 or last_step_cloakable < api.step - 1344:
-                return 0
-        return max(len(api.structures(UnitTypeId.ORBITALCOMMAND).ready), 1)
 
     # --- Scores
 
@@ -238,7 +237,7 @@ class StrategyManager(BotManager):
 
     def _issue_attack_objective(self) -> None:
         if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
-                and self.combat.get_strength(self.bot.army) >= self.minimum_attack_strength):
+                and get_strength(self.bot.army) >= self.minimum_attack_strength):
             enemy_structures = api.ext.enemy_major_structures
             late_game_score = self.get_late_game_score()
             self.logger.info("Late game score: {:.2%}", late_game_score)

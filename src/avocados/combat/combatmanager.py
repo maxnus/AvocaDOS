@@ -11,7 +11,9 @@ from sc2.units import Units
 
 from avocados import api
 from avocados.bot.memorymanager import MemoryManager
+from avocados.bot.taunts import TauntManager
 from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
+from avocados.combat.squadmanager import SquadManager
 from avocados.combat.weapons import Weapons
 from avocados.core.constants import (TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS,
                                      UPGRADE_BUILDING_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, TECH_BUILDING_TYPE_IDS)
@@ -24,13 +26,11 @@ if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
-STRENGTH_OVERRIDES: dict[UnitTypeId, float] = {
-    UnitTypeId.BUNKER: 4.0,
-}
-
-
 class CombatManager(BotManager):
     memory: MemoryManager
+    taunt: TauntManager
+    squads: SquadManager
+
     # Parameters
     attack_priority_base_weight: float
     attack_priority_weakness_weight: float
@@ -41,9 +41,14 @@ class CombatManager(BotManager):
     attack_priority_threshold: float
     defense_priority_threshold: float
 
-    def __init__(self, bot: 'AvocaDOS', *, memory_manager: MemoryManager) -> None:
+    def __init__(self, bot: 'AvocaDOS', *,
+                 memory_manager: MemoryManager,
+                 taunt_manager: TauntManager,
+                 squad_manager: SquadManager) -> None:
         super().__init__(bot)
         self.memory = memory_manager
+        self.taunt = taunt_manager
+        self.squads = squad_manager
 
         self.attack_priority_base_weight = 0.75
         self.attack_priority_weakness_weight = 0.10
@@ -69,7 +74,7 @@ class CombatManager(BotManager):
         self.timings['get_enemies'].add(t0)
 
         t0 = perf_counter()
-        squad_attack_priorities = self.combat._get_attack_priorities(squad.units, enemies)
+        squad_attack_priorities = self._get_attack_priorities(squad.units, enemies)
         self.timings['attack_priority'].add(t0)
 
         if squad_attack_priorities:
@@ -135,28 +140,6 @@ class CombatManager(BotManager):
                 elif isinstance(squad.task, SquadJoinTask):
                     self.order.move(unit, squad.task.target.center)
         self.timings['micro'].add(t0)
-
-    def get_strength(self, units: Unit | Iterable[Unit], *,
-                     reference_hp: int = 45, reference_dps: float = 6.969937606352808) -> float:
-        """Unupgraded marine has strength = 1.0"""
-        # TODO armor, energy, abilities, upgrades
-        if isinstance(units, Unit):
-            # TODO: phoenix, oracle, etc
-            if (strength_override := STRENGTH_OVERRIDES.get(units.type_id)) is not None:
-                return strength_override
-
-            if not units.can_attack_ground:
-                return 0
-            hp = units.health + units.shield
-            if units.ground_dps != 0:
-                ttk = min(hp / reference_dps, reference_hp / units.ground_dps)
-            else:
-                ttk = hp / reference_dps
-            strength = 2 * (hp + ttk * (units.ground_dps - reference_dps)) / (hp + reference_hp)
-        else:
-            strength = sum(self.get_strength(unit, reference_hp=reference_hp, reference_dps=reference_dps)
-                           for unit in units)
-        return round(strength, 2)
 
     # ---
 

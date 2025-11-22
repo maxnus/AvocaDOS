@@ -4,6 +4,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.unit import Unit
 
 from avocados import api
+from avocados.bot.expansionmanager import ExpansionManager
 from avocados.core.constants import WORKER_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS, TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 
@@ -12,10 +13,12 @@ if TYPE_CHECKING:
 
 
 class DefenseManager(BotManager):
+    expand: ExpansionManager
     defense_distance: ClassVar[float] = 8.0
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', *, expansion_manager: ExpansionManager) -> None:
         super().__init__(bot)
+        self.expand = expansion_manager
 
     async def on_step(self, step: int) -> None:
         for expansion in self.expand.expansions.values():
