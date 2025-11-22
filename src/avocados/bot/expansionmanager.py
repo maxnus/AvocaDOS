@@ -1,4 +1,5 @@
 from collections import Counter
+from collections.abc import Iterable
 from time import perf_counter
 from typing import TYPE_CHECKING, Optional
 
@@ -91,6 +92,7 @@ class Expansion(BotObject):
         return (2 * (len(double_fields) + len(oversaturated_fields)) + len(single_fields)) * single_worker_rate
 
     async def update_assignment(self) -> None:
+        workers = api.workers.tags_in(self.miners.keys())
         self.miners.clear()
         # TODO: long distance mining?
         if not self.location.mineral_fields:
@@ -99,10 +101,11 @@ class Expansion(BotObject):
         # should already be sorted
         minerals = self.location.mineral_fields.sorted_by_distance_to(self.location.center)
         for mineral in 2 * minerals:
-            worker = (await self.bot.pick_worker(mineral.position))[0]
-            if worker is not None:
-                self.logger.debug("Assigning {} to {}", worker.peak(), mineral)
-                self.miners[worker.access().tag] = mineral.position
+            if len(workers) == 0:
+                break
+            worker = workers.pop()
+            self.logger.debug("Assigning {} to {}", worker, mineral)
+            self.miners[worker.tag] = mineral.position
 
     def speed_mine(self) -> None:
         townhall = self.townhall
@@ -184,6 +187,7 @@ class ExpansionManager(BotManager):
     async def on_start(self) -> None:
         self.add_expansion(self.map.start_location, api.townhalls.first)
         # TODO: repeat, when needed
+        self.add_workers(api.workers)
         await self.update_assignment()
 
     async def on_step_start(self, step: int) -> None:
@@ -264,6 +268,10 @@ class ExpansionManager(BotManager):
             if exp.add_worker(worker):
                 return True
         return False
+
+    def add_workers(self, workers: Iterable[Unit]) -> None:
+        for worker in workers:
+            self.add_worker(worker)
 
     def request_workers(self, location: Point2, *, number: int = 1,
                         max_distance: Optional[float] = None) -> list[WithCallback[Unit]]:

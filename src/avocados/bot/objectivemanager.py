@@ -7,6 +7,7 @@ from sc2.ids.upgrade_id import UpgradeId
 
 from avocados import api
 from avocados.bot.buildingmanager import BuildingManager
+from avocados.bot.requestmanager import RequestManager
 from avocados.bot.resourcemanager import ResourceManager
 from avocados.combat.squadmanager import SquadManager
 from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS, UPGRADED_UNIT_IDS
@@ -28,6 +29,7 @@ class ObjectiveManager(BotManager):
     building: BuildingManager
     resources: ResourceManager
     squads: SquadManager
+    request: RequestManager
 
     completed: dict[int, Objective]
     current: dict[int, Objective]
@@ -40,11 +42,14 @@ class ObjectiveManager(BotManager):
     def __init__(self, bot: 'AvocaDOS', *,
                  building_manager: BuildingManager,
                  resource_manager: ResourceManager,
-                 squad_manager: SquadManager) -> None:
+                 squad_manager: SquadManager,
+                 request_manager: RequestManager,
+                 ) -> None:
         super().__init__(bot)
         self.building = building_manager
         self.resources = resource_manager
         self.squads = squad_manager
+        self.request = request_manager
 
         self.completed = {}
         self.current = {}
@@ -222,7 +227,7 @@ class ObjectiveManager(BotManager):
                 api.log.warning("NoLocFound_{}_{}", objective.utype.name, objective.position)
                 break
             # SCV can start constructing from a distance of 2.5 away
-            worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
+            worker, travel_time = await self.request.pick_worker(wrapped_target.value, target_distance=2.5)
             if not worker:
                 break
 
@@ -269,7 +274,7 @@ class ObjectiveManager(BotManager):
         #     self.logger.error("No trainer for {}", objective.utype)
 
         for _ in range(to_build):
-            trainer = self.bot.pick_trainer(objective.utype)
+            trainer = self.request.pick_trainer(objective.utype)
             if trainer is None:
                 break
             time_for_tech = api.ext.time_until_tech(objective.utype)
@@ -295,7 +300,7 @@ class ObjectiveManager(BotManager):
         if not self.resources.can_afford(objective.upgrade):
             #self.logger.trace("Cannot afford {}", task.upgrade)
             return False
-        researcher = self.bot.pick_researcher(objective.upgrade)
+        researcher = self.request.pick_researcher(objective.upgrade)
         if researcher is not None:
             api.order.upgrade(researcher, objective.upgrade)
             self.logger.info("Starting {} at {}", objective.upgrade.name, researcher)
@@ -329,7 +334,7 @@ class ObjectiveManager(BotManager):
             closest_squad = get_best_score(squads_with_task, lambda s: s.center.distance_to(objective.target.center),
                                            highest=False)[0]
             # Create new squad and order to join
-            units = self.bot.pick_army(strength=missing_strength, position=closest_squad.center,
+            units = self.request.pick_army(strength=missing_strength, position=closest_squad.center,
                                        max_priority=objective.priority)
             if len(units) < objective.minimum_size:
                 return False
@@ -337,7 +342,7 @@ class ObjectiveManager(BotManager):
             squad.join(closest_squad, priority=objective.priority)
         else:
             # Create new squad
-            units = self.bot.pick_army(strength=missing_strength, position=objective.target.center,
+            units = self.request.pick_army(strength=missing_strength, position=objective.target.center,
                                        max_priority=objective.priority)
             if len(units) < objective.minimum_size:
                 return False
