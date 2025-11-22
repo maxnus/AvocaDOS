@@ -112,18 +112,21 @@ class AvocaDOS:
         self.roles = RoleManager(self)
         self.resources = ResourceManager(self)
         self.map = MapManager(self)
-        self.intel = IntelManager(self)     # requires map
-        self.scan = ScanManager(self)
-        self.objectives = ObjectiveManager(self)
-        self.squads = SquadManager(self)
-        self.combat = CombatManager(self)
+        self.intel = IntelManager(self, map_manager=self.map)     # requires map
+        self.scan = ScanManager(self, intel_manager=self.intel)
+        self.squads = SquadManager(self, map_manager=self.map)
         self.defense = DefenseManager(self)
-        self.expand = ExpansionManager(self)
+        self.expand = ExpansionManager(self, map_manager=self.map)
         self.memory = MemoryManager(self)
-        self.building = BuildingManager(self)
+        self.combat = CombatManager(self, memory_manager=self.memory)
+        self.building = BuildingManager(self, map_manager=self.map)
+        self.objectives = ObjectiveManager(self, building_manager=self.building, resource_manager=self.resources)
         self.taunt = TauntManager(self)
-        self.strategy = StrategyManager(self)
-        self.debug = DebugManager(self) if (debug or micro_scenario) else None
+        self.strategy = StrategyManager(self, map_manager=self.map, memory_manager=self.memory,
+                                        resource_manager=self.resources, intel_manager=self.intel)
+        self.debug = (DebugManager(self, map_manager=self.map, building_manager=self.building,
+                                   memory_manager=self.memory, intel_manager=self.intel)
+                      if (debug or micro_scenario) else None)
         if micro_scenario is not None:
             self.micro_scenario = MicroScenarioManager(self, units=micro_scenario)
         else:

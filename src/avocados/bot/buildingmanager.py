@@ -14,6 +14,7 @@ from avocados.geometry.field import Field
 from avocados.geometry.util import Rectangle
 from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
+from avocados.mapdata import MapManager
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -21,13 +22,15 @@ if TYPE_CHECKING:
 
 
 class BuildingManager(BotManager):
+    map: MapManager
     reserved_grid: Field[bool]
     static_reserved_grid: Field[bool]
     blocking_grid: Field[bool]
     resource_blocking_grid: Field[bool]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
         # attributes initialized in on_start
 
     async def on_start(self) -> None:

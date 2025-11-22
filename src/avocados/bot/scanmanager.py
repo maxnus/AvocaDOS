@@ -7,6 +7,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
 from avocados import api
+from avocados.bot.intelmanager import IntelManager
 from avocados.core.constants import CLOACKABLE_TYPE_IDS
 from avocados.core.manager import BotManager
 
@@ -24,10 +25,12 @@ class Scan:
 
 
 class ScanManager(BotManager):
+    intel: IntelManager
     ongoing_scans: list[Scan]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', *, intel_manager: IntelManager) -> None:
         super().__init__(bot)
+        self.intel = intel_manager
         self.ongoing_scans = []
 
     async def on_step_start(self, step: int) -> None:

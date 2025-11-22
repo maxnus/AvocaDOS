@@ -13,6 +13,7 @@ from avocados.geometry import Circle
 from avocados.geometry.util import squared_distance
 from avocados.core.unitutil import normalize_tags
 from avocados.combat.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
+from avocados.mapdata import MapManager
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -27,11 +28,13 @@ SQUAD_JOIN_DISTANCE = 2.0
 
 
 class SquadManager(BotManager):
+    map: MapManager
     _squads: dict[int, Squad]
     _tag_to_squad: dict[int, int]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
         self._squads = {}
         self._tag_to_squad = {}
 

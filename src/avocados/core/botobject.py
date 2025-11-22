@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from avocados.bot.buildingmanager import BuildingManager
     from avocados.core.logmanager import LogManager
     from avocados.bot.avocados import AvocaDOS
-    from avocados.mapdata import MapManager
     from avocados.debug.debugmanager import DebugManager
     from avocados.bot.memorymanager import MemoryManager
     from avocados.bot.intelmanager import IntelManager
@@ -56,32 +55,12 @@ class BotObject(ABC):
         return self.bot.log
 
     @property
-    def map(self) -> 'MapManager':
-        return self.bot.map
-
-    @property
-    def building(self) -> 'BuildingManager':
-        return self.bot.building
-
-    @property
     def debug(self) -> Optional['DebugManager']:
         return self.bot.debug
 
     @property
-    def memory(self) -> 'MemoryManager':
-        return self.bot.memory
-
-    @property
     def order(self) -> 'OrderManager':
         return self.bot.order
-
-    @property
-    def resources(self) -> 'ResourceManager':
-        return self.bot.resources
-
-    @property
-    def intel(self) -> 'IntelManager':
-        return self.bot.intel
 
     @property
     def objectives(self) -> 'ObjectiveManager':

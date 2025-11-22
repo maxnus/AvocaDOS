@@ -6,18 +6,26 @@ from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
 
 from avocados import api
+from avocados.bot.intelmanager import IntelManager
+from avocados.bot.memorymanager import MemoryManager
+from avocados.bot.resourcemanager import ResourceManager
 from avocados.core.timeseries import Timeseries
 from avocados.core.util import two_point_lerp, lerp, snap
 from avocados.core.manager import BotManager
 from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_IDS, CLOACKABLE_TYPE_IDS
 from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective, ConstructionObjective
 from avocados.geometry import Circle
+from avocados.mapdata import MapManager
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
 
 
 class StrategyManager(BotManager):
+    map: MapManager
+    memory: MemoryManager
+    intel: IntelManager
+    resources: ResourceManager
     aggression: float
     minimum_attack_strength: float
     worker_priority: float
@@ -32,8 +40,14 @@ class StrategyManager(BotManager):
     # ClassVars
     max_workers: ClassVar[int] = 80
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager, memory_manager: MemoryManager,
+                 resource_manager: ResourceManager, intel_manager: IntelManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
+        self.memory = memory_manager
+        self.resources = resource_manager
+        self.intel = intel_manager
+
         self.aggression = 0.7
         self.minimum_attack_strength = 5.0
         self.worker_priority = 0.4

@@ -127,12 +127,13 @@ class MapManager(BotManager):
             await self._calculate_expansion_distances()
 
         start_locations = [api.start_location] + api.enemy_start_locations
-        self.expansions = [(StartLocation if location in start_locations else ExpansionLocation)(self.bot, location)
+        self.expansions = [(StartLocation if location in start_locations else ExpansionLocation)
+                           (self.bot, location, map_manager=self)
                            for location in self._get_ordered_expansion()]
 
-        self.start_location = StartLocation(self.bot, api.start_location)
+        self.start_location = StartLocation(self.bot, api.start_location, map_manager=self)
         self.base = self.start_location # TODO: use later in case we lose the start_base
-        self.enemy_start_locations = [StartLocation(self.bot, loc) for loc in api.enemy_start_locations]
+        self.enemy_start_locations = [StartLocation(self.bot, loc, map_manager=self) for loc in api.enemy_start_locations]
         self.known_enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
         self.logger.debug("on_start finished")
 
@@ -283,7 +284,7 @@ class MapManager(BotManager):
                 continue
             if point in points:
                 continue
-            if in_placement_grid and not self.map.placement_grid[point]:
+            if in_placement_grid and not self.placement_grid[point]:
                 continue
             if max_distance is not None and point.distance_to(start) > max_distance:
                 continue

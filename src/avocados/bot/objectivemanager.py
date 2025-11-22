@@ -6,6 +6,8 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 
 from avocados import api
+from avocados.bot.buildingmanager import BuildingManager
+from avocados.bot.resourcemanager import ResourceManager
 from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS, UPGRADED_UNIT_IDS
 from avocados.core.manager import BotManager
 from avocados.bot.objective import (Objective, ObjectiveStatus, ObjectiveRequirementType, ObjectiveRequirements,
@@ -22,6 +24,8 @@ if TYPE_CHECKING:
 
 
 class ObjectiveManager(BotManager):
+    building: BuildingManager
+    resources: ResourceManager
     completed: dict[int, Objective]
     current: dict[int, Objective]
     future: dict[int, Objective]
@@ -30,11 +34,14 @@ class ObjectiveManager(BotManager):
     supply_objective: Optional[SupplyObjective]
     expansion_objective: Optional[ExpansionObjective]
 
-    def __init__(self, bot: 'AvocaDOS', objectives: Optional[dict[int, Objective]] = None) -> None:
+    def __init__(self, bot: 'AvocaDOS', *, building_manager: BuildingManager, resource_manager: ResourceManager) -> None:
         super().__init__(bot)
+        self.building = building_manager
+        self.resources = resource_manager
+
         self.completed = {}
         self.current = {}
-        self.future = objectives or {}
+        self.future = {}
         self.worker_objective = None
         self.supply_objective = None
         self.expansion_objective = None

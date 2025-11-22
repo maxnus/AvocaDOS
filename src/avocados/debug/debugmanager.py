@@ -11,10 +11,14 @@ from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
 from avocados import api
+from avocados.bot.buildingmanager import BuildingManager
+from avocados.bot.intelmanager import IntelManager
+from avocados.bot.memorymanager import MemoryManager
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
 from avocados.geometry import Circle, Region, Rectangle
 from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
+from avocados.mapdata import MapManager
 
 if TYPE_CHECKING:
     from avocados.bot.avocados import AvocaDOS
@@ -134,6 +138,11 @@ class DebugLayers(StrEnum):
 
 
 class DebugManager(BotManager):
+    map: MapManager
+    building: BuildingManager
+    memory: MemoryManager
+    intel: IntelManager
+
     text_size: ClassVar[int] = 14
     # State
     map_revealed: bool
@@ -145,8 +154,14 @@ class DebugManager(BotManager):
     # Temporary displays
     debug_items: list[DebugItem]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager, building_manager: BuildingManager,
+                 memory_manager: MemoryManager, intel_manager: IntelManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
+        self.building = building_manager
+        self.memory = memory_manager
+        self.intel = intel_manager
+
         self.damage_taken = {}
         self.shot_last_frame = set()
         self.frame_start = None

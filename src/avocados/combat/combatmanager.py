@@ -10,6 +10,7 @@ from sc2.unit import Unit
 from sc2.units import Units
 
 from avocados import api
+from avocados.bot.memorymanager import MemoryManager
 from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
 from avocados.combat.weapons import Weapons
 from avocados.core.constants import (TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS,
@@ -29,6 +30,7 @@ STRENGTH_OVERRIDES: dict[UnitTypeId, float] = {
 
 
 class CombatManager(BotManager):
+    memory: MemoryManager
     # Parameters
     attack_priority_base_weight: float
     attack_priority_weakness_weight: float
@@ -39,8 +41,10 @@ class CombatManager(BotManager):
     attack_priority_threshold: float
     defense_priority_threshold: float
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', *, memory_manager: MemoryManager) -> None:
         super().__init__(bot)
+        self.memory = memory_manager
+
         self.attack_priority_base_weight = 0.75
         self.attack_priority_weakness_weight = 0.10
         self.attack_priority_distance_weight = 0.05

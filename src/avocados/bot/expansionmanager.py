@@ -14,6 +14,7 @@ from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 from avocados.core.util import WithCallback
 from avocados.geometry.util import same_point, get_best_score
+from avocados.mapdata import MapManager
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -161,11 +162,13 @@ class Expansion(BotObject):
 
 
 class ExpansionManager(BotManager):
+    map: MapManager
     expansions: dict[ExpansionLocation, Expansion]
     """location -> townhall tag"""
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
         self.expansions = {}
 
     def __len__(self) -> int:

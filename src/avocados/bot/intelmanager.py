@@ -16,6 +16,7 @@ from avocados.core.manager import BotManager
 from avocados.core.timeseries import Timeseries
 from avocados.geometry.field import Field
 from avocados.geometry.util import Rectangle
+from avocados.mapdata import MapManager
 from avocados.mapdata.expansion import ExpansionLocation
 
 if TYPE_CHECKING:
@@ -42,6 +43,7 @@ class BurrowedUnit:
 
 
 class IntelManager(BotManager):
+    map: MapManager
     last_known_enemy_base: Optional[ExpansionLocation]
     visibility: Field[int]
     last_visible: Field[float]
@@ -51,8 +53,9 @@ class IntelManager(BotManager):
     enemy_army_strength: Timeseries[float]
     enemy_utype_last_spotted: dict[UnitTypeId, int]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
         super().__init__(bot)
+        self.map = map_manager
         self.last_known_enemy_base = None
         self.enemy_race = api.enemy_race if api.enemy_race != Race.Random else None   # Update for random players
         self.enemy_units = set()
