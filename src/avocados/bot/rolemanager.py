@@ -6,6 +6,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
+from avocados import api
 from avocados.combat.squad import Squad
 from avocados.core.manager import BotManager
 
@@ -74,7 +75,7 @@ class RoleManager(BotManager):
 
     async def on_step_start(self, step: int) -> None:
         for tag, role in self._roles.items():
-            if role.duration is not None and self.step > role.assigned + role.duration:
+            if role.duration is not None and api.step > role.assigned + role.duration:
                 self.remove(tag)
 
     def has(self, unit: Unit | int) -> bool:
@@ -99,23 +100,23 @@ class RoleManager(BotManager):
     def set_mining(self, unit: Unit, townhall: Unit, mineral_field: Unit, *,
                    duration: Optional[int] = None,
                    priority: float = 0.5) -> None:
-        role = MiningRole(mineral_field.tag, townhall.tag, self.step, priority=priority, duration=duration)
+        role = MiningRole(mineral_field.tag, townhall.tag, api.step, priority=priority, duration=duration)
         self.set(unit, role)
 
     def set_squad(self, unit: Unit, squad: Squad, *,
                   duration: Optional[int] = None,
                   priority: float = 0.5) -> None:
-        role = SquadRole(squad, self.step, priority=priority, duration=duration)
+        role = SquadRole(squad, api.step, priority=priority, duration=duration)
         self.set(unit, role)
 
     def set_build(self, unit: Unit, structure: UnitTypeId, location: Point2, *,
                   priority: float = 0.5,
                   duration: Optional[int] = None) -> None:
-        role = BuildRole(structure, location, self.step, priority=priority, duration=duration)
+        role = BuildRole(structure, location, api.step, priority=priority, duration=duration)
         self.set(unit, role)
 
     def set_defend(self, unit: Unit, target: Unit, *,
                    priority: float = 0.5,
                    duration: Optional[int] = None) -> None:
-        role = DefenseRole(target, self.step, priority=priority, duration=duration)
+        role = DefenseRole(target, api.step, priority=priority, duration=duration)
         self.set(unit, role)

@@ -7,6 +7,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from scipy.signal import convolve2d
 
+from avocados import api
 from avocados.core.constants import (PRODUCTION_BUILDING_TYPE_IDS, TOWNHALL_TYPE_IDS, MINERAL_FIELD_TYPE_IDS,
                                      VESPENE_GEYSER_TYPE_IDS, ADDON_BUILDING_TYPE_IDS, GAS_TYPE_IDS)
 from avocados.geometry.field import Field
@@ -95,7 +96,7 @@ class BuildingManager(BotManager):
             case UnitTypeId.REFINERY:
                 if area is None:
                     area = Rectangle.from_center(self.map.start_location.center, 10, 10)
-                geysers = (self.api.vespene_geyser.closer_than(area.characteristic_length, area.center)
+                geysers = (api.vespene_geyser.closer_than(area.characteristic_length, area.center)
                            .filter(lambda g: g.has_vespene))
                 if not geysers:
                     return None
@@ -177,7 +178,7 @@ class BuildingManager(BotManager):
             width, height = (2, 1)
         elif structure in VESPENE_GEYSER_TYPE_IDS | GAS_TYPE_IDS:
             width = height = 3
-        elif (unit_type_data := self.ext.get_unit_type_data(structure)) is None:
+        elif (unit_type_data := api.ext.get_unit_type_data(structure)) is None:
             self.log.error("NoUnitData{}", structure)
             width = height = 0
         elif unit_type_data.footprint_radius is not None:
@@ -250,13 +251,13 @@ class BuildingManager(BotManager):
 
     def _update_blocking_grid(self) -> None:
         self.blocking_grid.data[:] = self.resource_blocking_grid.data
-        for structure in self.api.all_structures.not_flying:
+        for structure in api.all_structures.not_flying:
             footprint = self._get_footprint(structure.type_id, structure.position)
             self.blocking_grid[footprint] = False
 
     def _update_resource_blocking_grid(self) -> None:
         self.resource_blocking_grid.data[:] = True
-        for structure in self.api.mineral_field + self.api.vespene_geyser:
+        for structure in api.mineral_field + api.vespene_geyser:
             footprint = self._get_footprint(structure.type_id, structure.position)
             self.resource_blocking_grid[footprint] = False
 
@@ -271,7 +272,7 @@ class BuildingManager(BotManager):
 
     async def _can_place_api(self, footprint: Rectangle) -> bool:
         dummy, locations = self._can_place_api_generate_requests(footprint)
-        return all(await self.api.can_place(dummy, locations))
+        return all(await api.can_place(dummy, locations))
 
     def _can_place_api_generate_requests(self, footprint: Rectangle) -> tuple[UnitTypeId, list[Point2]]:
         dummy_footprints = {
@@ -295,6 +296,6 @@ class BuildingManager(BotManager):
     async def _get_api_blocking_grid(self) -> Field[bool]:
         """Very expensive for the entire map (~2s)!"""
         points = self.map.playable_rect.get_grid_points(flatten=True)
-        results = await self.api.can_place(UnitTypeId.SENSORTOWER, points)
+        results = await api.can_place(UnitTypeId.SENSORTOWER, points)
         data = numpy.asarray(results).reshape((self.map.width, self.map.height))
         return Field(data, offset=self.map.playable_offset)

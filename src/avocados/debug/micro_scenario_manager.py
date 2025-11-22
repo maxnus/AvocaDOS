@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
+from avocados import api
 from avocados.core.manager import BotManager
 from avocados.core.unitutil import UnitCost
 from avocados.debug.micro_scenario import MicroScenario, MicroScenarioResults
@@ -37,21 +38,21 @@ class MicroScenarioManager(BotManager):
 
     def get_locations(self) -> list[Point2]:
         locations = []
-        if self.api.game_info.map_name == 'Micro Training 4x4':
+        if api.game_info.map_name == 'Micro Training 4x4':
             for row in range(4):
                 y = row * 40 + 12
                 for col in range(4):
                     x = col * 40 + 12
                     locations.append(Point2((x, y)))
         else:
-            raise NotImplementedError(f"map {self.api.game_info.map_name}")
+            raise NotImplementedError(f"map {api.game_info.map_name}")
         return locations
 
     async def on_start(self, *, number_scenarios: int = 64) -> None:
 
         # number_scenarios = 1
-        # self.api.slowdown = 100
-        # await self.api.client.debug_god()
+        # api.slowdown = 100
+        # await api.client.debug_god()
 
         self.locations = self.get_locations()
         self.free_locations = self.locations.copy()

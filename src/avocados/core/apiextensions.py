@@ -20,16 +20,15 @@ from avocados.core.unitutil import UnitCost
 from avocados.geometry.util import dot
 
 if TYPE_CHECKING:
-    from avocados import BotApi
+    from avocados.core.api import Api
 
 
 class ApiExtensions:
-    api: 'BotApi'
     worker_utype: UnitTypeId
     townhall_utype: UnitTypeId
     supply_utype: UnitTypeId
 
-    def __init__(self, api: 'BotApi') -> None:
+    def __init__(self, api: 'Api') -> None:
         super().__init__()
         self.api = api
 

@@ -7,6 +7,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.core.manager import BotManager
 from avocados.geometry import Circle
 from avocados.geometry.util import squared_distance
@@ -37,10 +38,10 @@ class SquadManager(BotManager):
     async def on_step_start(self, step: int) -> None:
         # Remove dead tags
         self._tag_to_squad = {tag: squad_id for tag, squad_id in self._tag_to_squad.items()
-                              if tag in self.api.alive_tags}
+                              if tag in api.alive_tags}
 
         for squad in list(self._squads.values()):
-            squad._tags &= self.api.alive_tags
+            squad._tags &= api.alive_tags
             if len(squad) == 0:
                 self.delete(squad)
 
@@ -51,7 +52,7 @@ class SquadManager(BotManager):
         self._join_squads()
 
         for squad in self:
-            damage = sum(self.api.damage_received[unit.tag] for unit in squad.units)
+            damage = sum(api.damage_received[unit.tag] for unit in squad.units)
             squad.damage_taken.appendleft(damage)
 
         self._start_retreat()
@@ -242,7 +243,7 @@ class SquadManager(BotManager):
         for squad in self.not_with_task(task_type=SquadRetreatTask):
             # if (squad.strength < RETREAT_STRENGTH_PERCENTAGE * squad.target_strength
             if ((squad.damage_taken_percentage > RETREAT_HEALTH_PERCENTAGE
-                 or squad.strength < self.combat.get_strength(self.api.all_enemy_units.closer_than(8, squad.center)))
+                 or squad.strength < self.combat.get_strength(api.all_enemy_units.closer_than(8, squad.center)))
                     and squad.center.distance_to(self.map.base.center) > RETREAT_MIN_BASE_DISTANCE):
                 retreat_point = self.map.nearest_pathable(squad.center.towards(self.map.center, RETREAT_DISTANCE))
                 retreat_area = Circle(retreat_point, 1.5)
@@ -252,6 +253,6 @@ class SquadManager(BotManager):
     def _stop_retreat(self) -> None:
         for squad in self.with_task(task_type=SquadRetreatTask):
             # if squad.all_units_in_area(squad.task.target):
-            if squad.center in squad.task.target or self.time > squad.task.started + 20:
+            if squad.center in squad.task.target or api.time > squad.task.started + 20:
                 self.logger.debug("{} has retreated to {}", squad, squad.task.target)
                 squad.remove_task()

@@ -5,6 +5,7 @@ from typing import Optional, TYPE_CHECKING
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 
+from avocados import api
 from avocados.core.constants import ALTERNATIVES, TRAINERS, WORKER_TYPE_IDS, UPGRADED_UNIT_IDS
 from avocados.core.manager import BotManager
 from avocados.bot.objective import (Objective, ObjectiveStatus, ObjectiveRequirementType, ObjectiveRequirements,
@@ -82,7 +83,7 @@ class ObjectiveManager(BotManager):
 
     async def on_step_start(self, step: int) -> None:
         for objective in self.current.values():
-            if objective.max_time is not None and self.time > objective.start_time + objective.max_time:
+            if objective.max_time is not None and api.time > objective.start_time + objective.max_time:
                 objective.status = ObjectiveStatus.FAILED
 
     async def on_step(self, step: int) -> None:
@@ -103,7 +104,7 @@ class ObjectiveManager(BotManager):
     def _start_objective(self, objective: Objective) -> None:
         self.future.pop(objective.id, None)
         objective.status = ObjectiveStatus.STARTED
-        objective.start_time = self.time
+        objective.start_time = api.time
         self.current[objective.id] = objective
         self.logger.info("Started {}", objective)
 
@@ -126,17 +127,17 @@ class ObjectiveManager(BotManager):
         fulfilled = True
         for req_type, req_value in requirements:
             if isinstance(req_type, UnitTypeId):
-                value = (self.api.units + self.api.structures)(req_type).ready.amount
+                value = (api.units + api.structures)(req_type).ready.amount
             elif isinstance(req_type, UpgradeId):
-                value = req_type in self.api.state.upgrades
+                value = req_type in api.state.upgrades
             elif req_type == ObjectiveRequirementType.TIME:
-                value = self.api.time
+                value = api.time
             elif req_type == ObjectiveRequirementType.SUPPLY:
-                value = self.api.supply_used
+                value = api.supply_used
             elif req_type == ObjectiveRequirementType.MINERALS:
-                value = self.api.minerals
+                value = api.minerals
             elif req_type == ObjectiveRequirementType.VESPENE:
-                value = self.api.vespene
+                value = api.vespene
             else:
                 self.logger.warning(f"Unknown requirement: {req_type}")
                 continue
@@ -155,16 +156,16 @@ class ObjectiveManager(BotManager):
     async def _dispatch_objective(self, objective: Objective) -> bool:
         completed = False
         if isinstance(objective, UnitObjective):
-            if self.step % 2 == 0:
+            if api.step % 2 == 0:
                 completed = await self._unit_objective(objective)
         elif isinstance(objective, (ConstructionObjective, SupplyObjective)):
-            #if self.step % 2 == 0:
+            #if api.step % 2 == 0:
             completed = await self._construction_objective(objective)
         elif isinstance(objective, ResearchObjective):
-            #if self.step % 2 == 0:
+            #if api.step % 2 == 0:
             completed = self._research_objective(objective)
         elif isinstance(objective, (AttackObjective, DefenseObjective)):
-            if self.step % 4 == 0:
+            if api.step % 4 == 0:
                 completed = self._squad_objective(objective)
         else:
             self.log.error("ObjectiveNotImplemented_{}", objective)
@@ -175,14 +176,14 @@ class ObjectiveManager(BotManager):
     async def _construction_objective(self, objective: ConstructionObjective | SupplyObjective) -> bool:
         utypes = {objective.utype, *UPGRADED_UNIT_IDS.get(objective.utype, set())}
         utypes = {u for utype in utypes for u in ALTERNATIVES.get(utype, {utype})}
-        units = (self.api.units + self.api.structures)(utypes).ready
+        units = (api.units + api.structures)(utypes).ready
 
         if objective.position is not None:
             units = units.filter(lambda u: u.position in objective.position)
         if units.amount >= objective.number:
             return True
 
-        pending = int(self.api.already_pending(objective.utype))
+        pending = int(api.already_pending(objective.utype))
         to_build = objective.number - units.amount - pending
 
         trainer_utype = TRAINERS.get(objective.utype)
@@ -194,7 +195,7 @@ class ObjectiveManager(BotManager):
             self.log.error("TrainerNotWorker_{}", objective.utype.name)
             return False
 
-        time_for_tech = self.ext.time_until_tech(objective.utype)
+        time_for_tech = api.ext.time_until_tech(objective.utype)
         #self.logger.debug("Time for tech: {}", time_for_tech)
         if time_for_tech >= 60.0:
             return False
@@ -211,7 +212,7 @@ class ObjectiveManager(BotManager):
             if not worker:
                 break
 
-            orphaned = (self.api.structures_without_construction_SCVs.of_type(objective.utype)
+            orphaned = (api.structures_without_construction_SCVs.of_type(objective.utype)
                         .filter(lambda unit: objective.position is None or unit.position in objective.position))
             if orphaned:
                 self.order.smart(worker.access(), target=orphaned.random)
@@ -235,7 +236,7 @@ class ObjectiveManager(BotManager):
 
     async def _unit_objective(self, objective: UnitObjective) -> bool:
         utype = ALTERNATIVES.get(objective.utype, objective.utype)
-        units = (self.api.units + self.api.structures)(utype).ready
+        units = (api.units + api.structures)(utype).ready
         #self.logger.trace("Have {} units of type {}", units.amount, task.utype.name)
         #self.logger.trace("units for {}: {}", task, units)
         if objective.position is not None:
@@ -246,7 +247,7 @@ class ObjectiveManager(BotManager):
         if units.amount >= objective.number:
             return True
 
-        pending = int(self.api.already_pending(objective.utype))
+        pending = int(api.already_pending(objective.utype))
         to_build = objective.number - units.amount - pending
 
         # trainer_utype = TRAINERS.get(objective.utype)
@@ -257,7 +258,7 @@ class ObjectiveManager(BotManager):
             trainer = self.bot.pick_trainer(objective.utype)
             if trainer is None:
                 break
-            time_for_tech = self.ext.time_until_tech(objective.utype)
+            time_for_tech = api.ext.time_until_tech(objective.utype)
             time_for_resources = self.resources.can_afford_in(objective.utype)
             if time_for_tech == 0 and time_for_resources == 0:
                 self.resources.spend(objective.utype)
@@ -268,11 +269,11 @@ class ObjectiveManager(BotManager):
         return False
 
     def _research_objective(self, objective: ResearchObjective) -> bool:
-        if objective.upgrade in self.api.state.upgrades:
+        if objective.upgrade in api.state.upgrades:
             self.logger.trace("Upgrade {} complete", objective.upgrade)
             return True
         try:
-            if self.api.already_pending_upgrade(objective.upgrade) > 0:
+            if api.already_pending_upgrade(objective.upgrade) > 0:
                 #self.logger.trace("Upgrade {} already pending", task.upgrade)
                 return False
         except Exception as exc:
@@ -293,9 +294,9 @@ class ObjectiveManager(BotManager):
         squads_with_task = self.squads.with_task(
             task_type, filter_=lambda t: squared_distance(t.target.center, objective.target.center) <= 1)
 
-        if any(s.status == SquadStatus.AT_TARGET and self.time > s.status_changed + 5 for s in squads_with_task):
+        if any(s.status == SquadStatus.AT_TARGET and api.time > s.status_changed + 5 for s in squads_with_task):
         # TODO
-        # if (len(self.api.all_enemy_units.filter(lambda u: u in objective.target)) == 0
+        # if (len(api.all_enemy_units.filter(lambda u: u in objective.target)) == 0
         #         and max(self.intel.last_visible[objective.target.to_region()].values()) < 20.0):
 
             # Objective complete

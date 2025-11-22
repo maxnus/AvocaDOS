@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, ClassVar
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.unit import Unit
 
+from avocados import api
 from avocados.core.constants import WORKER_TYPE_IDS, STATIC_DEFENSE_TYPE_IDS, TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
 
@@ -18,15 +19,15 @@ class DefenseManager(BotManager):
 
     async def on_step(self, step: int) -> None:
         for expansion in self.expand.expansions.values():
-            enemies = self.api.all_enemy_units.closer_than(self.defense_distance,
-                                                           expansion.location.mineral_line_center)
+            enemies = api.all_enemy_units.closer_than(self.defense_distance,
+                                                      expansion.location.mineral_line_center)
             if not enemies:
                 continue
             if len(enemies) == 1 and enemies.first.type_id in WORKER_TYPE_IDS:
                 continue
 
             for enemy in enemies:
-                units_defending = self.ext.get_units_with_target(
+                units_defending = api.ext.get_units_with_target(
                     enemy, condition=lambda u: u.distance_to(enemy) <= self.defense_distance)
                 for defender in units_defending:
                     self.order.attack(defender, enemy)

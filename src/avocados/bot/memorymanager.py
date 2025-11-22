@@ -5,6 +5,7 @@ from typing import Optional, TYPE_CHECKING
 import numpy
 from sc2.unit import Unit
 
+from avocados import api
 from avocados.core.manager import BotManager
 from avocados.core.timeseries import Timeseries
 
@@ -43,27 +44,27 @@ class MemoryManager(BotManager):
         t0 = perf_counter()
 
         # Observations
-        self.minerals.append(step, self.api.minerals)
-        self.vespene.append(step, self.api.vespene)
-        self.supply.append(step, int(self.api.supply_used))
-        self.supply_cap.append(step, int(self.api.supply_cap))
-        self.supply_workers.append(step, int(self.api.supply_workers))
+        self.minerals.append(step, api.minerals)
+        self.vespene.append(step, api.vespene)
+        self.supply.append(step, int(api.supply_used))
+        self.supply_cap.append(step, int(api.supply_cap))
+        self.supply_workers.append(step, int(api.supply_workers))
         self.army_strength.append(step, self.combat.get_strength(self.bot.army))
 
         # Own
-        for unit in self.api.units:
-            self.units_last_seen[unit.tag] = (self.api.state.game_loop, unit)
+        for unit in api.units:
+            self.units_last_seen[unit.tag] = (api.state.game_loop, unit)
 
         # Enemies
         # TODO: Move to botapi?
-        for unit in self.api.enemy_units:
+        for unit in api.enemy_units:
             prev_entry = self.units_last_seen.get(unit.tag)
-            self.units_last_seen[unit.tag] = (self.api.state.game_loop, unit)
+            self.units_last_seen[unit.tag] = (api.state.game_loop, unit)
             if prev_entry is not None:
-                assert prev_entry[0] < self.api.state.game_loop
+                assert prev_entry[0] < api.state.game_loop
                 change = unit.health + unit.shield - prev_entry[1].health - prev_entry[1].shield
                 if change < 0:
-                    await self.api.on_unit_took_damage(unit, -change)
+                    await api.on_unit_took_damage(unit, -change)
         self.timings['step'].add(t0)
 
     def get_last_seen(self, unit: int | Unit) -> Optional[Unit]:
@@ -76,7 +77,7 @@ class MemoryManager(BotManager):
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
         plt.figure()
-        time = numpy.arange(0, self.step) / 22.4
+        time = numpy.arange(0, api.step) / 22.4
         plt.plot(time, self.supply, label='Supply')
         plt.plot(time, self.supply_cap, label='Supply Cap')
         plt.plot(time, self.supply_workers, label='Workers')

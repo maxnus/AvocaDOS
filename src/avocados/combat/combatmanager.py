@@ -9,6 +9,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.combat.squad import Squad, SquadAttackTask, SquadDefendTask, SquadStatus, SquadJoinTask, SquadRetreatTask
 from avocados.combat.weapons import Weapons
 from avocados.core.constants import (TECHLAB_TYPE_IDS, REACTOR_TYPE_IDS, GAS_TYPE_IDS, TOWNHALL_TYPE_IDS,
@@ -168,7 +169,7 @@ class CombatManager(BotManager):
     async def get_abilities(self, units: Units) -> list[list[AbilityId]]:
         if not units:
             return []
-        ability_list = await self.api.get_available_abilities(units)
+        ability_list = await api.get_available_abilities(units)
         # Filter down to relevant
         keep = {
             AbilityId.KD8CHARGE_KD8CHARGE,
@@ -187,11 +188,11 @@ class CombatManager(BotManager):
         return self.get_scan_range(unit)
 
     def _get_powering_pylons(self, structure: Unit) -> Units:
-        return self.api.enemy_structures.of_type(UnitTypeId.PYLON).closer_than(6.5, structure)
+        return api.enemy_structures.of_type(UnitTypeId.PYLON).closer_than(6.5, structure)
 
     def _get_pylon_attack_base_priority(self, target: Unit, *, floor: float = 0.15, ceiling: float = 0.80) -> float:
         priority = 0
-        for structure in self.api.enemy_structures.closer_than(6.5, target):
+        for structure in api.enemy_structures.closer_than(6.5, target):
             powering = self._get_powering_pylons(structure)
             match len(powering):
                 case 1:
@@ -426,13 +427,13 @@ class CombatManager(BotManager):
     def _get_enemies(self, units: Units, *, scan_range: float = 5.0) -> Units:
         enemies = []
         excluded = {UnitTypeId.EGG, UnitTypeId.LARVA, UnitTypeId.DISRUPTORPHASED}
-        for enemy in self.api.all_enemy_units.exclude_type(excluded):
+        for enemy in api.all_enemy_units.exclude_type(excluded):
             for unit in units:
                 max_dist = (unit.ground_range + scan_range)**2
                 if squared_distance(unit, enemy) <= max_dist:
                     enemies.append(enemy)
                     break
-        return Units(enemies, self.api)
+        return Units(enemies, api)
 
     def _micro_unit(self, unit: Unit, *,
                     enemies: Units,

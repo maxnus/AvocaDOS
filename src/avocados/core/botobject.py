@@ -2,15 +2,12 @@ from abc import ABC
 from typing import TYPE_CHECKING, Optional, Any
 
 from loguru._logger import Logger
-from sc2.game_state import GameState
 
-from avocados.core.apiextensions import ApiExtensions
 from avocados.geometry.util import unique_id
 
 if TYPE_CHECKING:
     from avocados.bot.buildingmanager import BuildingManager
     from avocados.core.logmanager import LogManager
-    from avocados.core.botapi import BotApi
     from avocados.bot.avocados import AvocaDOS
     from avocados.mapdata import MapManager
     from avocados.debug.debugmanager import DebugManager
@@ -47,26 +44,6 @@ class BotObject(ABC):
 
     def __hash__(self) -> int:
         return hash(self.id)
-
-    @property
-    def api(self) -> 'BotApi':
-        return self.bot.api
-
-    @property
-    def ext(self) -> ApiExtensions:
-        return self.bot.ext
-
-    @property
-    def state(self) -> GameState:
-        return self.bot.state
-
-    @property
-    def step(self) -> int:
-        return self.bot.step
-
-    @property
-    def time(self) -> float:
-        return self.bot.time
 
     @property
     def logger(self) -> Logger:

@@ -8,6 +8,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.core.botobject import BotObject
 from avocados.core.constants import TOWNHALL_TYPE_IDS
 from avocados.core.manager import BotManager
@@ -32,12 +33,12 @@ class Expansion(BotObject):
 
     @property
     def townhall(self) -> Optional[Unit]:
-        return self.api.structures.find_by_tag(self.townhall_tag)
+        return api.structures.find_by_tag(self.townhall_tag)
 
     def get_assignment(self) -> dict[Unit, Unit]:
         assignment = {}
         for worker_tag, mineral_position in self.miners.items():
-            worker = self.api.workers.by_tag(worker_tag)
+            worker = api.workers.by_tag(worker_tag)
             if (minerals := self.location.get_mineral_field(mineral_position)) is not None:
                 assignment[worker] = minerals
         return assignment
@@ -75,11 +76,11 @@ class Expansion(BotObject):
     def get_mineral_field_split(self) -> tuple[Units, Units, Units, Units]:
         """fields with no, one, two miners"""
         count = self.get_assigned_worker_count()
-        empty_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 0], self.api)
-        single_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 1], self.api)
-        double_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 2], self.api)
+        empty_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 0], api)
+        single_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 1], api)
+        double_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] == 2], api)
         oversaturated_mining_fields = Units([mf for mf in self.location.mineral_fields if count[mf.position] >= 3],
-                                            self.api)
+                                            api)
         return empty_fields, single_mining_fields, double_mining_fields, oversaturated_mining_fields
 
     def get_expected_mineral_rate(self, *, single_worker_rate: float = 1.068) -> float:
@@ -107,7 +108,7 @@ class Expansion(BotObject):
             self.log.error("NoTownhall-{}", self.townhall_tag)
             return
 
-        enemies = self.api.enemy_units.closer_than(8, townhall)
+        enemies = api.enemy_units.closer_than(8, townhall)
 
         for worker_tag, mineral_position in self.miners.items():
             worker = self.bot.workers.find_by_tag(worker_tag)
@@ -174,7 +175,7 @@ class ExpansionManager(BotManager):
         return expansion in self.expansions
 
     async def on_start(self) -> None:
-        self.add_expansion(self.map.start_location, self.api.townhalls.first)
+        self.add_expansion(self.map.start_location, api.townhalls.first)
         # TODO: repeat, when needed
         await self.update_assignment()
 
@@ -239,11 +240,11 @@ class ExpansionManager(BotManager):
                     self.log.error("MissingWorker{}", worker_tag)
                     continue
                 workers.append(worker)
-        return Units(workers, self.api)
+        return Units(workers, api)
 
     def get_mineral_fields(self) -> Units:
         all_minerals = [mf for exp in self.expansions.keys() for mf in exp.mineral_fields]
-        return Units(all_minerals, self.api)
+        return Units(all_minerals, api)
 
     def has_worker(self, worker: Unit) -> bool:
         return any(exp.has_worker(worker) for exp in self.expansions.values())
@@ -290,12 +291,12 @@ class ExpansionManager(BotManager):
     def _check_for_dead_tags(self):
         # Check for dead tags
         for exp in list(self.expansions.values()):
-            if exp.townhall_tag not in self.api.alive_tags:
+            if exp.townhall_tag not in api.alive_tags:
                 self.logger.info("Townhall at {} died", exp)
                 self.remove_expansion(exp)
         for exp in self.expansions.values():
             for worker_tag, mineral_position in list(exp.miners.items()):
-                if worker_tag not in self.api.alive_tags:
+                if worker_tag not in api.alive_tags:
                     self.logger.debug("Dead worker={}", worker_tag)
                     self.remove_worker(worker_tag)
                 if exp.location.get_mineral_field(mineral_position) is None:
@@ -317,7 +318,7 @@ class ExpansionManager(BotManager):
 
     def _drop_mules(self) -> None:
         scan_target = self.strategy.scan_target
-        for orbital in self.api.structures(UnitTypeId.ORBITALCOMMAND).ready.sorted_by_distance_to(
+        for orbital in api.structures(UnitTypeId.ORBITALCOMMAND).ready.sorted_by_distance_to(
                 self.map.base.center):
             available_spells = int(orbital.energy // 50)
             reserved_spells = min(scan_target, available_spells)

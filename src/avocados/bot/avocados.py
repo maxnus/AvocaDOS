@@ -1,13 +1,10 @@
-import math
 from collections import Counter
-from typing import Optional, TYPE_CHECKING, Any
+from typing import Optional, Any
 import sys
 
 from loguru import logger as _logger
 from loguru._logger import Logger
-from sc2.cache import property_cache_once_per_frame
 from sc2.data import Result
-from sc2.game_state import GameState
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -15,6 +12,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.__about__ import __version__
 from avocados.bot.rolemanager import RoleManager
 from avocados.bot.scanmanager import ScanManager
@@ -38,12 +36,9 @@ from avocados.mapdata.mapmanager import MapManager
 from avocados.bot.ordermanager import Order, OrderManager
 from avocados.bot.resourcemanager import ResourceManager
 from avocados.bot.objectivemanager import ObjectiveManager
-from avocados.geometry.util import LineSegment, get_best_score, dot
+from avocados.geometry.util import LineSegment
 from avocados.combat.combatmanager import CombatManager
 from avocados.combat.squadmanager import SquadManager
-
-if TYPE_CHECKING:
-    from avocados.core.botapi import BotApi
 
 
 LOG_FORMAT = ("<level>[{level:8}]</level>"
@@ -52,7 +47,6 @@ LOG_FORMAT = ("<level>[{level:8}]</level>"
 
 
 class AvocaDOS:
-    api: 'BotApi'
     name: str
     logger: Logger
     cache: dict[str, Any]
@@ -79,7 +73,8 @@ class AvocaDOS:
     # Other
     previous_orders: dict[int, Optional[Order]]
 
-    def __init__(self, api: 'BotApi', *,
+    def __init__(self,
+                 *,
                  name: str = 'AvocaDOS',
                  build: Optional[str] = 'default',
                  debug: bool = False,
@@ -89,7 +84,6 @@ class AvocaDOS:
                  leave_at: Optional[float] = None,
                  ) -> None:
         super().__init__()
-        self.api = api
         self.name = name
         self.logger = _logger.bind(bot=name, prefix=name, step=0, time=0)
         self.logger.remove()
@@ -135,6 +129,17 @@ class AvocaDOS:
         else:
             self.micro_scenario = None
         self.leave_at = leave_at
+
+        # Register callbacks
+        api.register_on_start(self.on_start)
+        api.register_on_step(self.on_step)
+        api.register_on_end(self.on_end)
+        api.register_on_unit_created(self.on_unit_created)
+        api.register_on_unit_destroyed(self.on_unit_destroyed)
+        api.register_on_unit_took_damage(self.on_unit_took_damage)
+        api.register_on_building_construction_started(self.on_building_construction_started)
+        api.register_on_building_construction_complete(self.on_building_construction_complete)
+
         self.logger.debug("{} initialized", self)
 
     def __repr__(self) -> str:
@@ -152,18 +157,18 @@ class AvocaDOS:
             await self.micro_scenario.on_start()
 
     async def on_step_start(self, step: int) -> None:
-        self.logger = self.logger.bind(step=self.api.state.game_loop, time=self.api.time_formatted)
+        self.logger = self.logger.bind(step=api.state.game_loop, time=api.time_formatted)
 
         if step == 50:
             intro_line1 = "    Artificial  Villain  of  Cheesy  and"
             intro_line2 = "  Dishonorable  Offensive  Strategies"
-            await self.api.client.chat_send(intro_line1, False)
-            await self.api.client.chat_send(intro_line2, False)
+            await api.client.chat_send(intro_line1, False)
+            await api.client.chat_send(intro_line2, False)
 
         if step == 600:
             version = __version__.replace('.', '-')
-            matchup = f"{str(self.api.race)[5]}v{str(self.api.enemy_race)[5]}"
-            tag = f" v{version}  {self.api.game_info.map_name}  {matchup}"
+            matchup = f"{str(api.race)[5]}v{str(api.enemy_race)[5]}"
+            tag = f" v{version}  {api.game_info.map_name}  {matchup}"
             self.log.tag(tag, add_time=False)
 
         await self.log.on_step(step)
@@ -185,10 +190,10 @@ class AvocaDOS:
     async def on_step(self, step: int):
         await self.on_step_start(step)
 
-        if self.leave_at is not None and self.time >= self.leave_at - 1:
+        if self.leave_at is not None and api.time >= self.leave_at - 1:
             self.log.tag('GG', add_time=False)
-            if self.time >= self.leave_at:
-                await self.api.client.leave()
+            if api.time >= self.leave_at:
+                await api.client.leave()
             return
 
         if self.micro_scenario is not None and self.micro_scenario.running:
@@ -236,33 +241,15 @@ class AvocaDOS:
     async def on_unit_destroyed(self, unit_tag: int) -> None:
         pass
 
-    # --- Properties
-
-    @property
-    def step(self) -> int:
-        return self.state.game_loop
-
-    @property
-    def time(self) -> float:
-        return self.api.time
-
-    @property
-    def state(self) -> GameState:
-        return self.api.state
-
-    @property
-    def ext(self) -> ApiExtensions:
-        return self.api.ext
-
     # --- Units
 
     @property
     def units(self) -> Units:
-        return self.api.units
+        return api.units
 
     @property
     def workers(self) -> Units:
-        return self.api.workers
+        return api.workers
 
     @property#_cache_once_per_frame
     def army(self) -> Units:
@@ -274,11 +261,11 @@ class AvocaDOS:
 
     @property
     def structures(self) -> Units:
-        return self.api.structures
+        return api.structures
 
     @property
     def townhalls(self) -> Units:
-        return self.api.townhalls
+        return api.townhalls
 
     @property
     def forces(self) -> Units:
@@ -327,7 +314,7 @@ class AvocaDOS:
             workers_and_dist = {
                 unit: travel_time
                       + (carrying_resource_penalty if unit.is_carrying_resource else 0)
-                      + construction_time_discount * self.ext.get_remaining_construction_time(unit)
+                      + construction_time_discount * api.ext.get_remaining_construction_time(unit)
                 for unit, travel_time in zip(workers, travel_times)
             }
         elif isinstance(location, LineSegment):
@@ -451,23 +438,23 @@ class AvocaDOS:
         # TODO: find the right location in the code
 
         for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
-            if not self.api.enemy_units.not_flying.closer_than(4.5, unit):
+            if not api.enemy_units.not_flying.closer_than(4.5, unit):
                 self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
         for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
-            if self.api.enemy_units.not_flying.closer_than(3.5, unit):
+            if api.enemy_units.not_flying.closer_than(3.5, unit):
                 self.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
         for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTER, UnitTypeId.ORBITALCOMMAND)).ready:
-            enemies = self.api.all_enemy_units.closer_than(7, cc)
+            enemies = api.all_enemy_units.closer_than(7, cc)
             if enemies and not self.workers.closer_than(6, cc):
                 self.order.ability(cc, AbilityId.LIFT)
         for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTERFLYING, UnitTypeId.ORBITALCOMMANDFLYING)).ready:
-            enemies = self.api.all_enemy_units.closer_than(8, cc)
+            enemies = api.all_enemy_units.closer_than(8, cc)
             if not enemies:
                 loc = min(self.map.expansions, key=lambda exp: exp.center.distance_to(cc))
                 self.order.ability(cc, AbilityId.LAND, loc.center)
 
-        for structure in self.api.structures_without_construction_SCVs:
+        for structure in api.structures_without_construction_SCVs:
             cancel = True
             if structure.health + structure.shield > 50:
                 for unit, orders in self.order.orders.items():

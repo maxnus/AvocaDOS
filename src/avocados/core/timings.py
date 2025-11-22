@@ -1,6 +1,7 @@
 from time import perf_counter
 from typing import TYPE_CHECKING
 
+from avocados import api
 from avocados.core.botobject import BotObject
 
 if TYPE_CHECKING:
@@ -46,11 +47,11 @@ class Timings(BotObject):
 
     def add(self, start_time: float) -> None:
         time = perf_counter() - start_time
-        if self.bot.step == self._previous_step:
+        if api.step == self._previous_step:
             self._time_step += time
         else:
             self._time_step = time
-            self._previous_step = self.bot.step
+            self._previous_step = api.step
             self.steps += 1
 
         self.max_time = max(self._time_step, self.max_time)

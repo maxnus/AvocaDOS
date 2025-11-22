@@ -3,6 +3,7 @@ from collections.abc import Callable, Hashable
 from enum import StrEnum
 from typing import Optional, Any, TYPE_CHECKING
 
+from avocados import api
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ class LogManager(BotManager):
         for tag in self._tags_to_send:
             full_tag = f'Tag:{tag}'
             self.logger.info("Sending tag: {}", full_tag)
-            await self.api.client.chat_send(full_tag, team_only=False)
+            await api.client.chat_send(full_tag, team_only=False)
             self._tags_sent.add(tag)
         self._tags_to_send.clear()
 
@@ -59,7 +60,7 @@ class LogManager(BotManager):
 
     def tag(self, tag: str, *, add_time: bool = True) -> None:
         if add_time:
-            tag = f"[{self.api.time_formatted}]{tag}"
+            tag = f"[{api.time_formatted}]{tag}"
         if tag not in self._tags_sent:
             self._tags_to_send.add(tag)
 

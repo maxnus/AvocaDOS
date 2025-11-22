@@ -9,6 +9,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 from sc2.unit import Unit
 
+from avocados import api
 from avocados.core.constants import (RESOURCE_COLLECTOR_TYPE_IDS, BURROWED_TYPE_IDS,
                                      UNBURROWED_TYPE_IDS)
 from avocados.core.manager import BotManager
@@ -53,7 +54,7 @@ class IntelManager(BotManager):
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
         self.last_known_enemy_base = None
-        self.enemy_race = self.api.enemy_race if self.api.enemy_race != Race.Random else None   # Update for random players
+        self.enemy_race = api.enemy_race if api.enemy_race != Race.Random else None   # Update for random players
         self.enemy_units = set()
         self.enemy_burrowed_units = {}
         self.enemy_army_strength = Timeseries.empty(float, initial_size=4096)
@@ -61,20 +62,20 @@ class IntelManager(BotManager):
 
     async def on_start(self) -> None:
         self.last_known_enemy_base = self.map.known_enemy_start_location
-        self.visibility = self.map.create_field_from_pixelmap(self.api.state.visibility)
+        self.visibility = self.map.create_field_from_pixelmap(api.state.visibility)
         self.last_visible = Field((self.map.width, self.map.height), offset=self.map.playable_offset)
 
     async def on_step_start(self, step: int) -> None:
         t0 = perf_counter()
-        self.visibility.data = self.api.state.visibility.data_numpy.transpose()[self.map.playable_mask]
+        self.visibility.data = api.state.visibility.data_numpy.transpose()[self.map.playable_mask]
         mask: ndarray = (self.visibility.data == 2)  # noqa
-        self.last_visible.data[mask] = self.time
+        self.last_visible.data[mask] = api.time
 
-        self.enemy_units = {unit for unit in self.enemy_units if unit.tag in self.api.alive_tags}
+        self.enemy_units = {unit for unit in self.enemy_units if unit.tag in api.alive_tags}
         self.enemy_burrowed_units = {tag: unit for tag, unit in self.enemy_burrowed_units.items()
-                                     if tag in self.api.alive_tags and step <= unit.last_spotted + BURROW_TRACK_DURATION}
-        self.enemy_units.update(self.api.all_enemy_units)
-        for unit in self.api.all_enemy_units:
+                                     if tag in api.alive_tags and step <= unit.last_spotted + BURROW_TRACK_DURATION}
+        self.enemy_units.update(api.all_enemy_units)
+        for unit in api.all_enemy_units:
             self.enemy_utype_last_spotted[unit.type_id] = step
             if unit.type_id in BURROWED_TYPE_IDS:
                 self.enemy_burrowed_units[unit.tag] = BurrowedUnit(unit.tag, unit.position, unit.type_id, step)
@@ -94,13 +95,13 @@ class IntelManager(BotManager):
 
     def get_time_since_last_visible(self, location: Point2 | Rectangle) -> float:
         if isinstance(location, Point2):
-            return self.time - self.last_visible[location]
+            return api.time - self.last_visible[location]
         if isinstance(location, Rectangle):
-            return (self.time - self.last_visible[location]).min()
+            return (api.time - self.last_visible[location]).min()
         raise TypeError(f"invalid type: {type(location)}")
 
     # def get_next_scout_location(self, time_since_scout: float = 30, *, sigma: float = 3.0) -> Circle:
-    #     tss = self.time_since_visible_map(sigma=sigma)
+    #     tss = api.time_since_visible_map(sigma=sigma)
     #     dist = distance_transform_edt(tss > time_since_scout)
     #     #radius = dist.max()
     #     radius = 3

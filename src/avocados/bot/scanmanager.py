@@ -6,6 +6,7 @@ from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
 
+from avocados import api
 from avocados.core.constants import CLOACKABLE_TYPE_IDS
 from avocados.core.manager import BotManager
 
@@ -43,9 +44,9 @@ class ScanManager(BotManager):
         for scan in self.ongoing_scans:
             if scan.location.distance_to(location) < min_separation:
                 return False
-        for orbital in self.api.structures(UnitTypeId.ORBITALCOMMAND).ready:
+        for orbital in api.structures(UnitTypeId.ORBITALCOMMAND).ready:
             if orbital.energy >= 50:
-                scan = Scan(self.step, location)
+                scan = Scan(api.step, location)
                 self.logger.debug("Ordering {} to scan {}", orbital, scan)
                 self.ongoing_scans.append(scan)
                 self.order.ability(orbital, AbilityId.SCANNERSWEEP_SCAN, location)
@@ -54,7 +55,7 @@ class ScanManager(BotManager):
 
     def get_available_scans(self) -> int:
         scans = 0
-        for orbital in self.api.structures(UnitTypeId.ORBITALCOMMAND).ready:
+        for orbital in api.structures(UnitTypeId.ORBITALCOMMAND).ready:
             scans += int(orbital.energy // 50)
         return scans
 
@@ -64,7 +65,7 @@ class ScanManager(BotManager):
         available_scans = self.get_available_scans()
         if available_scans == 0:
             return
-        hidden_enemies = self.api.enemy_units.of_type(CLOACKABLE_TYPE_IDS)
+        hidden_enemies = api.enemy_units.of_type(CLOACKABLE_TYPE_IDS)
         burrowed_enemies = list(self.intel.enemy_burrowed_units.values())
         targets: list[tuple[Point2, float]] = []
 
@@ -72,7 +73,7 @@ class ScanManager(BotManager):
         for enemy_unit in [*hidden_enemies, *burrowed_enemies]:
             # Check if it can be attacked
             friendly_strength = self.combat.get_strength(self.bot.forces.closer_than(max_distance, enemy_unit.position))
-            enemy_strength = self.combat.get_strength(self.api.enemy_units.closer_than(max_distance, enemy_unit.position))
+            enemy_strength = self.combat.get_strength(api.enemy_units.closer_than(max_distance, enemy_unit.position))
             if friendly_strength >= max(1.2 * enemy_strength, min_strength):
                 targets.append((enemy_unit.position, 0.5))   # TODO different priorities
         if targets:

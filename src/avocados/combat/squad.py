@@ -9,6 +9,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.core.botobject import BotObject
 from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
 from avocados.geometry import Area, Circle
@@ -109,7 +110,7 @@ class Squad(BotObject):
 
     def set_status(self, status: SquadStatus) -> None:
         if status != self.status:
-            self.status_changed = self.time
+            self.status_changed = api.time
         self.status = status
 
     # Strength
@@ -184,24 +185,24 @@ class Squad(BotObject):
 
     def attack(self, area: Area, *, priority: float = 0.5,
                queue: bool = False) -> SquadAttackTask:
-        task = SquadAttackTask(area, priority=priority, started=self.time)
+        task = SquadAttackTask(area, priority=priority, started=api.time)
         self._add_task(task, queue=queue)
         return task
 
     def defend(self, area: Area, *, priority: float = 0.5,
                queue: bool = False) -> SquadDefendTask:
-        task = SquadDefendTask(area, priority=priority, started=self.time)
+        task = SquadDefendTask(area, priority=priority, started=api.time)
         self._add_task(task, queue=queue)
         return task
 
     def join(self, squad: 'Squad', *, priority: float = 0.5,
              queue: bool = False) -> SquadJoinTask:
-        task = SquadJoinTask(squad, priority=priority, started=self.time)
+        task = SquadJoinTask(squad, priority=priority, started=api.time)
         self._add_task(task, queue=queue)
         return task
 
     def retreat(self, area: Area, *, priority: float = 0.5, queue: bool = False) -> SquadRetreatTask:
-        task = SquadRetreatTask(area, priority=priority, started=self.time)
+        task = SquadRetreatTask(area, priority=priority, started=api.time)
         self._add_task(task, queue=queue)
         return task
 

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from sc2.data import Race
 
+from avocados import api
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
@@ -141,16 +142,16 @@ class TauntManager(BotManager):
         while self.queued:
             taunt = self.queued.pop()
             self.logger.info("Sending taunt: {}", taunt)
-            await self.api.client.chat_send(taunt, False)
+            await api.client.chat_send(taunt, False)
             self.used_taunts.add(taunt)
 
     def taunt(self) -> bool:
         if self.taunts_left <= 0:
             return False
-        if self.api.enemy_race == Race.Random or random.random() < 0.66:
+        if api.enemy_race == Race.Random or random.random() < 0.66:
             taunts = cheese_taunts
         else:
-            taunts = race_cheese_taunts[self.api.enemy_race]
+            taunts = race_cheese_taunts[api.enemy_race]
         taunt = random.choice(taunts)
         self.queued.add(taunt)
         return True

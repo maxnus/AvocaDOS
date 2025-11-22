@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import Any, Optional, TYPE_CHECKING
 
+from avocados import api
 from avocados.core.botobject import BotObject
 
 if TYPE_CHECKING:
@@ -78,12 +79,12 @@ class Timer(BotObject):
 
     @property
     def time_left(self) -> float:
-        return max(self.duration - self.time_passed, 0)
+        return max(self.duration - api.time_passed, 0)
 
     @property
     def time_passed(self) -> float:
         if self.running:
-            return self.time - self._started
+            return api.time - self._started
         return 0
 
     @property
@@ -91,9 +92,9 @@ class Timer(BotObject):
         return self._started is not None
 
     def start(self) -> None:
-        self._started = self.time
+        self._started = api.time
 
     def expired(self) -> bool:
         if not self.running:
             return False
-        return self.time_left == 0
+        return api.time_left == 0

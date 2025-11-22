@@ -10,6 +10,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point3, Point2
 from sc2.unit import Unit, UnitOrder
 
+from avocados import api
 from avocados.geometry.field import Field
 from avocados.core.manager import BotManager
 from avocados.geometry import Circle, Region, Rectangle
@@ -158,7 +159,7 @@ class DebugManager(BotManager):
 
     @property
     def client(self) -> Client:
-        return self.api.client
+        return api.client
 
     # Controls
 
@@ -230,7 +231,7 @@ class DebugManager(BotManager):
                 self._show_sphere(item)
             elif isinstance(item, DebugBox):
                 self._show_box(item)
-            if self.api.time >= item.created + item.duration:
+            if api.time >= item.created + item.duration:
                 self.debug_items.remove(item)
 
         #if self.bot.map is not None:
@@ -266,7 +267,7 @@ class DebugManager(BotManager):
         position = self._normalize_point3(position, z_offset=z_offset)
         color = normalize_color(color)
         item = DebugWorldText(position, text, size=size or self.text_size, color=color,
-                              created=self.api.time, duration=duration)
+                              created=api.time, duration=duration)
         self.debug_items.append(item)
         return item
 
@@ -287,7 +288,7 @@ class DebugManager(BotManager):
                     size = 2*center.radius
             else:
                 size = 1
-        item = DebugBox(center, size, color=color, created=self.api.time, duration=duration)
+        item = DebugBox(center, size, color=color, created=api.time, duration=duration)
         self.debug_items.append(item)
         return item
 
@@ -301,7 +302,7 @@ class DebugManager(BotManager):
             radius = 1
         center = self._normalize_point3(center)
         color = normalize_color(color)
-        item = DebugSphere(center, radius, color=color, created=self.api.time, duration=duration)
+        item = DebugSphere(center, radius, color=color, created=api.time, duration=duration)
         self.debug_items.append(item)
         return item
 
@@ -336,7 +337,7 @@ class DebugManager(BotManager):
         end = self._normalize_point3(end)
         color = normalize_color(color)
         item = DebugLine(start, end, text_center=text_center, text_start=text_start, text_end=text_end,
-                         text_offset=text_offset, text_size=text_size, color=color, created=self.api.time,
+                         text_offset=text_offset, text_size=text_size, color=color, created=api.time,
                          duration=duration)
         self.debug_items.append(item)
         return item
@@ -363,7 +364,7 @@ class DebugManager(BotManager):
     async def _handle_chat(self):
         cheats = {'!control_enemy', '!food', '!free', '!all_resources', '!god', '!minerals', '!gas',
                   '!cooldown', '!tech_tree', '!upgrade', '!fast_build', '!show_map', '!create_unit'}
-        for chat_message in self.api.state.chat:
+        for chat_message in api.state.chat:
             self.logger.debug("Chat message: {}", chat_message.message)
             if chat_message.message.startswith('!'):
                 cmd, *args = chat_message.message.split()
@@ -383,7 +384,7 @@ class DebugManager(BotManager):
                     self.show_orders = bool(int(args[0]))
 
                 elif cmd == '!debug' and len(args) == 1 and args[0] in {'0', '1'}:
-                    self.api.debug_enabled = bool(int(args[0]))
+                    api.debug_enabled = bool(int(args[0]))
 
                 elif cmd in cheats:
                     func = getattr(self.client, f'debug_{cmd[1:]}', None)
@@ -408,7 +409,7 @@ class DebugManager(BotManager):
                         except ValueError:
                             continue
                     self.logger.info("Setting slowdown time to: {}", slowdown)
-                    self.api.slowdown = slowdown
+                    api.slowdown = slowdown
 
     def _normalize_point3(self, point: Unit | Point3 | Point2, *, z_offset: float = 1.0) -> Point3:
         if isinstance(point, Unit):
@@ -416,15 +417,15 @@ class DebugManager(BotManager):
         if isinstance(point, Point3):
             return point + Point3((0, 0, z_offset))
         if isinstance(point, Point2):
-            return Point3((point[0], point[1], self.api.get_terrain_z_height(point) + z_offset))
+            return Point3((point[0], point[1], api.get_terrain_z_height(point) + z_offset))
         raise TypeError(f"invalid argument: {point}")
 
     def _show_tasks(self) -> None:
-        lines = [repr(task) for task in self.api.bot.objectives]
+        lines = [repr(task) for task in api.bot.objectives]
         self.text_screen(lines, position=(0.005, 0.006))
 
     def _show_combat(self, *, show_weapon_cooldown: bool = False) -> None:
-        for unit in self.api.bot.units:
+        for unit in api.bot.units:
             if show_weapon_cooldown and unit.weapon_cooldown != 0:
                 text = f'({math.ceil(unit.weapon_cooldown)})'
                 self.text(text, unit.position3d + Point3((0, 0, -0.5)), size=12, color=Color.CYAN)
@@ -432,14 +433,14 @@ class DebugManager(BotManager):
             if unit.orders:
                 order = unit.orders[0]
                 if isinstance(order.target, int):
-                    target = self.api.all_units.find_by_tag(order.target)
+                    target = api.all_units.find_by_tag(order.target)
                 else:
                     target = order.target
                 if target is not None:
                     self.line(unit, target, color=get_color_for_order(order))
         # for unit, damage in self.damage_taken.items():
         #     color = Color.RED if damage > 0 else Color.GREEN
-        #     self.text_world(f"[{self.api.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
+        #     self.text_world(f"[{api.state.game_loop}] -{damage:.2f}", unit.position3d + Point3((0, 0, 1.2)),
         #                     size=12, color=color)
 
     def _show_speedmining(self) -> None:
@@ -481,7 +482,7 @@ class DebugManager(BotManager):
                 self.line(unit, squad.center, color=color)
 
     def _show_extra(self) -> None:
-        mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
+        mineral_rate, vespene_rate = api.ext.get_resource_collection_rates()
         x = 0.78
         y0 = 0.05
         dy = 0.02
@@ -495,7 +496,7 @@ class DebugManager(BotManager):
         self.text_screen(f"barracks target={self.strategy.barracks_target:.0f}", position=(x, y0 + 5*dy))
         self.text_screen(f"scan target={self.strategy.scan_target:.2f}", position=(x, y0 + 6*dy))
 
-        min_step, avg_step, max_step, last_step = self.api.step_time
+        min_step, avg_step, max_step, last_step = api.step_time
         if last_step <= 10:
             color =Color.GREEN
         elif last_step <= 40:
@@ -556,7 +557,7 @@ class DebugManager(BotManager):
                 self.draw_tile(Point2((x + 0.5, y + 0.5)), color=color)
 
     def _show_unit(self, steps: int):
-        for unit in self.api.all_units:
+        for unit in api.all_units:
             info = []
             if self.show.get(DebugLayers.TAG):
                 info.append(str(unit.tag)[-5:])
@@ -588,7 +589,7 @@ class DebugManager(BotManager):
                               camera_size: tuple[float, float] = (22, 16)
                               ) -> Optional[tuple[Point2, Point2]]:
         """Returns the approximate bounding box of the camera view."""
-        camera_pos = self.api.state.observation_raw.player.camera
+        camera_pos = api.state.observation_raw.player.camera
         if not camera_pos:
             return None
 

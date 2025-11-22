@@ -7,6 +7,7 @@ from sc2.ids.upgrade_id import UpgradeId
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.core.manager import BotManager
 
 if TYPE_CHECKING:
@@ -37,14 +38,14 @@ class ResourceManager(BotManager):
 
     @property
     def minerals(self) -> int:
-        return self.api.minerals - self.spent_minerals - self.reserved_minerals
+        return api.minerals - self.spent_minerals - self.reserved_minerals
 
     @property
     def vespene(self) -> int:
-        return self.api.vespene - self.spent_vespene - self.reserved_vespene
+        return api.vespene - self.spent_vespene - self.reserved_vespene
 
     def calculate_cost(self, item: UnitTypeId | UpgradeId | AbilityId) -> Cost:
-        return self.api.calculate_cost(item)
+        return api.calculate_cost(item)
 
     def can_afford(self, item: UnitTypeId | UpgradeId | AbilityId | Cost) -> bool:
         cost = item if isinstance(item, Cost) else self.calculate_cost(item)
@@ -74,7 +75,7 @@ class ResourceManager(BotManager):
 
         if self.minerals >= cost.minerals and self.vespene >= cost.vespene:
             return 0
-        mineral_rate, vespene_rate = self.ext.get_resource_collection_rates()
+        mineral_rate, vespene_rate = api.ext.get_resource_collection_rates()
         mineral_rate *= mineral_discount_factor
         time = 0
         if cost.minerals > 0:

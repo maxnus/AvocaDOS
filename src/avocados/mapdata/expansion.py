@@ -5,6 +5,7 @@ from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.units import Units
 
+from avocados import api
 from avocados.core.botobject import BotObject
 from avocados.geometry.region import Region
 from avocados.geometry import Circle, Rectangle, get_circle_intersections
@@ -35,9 +36,9 @@ class ExpansionLocation(BotObject):
         self.terrain_height = self.map.terrain_height[self.center]
 
         self.mineral_fields_locations = {
-            mf.position for mf in self.api.mineral_field.closer_than(8, self.center).sorted_by_distance_to(self.center)}
+            mf.position for mf in api.mineral_field.closer_than(8, self.center).sorted_by_distance_to(self.center)}
         self.vespene_geyser_locations = {
-            vg.position for vg in self.api.vespene_geyser.closer_than(8, self.center).sorted_by_distance_to(self.center)}
+            vg.position for vg in api.vespene_geyser.closer_than(8, self.center).sorted_by_distance_to(self.center)}
 
         self.logger.debug("Found {} mineral fields and {} vespene geysers at {}",
                           len(self.mineral_fields_locations), len(self.vespene_geyser_locations), self)
@@ -99,24 +100,24 @@ class ExpansionLocation(BotObject):
         return Rectangle(xmin, ymin, xmax-xmin, ymax-ymin)
 
     def get_mineral_field(self, position: Point2) -> Optional[Unit]:
-        mf = self.api.mineral_field.closest_to(position)
+        mf = api.mineral_field.closest_to(position)
         if mf.distance_to(position) > 0:
             return None
         return mf
 
     def get_vespene_geyser(self, position: Point2) -> Optional[Unit]:
-        vg = self.api.vespene_geyser.closest_to(position)
+        vg = api.vespene_geyser.closest_to(position)
         if vg.distance_to(position) > 0:
             return None
         return vg
 
     @property
     def mineral_fields(self) -> Units:
-        return self.api.mineral_field.filter(lambda mf: mf.position in self.mineral_fields_locations)
+        return api.mineral_field.filter(lambda mf: mf.position in self.mineral_fields_locations)
 
     @property
     def vespene_geyser(self) -> Units:
-        return self.api.vespene_geyser.filter(lambda vg: vg.position in self.vespene_geyser_locations)
+        return api.vespene_geyser.filter(lambda vg: vg.position in self.vespene_geyser_locations)
 
     def minerals(self) -> int:
         return sum(mf.mineral_contents for mf in self.mineral_fields)
@@ -162,7 +163,7 @@ class StartLocation(ExpansionLocation):
     @property
     def ramp(self) -> Ramp:
         if self._ramp is None:
-            self._ramp = min(self.api.game_info.map_ramps, key=lambda r: r.top_center.distance_to(self.center))
+            self._ramp = min(api.game_info.map_ramps, key=lambda r: r.top_center.distance_to(self.center))
         return self._ramp
 
     @property

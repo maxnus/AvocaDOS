@@ -7,6 +7,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 
+from avocados import api
 from avocados.core.botobject import BotObject
 from avocados.geometry.util import unique_id, Rectangle, Area
 
@@ -137,7 +138,7 @@ class ExpansionObjective(ConstructionObjective):
                  **kwargs
                  ) -> None:
         super().__init__(
-            utype=bot.ext.townhall_utype, number=number, position=position, max_distance=max_distance,
+            utype=api.ext.townhall_utype, number=number, position=position, max_distance=max_distance,
             bot=bot, reqs=reqs, deps=deps, priority=priority, persistent=True, **kwargs
         )
 
@@ -182,7 +183,7 @@ class WorkerObjective(UnitObjective):
                  priority: float = DEFAULT_PRIORITY,
                  **kwargs
                  ) -> None:
-        super().__init__(bot=bot, utype=bot.ext.worker_utype, number=number, priority=priority, persistent=True,
+        super().__init__(bot=bot, utype=api.ext.worker_utype, number=number, priority=priority, persistent=True,
                          **kwargs)
 
     def __repr__(self) -> str:
@@ -207,7 +208,7 @@ class SupplyObjective(Objective):
 
     @property
     def utype(self) -> UnitTypeId:
-        return self.ext.supply_utype
+        return api.ext.supply_utype
 
     @property
     def position(self) -> None:
