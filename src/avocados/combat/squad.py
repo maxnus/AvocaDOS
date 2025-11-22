@@ -16,11 +16,6 @@ from avocados.core.unitutil import get_unit_type_counts, get_unique_unit_types
 from avocados.geometry import Area, Circle
 
 
-COMBAT_LEASH = 4.0
-MOVE_LEASH = 2.0
-DEFAULT_LEASH = 14.0
-
-
 @runtime_checkable
 class SquadTask(Protocol):
     target: Any
@@ -61,6 +56,14 @@ class SquadStatus(StrEnum):
     MOVING = "M"
     COMBAT = "C"
     AT_TARGET= "T"
+
+
+leash_range: dict[SquadStatus, float] = {
+    SquadStatus.IDLE: 8.0,
+    SquadStatus.MOVING: 1.0,
+    SquadStatus.COMBAT: 3.0,
+    SquadStatus.AT_TARGET: 12.0,
+}
 
 
 class Squad(BotObject):
@@ -213,7 +216,6 @@ class Squad(BotObject):
 
     # --- Position
 
-    #@property_cache_once_per_frame
     @property
     def radius_squared(self) -> float:
         """Caching may not be correct, as units can change during frame."""
@@ -229,26 +231,25 @@ class Squad(BotObject):
     def radius(self) -> float:
         return math.sqrt(self.radius_squared)
 
-    #@property_cache_once_per_frame
     @property
     def leash_range(self) -> float:
-        if self.status == SquadStatus.COMBAT:
-            leash = COMBAT_LEASH
-        elif self.status == SquadStatus.MOVING:
-            leash = MOVE_LEASH
-        else:
-            leash = DEFAULT_LEASH
-        return math.sqrt(self.radius_squared) + leash
+        return math.sqrt(self.radius_squared) + leash_range[self.status]
 
-    #@property_cache_once_per_frame
+    @property
+    def center_unit(self) -> Optional[Unit]:
+        """Caching may not be correct, as units can change during frame."""
+        if self.units.empty:
+            return None
+        if len(self) == 2:
+            return self.units.first if self.units.first.tag < self.units[-1].tag else self.units[-1]
+        return self.units.closest_to(self.geometric_center)
+
     @property
     def center(self) -> Optional[Point2]:
         """Caching may not be correct, as units can change during frame."""
         if self.units.empty:
             return None
-        if len(self) == 2:
-            return self.units.first.position if self.units.first.tag < self.units[-1].tag else self.units[-1].position
-        return self.units.closest_to(self.geometric_center).position
+        return self.center_unit.position
 
     @property
     def geometric_center(self) -> Optional[Point2]:
@@ -256,7 +257,6 @@ class Squad(BotObject):
         if self.units.empty:
             return None
         return self.units.center
-
 
     # def get_position_covariance(self) -> Optional[numpy.ndarray]:
     #     if self.units.empty:

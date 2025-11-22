@@ -1,6 +1,6 @@
 from abc import ABC
 from enum import Enum, StrEnum
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -9,15 +9,13 @@ from sc2.position import Point2
 from avocados import api
 from avocados.geometry.util import unique_id, Rectangle, Area
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class ObjectiveStatus(Enum):
     NOT_STARTED = 0
-    STARTED = 1
+    IN_PROGRESS = 1
     COMPLETED = 2
     FAILED = 3
+    CANCELLED = 4
 
 
 class ObjectiveRequirementType(StrEnum):
@@ -80,9 +78,13 @@ class Objective(ABC):
             return [reqs]
         return reqs
 
-    def mark_complete(self) -> None:
+    def complete(self) -> None:
         if not self.persistent:
             self.status = ObjectiveStatus.COMPLETED
+
+    def cancel(self) -> None:
+        if not self.persistent:
+            self.status = ObjectiveStatus.CANCELLED
 
 
 class ConstructionObjective(Objective):

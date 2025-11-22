@@ -109,7 +109,7 @@ class ObjectiveManager(BotManager):
 
         # TODO: Move below to on_step_started?
         for objective in list(self.current.values()):
-            if objective.status in {ObjectiveStatus.COMPLETED, ObjectiveStatus.FAILED}:
+            if objective.status in {ObjectiveStatus.COMPLETED, ObjectiveStatus.FAILED, ObjectiveStatus.CANCELLED}:
                 self._complete_objective(objective)
 
         for objective in list(self.future.values()):
@@ -119,7 +119,7 @@ class ObjectiveManager(BotManager):
 
     def _start_objective(self, objective: Objective) -> None:
         self.future.pop(objective.id, None)
-        objective.status = ObjectiveStatus.STARTED
+        objective.status = ObjectiveStatus.IN_PROGRESS
         objective.start_time = api.time
         self.current[objective.id] = objective
         self.logger.info("Started {}", objective)
@@ -186,7 +186,7 @@ class ObjectiveManager(BotManager):
         else:
             api.log.error("ObjectiveNotImplemented_{}", objective)
         if completed:
-            objective.mark_complete()
+            objective.complete()
         return completed
 
     async def _construction_objective(self, objective: ConstructionObjective | SupplyObjective) -> bool:

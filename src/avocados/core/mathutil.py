@@ -1,4 +1,5 @@
 import numpy
+from numpy import ndarray
 import scipy
 
 
@@ -20,3 +21,14 @@ def filter_array_at(array: numpy.ndarray, index: int, sigma: float = 1.0, trunca
     all_values[window_start:window_stop] = signal
     filtered = numpy.dot(all_values, kernel)
     return filtered
+
+
+def sigmoid[T: float | ndarray](x: T, k: float = 1.0) -> T:
+    return 1 / (1 + numpy.exp(-k * (x - 0.5)))
+
+
+def clipped_sigmoid[T: float | ndarray](x: T, k: float = 1.0) -> T:
+    lx = sigmoid(x, k=k)
+    l0 = sigmoid(0, k=k)
+    l1 = sigmoid(1, k=k)
+    return (lx - l0) / (l1 - l0)

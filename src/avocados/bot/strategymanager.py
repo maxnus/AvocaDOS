@@ -11,6 +11,7 @@ from avocados.bot.memorymanager import MemoryManager
 from avocados.bot.objectivemanager import ObjectiveManager
 from avocados.bot.resourcemanager import ResourceManager
 from avocados.combat.util import get_strength
+from avocados.core.mathutil import clipped_sigmoid
 from avocados.core.timeseries import Timeseries
 from avocados.core.util import two_point_lerp, lerp, snap
 from avocados.core.manager import BotManager
@@ -56,6 +57,9 @@ class StrategyManager(BotManager):
         self.expand = expansion_manager
         self.objectives = objective_manager
 
+        self.vespene_value = 1.5
+        self.enemy_vespene_value = 1.5
+
         self.aggression = 0.7
         self.minimum_attack_strength = 5.0
         self.worker_priority = 0.4
@@ -76,9 +80,15 @@ class StrategyManager(BotManager):
         self.objectives.set_expansion_objective(1)
 
     async def on_step(self, step: int) -> None:
+        self.aggression = self.get_aggression()
+
         if self.aggression >= 0.5:
+            for objective in self.objectives.objectives_of_type(DefenseObjective):
+                objective.cancel()
             self._issue_attack_objective()
         else:
+            for objective in self.objectives.objectives_of_type(AttackObjective):
+                objective.cancel()
             if len(self.objectives.objectives_of_type(DefenseObjective)) == 0:
                 self.objectives.add_defense_objective(Circle(self.map.base.center, 16))
 
@@ -105,6 +115,39 @@ class StrategyManager(BotManager):
                 if self.barracks_target > len(api.structures(UnitTypeId.BARRACKS)):
                     self.objectives.add_construction_objective(UnitTypeId.BARRACKS, number=self.barracks_target,
                                                                priority=self.production_priority)
+
+    def get_aggression(self, steps: int = 1344) -> float:
+        if api.step < steps / 2:
+            return 0.75
+        s1 = api.step
+        s0 = max(s1 - steps, 0)
+        lost = (
+            self.memory.lost_minerals[s1] - self.memory.lost_minerals[s0]
+            + self.vespene_value * (self.memory.lost_vespene[s1] - self.memory.lost_vespene[s0])
+        )
+        killed = (
+            self.memory.killed_minerals[s1] - self.memory.killed_minerals[s0]
+            + self.vespene_value * (self.memory.killed_vespene[s1] - self.memory.killed_vespene[s0])
+        )
+        if lost == killed == 0:
+            trade_score = 0.75
+        else:
+            ratio = killed / (lost + killed)
+            #trade_score = lerp(1 - (ratio-1)**2, (0, 0), (1, 1))  # 1 - (x - 1)^2 to give more weight to aggression
+            #trade_score = lerp(ratio, (0, 0), (1, 1))  # 1 - (x - 1)^2 to give more weight to aggression
+            trade_score = clipped_sigmoid(ratio, k=7)
+
+        taken = self.memory.damage_taken[s1] - self.memory.damage_taken[s0]
+        dealt = self.memory.damage_dealt[s1] - self.memory.damage_dealt[s0]
+        if taken == dealt == 0:
+            damage_score = 0.75
+        else:
+            ratio = dealt / (taken + dealt)
+            #damage_ratio = lerp(1 - (ratio-1)**2, (0, 0), (1, 1))
+            #damage_ratio = lerp(ratio, (0, 0), (1, 1))
+            damage_score = clipped_sigmoid(ratio, k=7)
+
+        return 0.5 * trade_score + 0.5 * damage_score
 
     def get_worker_target(self) -> int:
         workers = self.expand.get_required_workers() + self.bonus_workers
@@ -231,6 +274,15 @@ class StrategyManager(BotManager):
 
     # --- Private
 
+    def _get_minimum_squad_size(self) -> int:
+        if self.memory.army_strength.value() >= 2 * self.intel.enemy_army_strength.value():
+            squad_size = 3
+        elif self.memory.army_strength.value() >= self.intel.enemy_army_strength.value():
+            squad_size = 5
+        else:
+            squad_size = 10
+        return squad_size
+
     def _issue_attack_objective(self) -> None:
         if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
                 and get_strength(api.army) >= self.minimum_attack_strength):
@@ -250,10 +302,5 @@ class StrategyManager(BotManager):
                 target = max(targets.keys(), key=targets.get).center
             area = Circle(target, 16.0)
 
-            if self.memory.army_strength.value() >= 2 * self.intel.enemy_army_strength.value():
-                squad_size = 3
-            elif self.memory.army_strength.value() >= self.intel.enemy_army_strength.value():
-                squad_size = 5
-            else:
-                squad_size = 10
-            self.objectives.add_attack_objective(area, priority=self.aggression, minimum_size=squad_size, max_time=120)
+            self.objectives.add_attack_objective(area, priority=self.aggression,
+                                                 minimum_size=self._get_minimum_squad_size(), max_time=120)

@@ -486,7 +486,7 @@ class CombatManager(BotManager):
 
         # --- Regroup
         if len(squad) > 0 and squared_distance(unit, squad.center) >= squad.leash_range**2:
-            api.order.move(unit, squad.center)
+            api.order.move(unit, squad.center_unit)
             return True
 
         return False

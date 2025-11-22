@@ -92,6 +92,10 @@ class Timeseries[T](AbstractTimeSeries):
             return Timeseries(values, start=offset, length=step)
         return NotImplemented
 
+    def at(self, time: float) -> T:
+        step = int(time * 22.4)
+        return self[step]
+
     def append(self, step: int, value: T) -> None:
         if self.size == 0:
             self._offset = step

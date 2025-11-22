@@ -22,6 +22,8 @@ MAX_SQUAD_SIZE = 24
 RETREAT_MIN_BASE_DISTANCE = 16.0
 RETREAT_DISTANCE = 25.0
 RETREAT_HEALTH_PERCENTAGE = 0.40
+RETREAT_SAFETY_DISTANCE = 10.0
+RETREAT_TIMEOUT = 15.0
 SQUAD_JOIN_DISTANCE = 2.0
 
 
@@ -255,7 +257,8 @@ class SquadManager(BotManager):
 
     def _stop_retreat(self) -> None:
         for squad in self.with_task(task_type=SquadRetreatTask):
-            # if squad.all_units_in_area(squad.task.target):
-            if squad.center in squad.task.target or api.time > squad.task.started + 20:
-                self.logger.debug("{} has retreated to {}", squad, squad.task.target)
+            if (squad.center in squad.task.target
+                    or api.time > squad.task.started + RETREAT_TIMEOUT
+                    or len(api.all_enemy_units.closer_than(RETREAT_SAFETY_DISTANCE, squad.center)) == 0):
+                self.logger.debug("{} has stopped retreating", squad)
                 squad.remove_task()

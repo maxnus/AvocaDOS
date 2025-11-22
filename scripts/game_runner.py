@@ -37,7 +37,7 @@ class GameRunner:
         self.map = map_
         self.bot = bot
         if isinstance(opponent, Race):
-            opponent = Computer(opponent, Difficulty.VeryHard)
+            opponent = Computer(opponent, Difficulty.CheatInsane)
         elif isinstance(opponent, Difficulty):
             opponent = Computer(Race.Random, opponent)
         self.opponent = opponent
