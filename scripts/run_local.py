@@ -16,7 +16,7 @@ parser.add_argument("--realtime", action="store_true", default=False)
 if __name__ == "__main__":
     args = parser.parse_known_args()[0]
     runner = GameRunner(
-        bot=create_avocados(log_level='DEBUG', debug=True),
+        bot=create_avocados(debug=True),
         opponent=args.opponent_race,
         realtime=args.realtime,
         map_=args.map,

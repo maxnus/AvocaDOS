@@ -331,7 +331,7 @@ class CombatManager(BotManager):
                 return 0.03
 
             case _:
-                self.log.warning("MissAtkBasPrio {}", target.type_id.name)
+                api.log.warning("MissAtkBasPrio {}", target.type_id.name)
                 return 0.05 if target.is_structure else 0.50
 
     def _get_attack_priorities(self, attacker: Units, targets: Units) -> dict[Unit, float]:

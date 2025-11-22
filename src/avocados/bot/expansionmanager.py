@@ -94,7 +94,7 @@ class Expansion(BotObject):
         self.miners.clear()
         # TODO: long distance mining?
         if not self.location.mineral_fields:
-            self.log.caution("NoMinerals_{}", self.location)
+            api.log.caution("NoMinerals_{}", self.location)
             return
         # should already be sorted
         minerals = self.location.mineral_fields.sorted_by_distance_to(self.location.center)
@@ -107,7 +107,7 @@ class Expansion(BotObject):
     def speed_mine(self) -> None:
         townhall = self.townhall
         if townhall is None:
-            self.log.error("NoTownhall-{}", self.townhall_tag)
+            api.log.error("NoTownhall-{}", self.townhall_tag)
             return
 
         enemies = api.enemy_units.closer_than(8, townhall)
@@ -115,7 +115,7 @@ class Expansion(BotObject):
         for worker_tag, mineral_position in self.miners.items():
             worker = api.workers.find_by_tag(worker_tag)
             if worker is None:
-                self.log.error("InvalidWorkerTag-{}", worker_tag)
+                api.log.error("InvalidWorkerTag-{}", worker_tag)
                 continue
 
             # Defend yourself TODO: do for all probes
@@ -127,19 +127,19 @@ class Expansion(BotObject):
 
             mineral_field = self.location.get_mineral_field(mineral_position)
             if mineral_field is None:
-                self.log.error("InvalidMineralTag-{}", mineral_position)
+                api.log.error("InvalidMineralTag-{}", mineral_position)
                 continue
 
             if worker.is_carrying_minerals:
                 target_point = self.location.mining_return_targets.get(mineral_position)
                 if target_point is None:
-                    self.log.error("InvalidReturnTarget-{}", mineral_position)
+                    api.log.error("InvalidReturnTarget-{}", mineral_position)
                     continue
                 target = townhall
             else:
                 target_point = self.location.mining_gather_targets.get(mineral_position)
                 if target_point is None:
-                    self.log.error("InvalidGatherTarget-{}", mineral_position)
+                    api.log.error("InvalidGatherTarget-{}", mineral_position)
                     continue
                 target = mineral_field
 
@@ -234,7 +234,7 @@ class ExpansionManager(BotManager):
     def get_assigned_worker_count_at_expansion(self, location: ExpansionLocation) -> Counter[Point2]:
         exp = self.expansions.get(location)
         if exp is None:
-            self.log.error("No expansion at {}", location)
+            api.log.error("No expansion at {}", location)
             return Counter()
         return exp.get_assigned_worker_count()
 
@@ -242,9 +242,9 @@ class ExpansionManager(BotManager):
         workers = []
         for exp in self.expansions.values():
             for worker_tag in exp.miners:
-                worker = self.bot.workers.find_by_tag(worker_tag)
+                worker = api.workers.find_by_tag(worker_tag)
                 if worker is None:
-                    self.log.error("MissingWorker{}", worker_tag)
+                    api.log.error("MissingWorker{}", worker_tag)
                     continue
                 workers.append(worker)
         return Units(workers, api)
@@ -258,7 +258,7 @@ class ExpansionManager(BotManager):
 
     def add_worker(self, worker: Unit) -> bool:
         if self.has_worker(worker):
-            self.log.warning("SCV-{}-already-assigned-{}", worker, self)
+            api.log.warning("SCV-{}-already-assigned-{}", worker, self)
             return False
         for exp in sorted(self.expansions.values(), key=lambda exp: worker.distance_to(exp.location.center)):
             if exp.add_worker(worker):
@@ -281,7 +281,7 @@ class ExpansionManager(BotManager):
         for exp in self.expansions.values():
             if exp.remove_worker(unit):
                 return True
-        self.log.warning("unknown-worker-{}", tag)
+        api.log.warning("unknown-worker-{}", tag)
         return False
 
     async def update_assignment(self) -> None:

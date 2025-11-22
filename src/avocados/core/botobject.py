@@ -1,12 +1,12 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Any
 
 from loguru._logger import Logger
 
+from avocados import api
 from avocados.geometry.util import unique_id
 
 if TYPE_CHECKING:
-    from avocados.core.logmanager import LogManager
     from avocados.bot.avocados import AvocaDOS
 
 
@@ -34,10 +34,4 @@ class BotObject(ABC):
 
     @property
     def logger(self) -> Logger:
-        return self.bot.logger.bind(prefix=type(self).__name__)
-
-    # --- Other Manager
-
-    @property
-    def log(self) -> 'LogManager':
-        return self.bot.log
+        return api.logger.bind(prefix=type(self).__name__)

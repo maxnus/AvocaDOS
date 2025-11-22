@@ -182,7 +182,7 @@ class ObjectiveManager(BotManager):
             if api.step % 4 == 0:
                 completed = self._squad_objective(objective)
         else:
-            self.log.error("ObjectiveNotImplemented_{}", objective)
+            api.log.error("ObjectiveNotImplemented_{}", objective)
         if completed:
             objective.mark_complete()
         return completed
@@ -202,11 +202,11 @@ class ObjectiveManager(BotManager):
 
         trainer_utype = TRAINERS.get(objective.utype)
         if trainer_utype is None:
-            self.log.error("MissingTrainer_{}", objective.utype.name)
+            api.log.error("MissingTrainer_{}", objective.utype.name)
             return False
 
         if trainer_utype not in WORKER_TYPE_IDS:
-            self.log.error("TrainerNotWorker_{}", objective.utype.name)
+            api.log.error("TrainerNotWorker_{}", objective.utype.name)
             return False
 
         time_for_tech = api.ext.time_until_tech(objective.utype)
@@ -219,7 +219,7 @@ class ObjectiveManager(BotManager):
                 objective.utype, area=objective.position, include_addon=False)#TODO getattr(objective, 'include_addon', True))
             #position = task.position
             if wrapped_target is None:
-                self.log.warning("NoLocFound_{}_{}", objective.utype.name, objective.position)
+                api.log.warning("NoLocFound_{}_{}", objective.utype.name, objective.position)
                 break
             # SCV can start constructing from a distance of 2.5 away
             worker, travel_time = await self.bot.pick_worker(wrapped_target.value, target_distance=2.5)
@@ -347,7 +347,7 @@ class ObjectiveManager(BotManager):
             elif isinstance(objective, DefenseObjective):
                 squad.defend(objective.target, priority=objective.priority)
             else:
-                self.log.error("Unknown objective type: {}", objective)
+                api.log.error("Unknown objective type: {}", objective)
                 return False
 
         return False

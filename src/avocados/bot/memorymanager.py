@@ -50,7 +50,7 @@ class MemoryManager(BotManager):
         self.supply.append(step, int(api.supply_used))
         self.supply_cap.append(step, int(api.supply_cap))
         self.supply_workers.append(step, int(api.supply_workers))
-        self.army_strength.append(step, get_strength(self.bot.army))
+        self.army_strength.append(step, get_strength(api.army))
 
         # Own
         for unit in api.units:

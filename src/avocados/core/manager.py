@@ -14,13 +14,5 @@ class BotManager(BotObject, ABC):
 
     def __init__(self, bot: 'AvocaDOS') -> None:
         super().__init__(bot)
-        self.timings = defaultdict(lambda: Timings(bot))
+        self.timings = defaultdict(Timings)
         self.logger.debug("Initializing {}", type(self).__name__)
-
-    # --- Callbacks
-
-    async def on_start(self) -> None:
-        pass
-
-    async def on_step(self, step: int) -> None:
-        pass

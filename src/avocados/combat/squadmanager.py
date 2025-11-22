@@ -81,14 +81,14 @@ class SquadManager(BotManager):
             self.logger.debug("{}", squad)
             already_known = squad._tags & known_unit_ids
             if already_known:
-                self.log.error("Units in more than one squad")
+                api.log.error("Units in more than one squad")
             already_known.update(squad._tags)
             for unit in squad.units:
                 s = self._tag_to_squad.get(unit.tag, None)
                 if s is None:
-                    self.log.error("tag_to_squad is missing tag")
+                    api.log.error("tag_to_squad is missing tag")
                 if s != squad.id:
-                    self.log.error("tag_to_squad pointing to wrong squad id")
+                    api.log.error("tag_to_squad pointing to wrong squad id")
 
     def __len__(self) -> int:
         return len(self._squads)
@@ -118,7 +118,7 @@ class SquadManager(BotManager):
         # TODO: use _tags_to_squad
         for squad in self:
             if common_tags := tags & squad._tags:
-                self.log.warning("Tags {} are already assigned to {}", common_tags, squad)
+                api.log.warning("Tags {} are already assigned to {}", common_tags, squad)
                 tags_filtered -= common_tags
         return tags_filtered
 
@@ -145,7 +145,7 @@ class SquadManager(BotManager):
         id_ = squad.id if isinstance(squad, Squad) else squad
         squad = self._squads.pop(id_, None)
         if squad is None:
-            self.log.warning("Squad {} not found", id_)
+            api.log.warning("Squad {} not found", id_)
         else:
             self.remove_units(squad, squad._tags)
             self.logger.debug("Deleted squad {}", squad)
@@ -172,7 +172,7 @@ class SquadManager(BotManager):
             if self._tag_to_squad.get(tag) == squad.id:
                 self._tag_to_squad.pop(tag)
             else:
-                self.log.warning("Tag {} was not assigned to {}", tag, squad)
+                api.log.warning("Tag {} was not assigned to {}", tag, squad)
         squad._tags.difference_update(tags)
 
     def has_squad(self, unit: Unit | int) -> bool:
@@ -186,7 +186,7 @@ class SquadManager(BotManager):
             return None
         squad = self._squads.get(squad_id)
         if squad is None:
-            self.log.error("Squad not found: {}", squad_id)
+            api.log.error("Squad not found: {}", squad_id)
         return squad
 
     def remove_from_squads(self, units: Units | set[int]) -> None:

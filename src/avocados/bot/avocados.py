@@ -1,8 +1,6 @@
 from collections import Counter
 from typing import Optional, Any
-import sys
 
-from loguru import logger as _logger
 from loguru._logger import Logger
 from sc2.data import Result
 from sc2.ids.ability_id import AbilityId
@@ -28,7 +26,6 @@ from avocados.bot.expansionmanager import ExpansionManager
 from avocados.bot.strategymanager import StrategyManager
 from avocados.core.manager import BotManager
 from avocados.core.unitutil import get_unit_type_counts
-from avocados.core.logmanager import LogManager
 from avocados.core.util import WithCallback
 from avocados.debug.debugmanager import DebugManager
 from avocados.debug.micro_scenario_manager import MicroScenarioManager
@@ -46,11 +43,8 @@ LOG_FORMAT = ("<level>[{level:8}]</level>"
 
 
 class AvocaDOS:
-    name: str
-    logger: Logger
     cache: dict[str, Any]
     # Manager
-    log: LogManager
     map: Optional[MapManager]
     build: BuildOrderManager
     roles: RoleManager
@@ -71,37 +65,15 @@ class AvocaDOS:
 
     def __init__(self,
                  *,
-                 name: str = 'AvocaDOS',
                  build: Optional[str] = 'default',
                  debug: bool = False,
-                 log_level: str = "DEBUG",
-                 log_file: Optional[str] = None,
                  micro_scenario: Optional[dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]]] = None,
                  leave_at: Optional[float] = None,
                  ) -> None:
         super().__init__()
-        self.name = name
-        self.logger = _logger.bind(bot=name, prefix=name, step=0, time=0)
-        self.logger.remove()
-        self.logger.add(
-            sys.stdout,
-            level=log_level,
-            filter=lambda record: record['extra'].get('bot') == self.name,
-            format=LOG_FORMAT,
-        )
-        if log_file:
-            self.logger.add(
-                f'data/{log_file}',
-                level=log_level,
-                filter=lambda record: record['extra'].get('bot') == self.name,
-                format=LOG_FORMAT,
-                rotation='1 day',
-                retention='14 days',
-            )
         self.cache = {}
 
         # Manager
-        self.log = LogManager(self)
         self.logger.debug("Initializing {}...", self)
         self.roles = RoleManager(self)
         self.map = MapManager(self)
@@ -153,6 +125,10 @@ class AvocaDOS:
     def __repr__(self) -> str:
         return f"{type(self).__name__}({__version__})"
 
+    @property
+    def logger(self) -> Logger:
+        return api.logger.bind(prefix=type(self).__name__)
+
     async def on_start(self) -> None:
         await self.map.on_start()
         await self.expand.on_start()
@@ -165,8 +141,6 @@ class AvocaDOS:
             await self.micro_scenario.on_start()
 
     async def on_step_start(self, step: int) -> None:
-        self.logger = self.logger.bind(step=api.state.game_loop, time=api.time_formatted)
-
         if step == 50:
             intro_line1 = "    Artificial  Villain  of  Cheesy  and"
             intro_line2 = "  Dishonorable  Offensive  Strategies"
@@ -177,9 +151,8 @@ class AvocaDOS:
             version = __version__.replace('.', '-')
             matchup = f"{str(api.race)[5]}v{str(api.enemy_race)[5]}"
             tag = f" v{version}  {api.game_info.map_name}  {matchup}"
-            self.log.tag(tag, add_time=False)
+            api.log.tag(tag, add_time=False)
 
-        await self.log.on_step(step)
         if step % 500 == 0:
             self._report_timings()
 
@@ -198,7 +171,7 @@ class AvocaDOS:
         await self.on_step_start(step)
 
         if self.leave_at is not None and api.time >= self.leave_at - 1:
-            self.log.tag('GG', add_time=False)
+            api.log.tag('GG', add_time=False)
             if api.time >= self.leave_at:
                 await api.client.leave()
             return
@@ -247,39 +220,6 @@ class AvocaDOS:
     async def on_unit_destroyed(self, unit_tag: int) -> None:
         pass
 
-    # --- Units
-
-    @property
-    def units(self) -> Units:
-        return api.units
-
-    @property
-    def workers(self) -> Units:
-        return api.workers
-
-    @property#_cache_once_per_frame
-    def army(self) -> Units:
-        def army_filter(unit: Unit) -> bool:
-            if unit.type_id in RESOURCE_COLLECTOR_TYPE_IDS:
-                return False
-            return True
-        return self.units.filter(army_filter)
-
-    @property
-    def structures(self) -> Units:
-        return api.structures
-
-    @property
-    def townhalls(self) -> Units:
-        return api.townhalls
-
-    @property
-    def forces(self) -> Units:
-        return self.army + self.structures.of_type(STATIC_DEFENSE_TYPE_IDS)
-
-    def get_unit_type_counts(self) -> Counter[UnitTypeId]:
-        return get_unit_type_counts(self.forces)
-
     # --- Pick unit
 
     async def pick_workers(self, location: Point2 | Unit | LineSegment, *,
@@ -307,7 +247,7 @@ class AvocaDOS:
             #    return include_collecting
             return False
 
-        workers = self.workers.filter(worker_filter)
+        workers = api.workers.filter(worker_filter)
         if not workers:
             return []
         # Prefilter for performance
@@ -361,7 +301,7 @@ class AvocaDOS:
             self.log.error("No trainer for {}", utype)
             return None
 
-        free_trainers = self.structures(trainer_utype).ready.idle.filter(lambda x: not api.order.has_order(x))
+        free_trainers = api.structures(trainer_utype).ready.idle.filter(lambda x: not api.order.has_order(x))
         #self.logger.trace("free trainers for {}: {}", utype.name, free_trainers)
         if not free_trainers:
             return None
@@ -398,7 +338,7 @@ class AvocaDOS:
 
     def pick_researcher(self, upgrade: UpgradeId, *, position: Optional[Point2] = None) -> Optional[Unit]:
         researcher_utype = RESEARCHERS[upgrade]
-        researchers = self.structures(researcher_utype).idle.filter(lambda x: not api.order.has_order(x))
+        researchers = api.structures(researcher_utype).idle.filter(lambda x: not api.order.has_order(x))
         if not researchers:
             return None
         if position is None:
@@ -408,8 +348,8 @@ class AvocaDOS:
     def pick_army(self, *, strength: Optional[float] = None, position: Optional[Point2] = None,
                   max_priority: float = 0.0) -> Units:
 
-        if not self.army:
-            return self.army
+        if not api.army:
+            return api.army
 
         def army_filter(unit: Unit) -> bool:
             squad = self.squads.get_squad_of(unit.tag)
@@ -419,7 +359,7 @@ class AvocaDOS:
                 return True
             return squad.task_priority < max_priority
 
-        units = self.army.filter(army_filter)
+        units = api.army.filter(army_filter)
         if not units:
             return units
 
@@ -443,18 +383,18 @@ class AvocaDOS:
     async def other(self, step: int) -> None:
         # TODO: find the right location in the code
 
-        for unit in self.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
+        for unit in api.structures(UnitTypeId.SUPPLYDEPOT).ready.idle:
             if not api.enemy_units.not_flying.closer_than(4.5, unit):
                 api.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_LOWER)
-        for unit in self.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
+        for unit in api.structures(UnitTypeId.SUPPLYDEPOTLOWERED).ready.idle:
             if api.enemy_units.not_flying.closer_than(3.5, unit):
                 api.order.ability(unit, AbilityId.MORPH_SUPPLYDEPOT_RAISE)
 
-        for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTER, UnitTypeId.ORBITALCOMMAND)).ready:
+        for cc in api.townhalls.of_type((UnitTypeId.COMMANDCENTER, UnitTypeId.ORBITALCOMMAND)).ready:
             enemies = api.all_enemy_units.closer_than(7, cc)
-            if enemies and not self.workers.closer_than(6, cc):
+            if enemies and not api.workers.closer_than(6, cc):
                 api.order.ability(cc, AbilityId.LIFT)
-        for cc in self.townhalls.of_type((UnitTypeId.COMMANDCENTERFLYING, UnitTypeId.ORBITALCOMMANDFLYING)).ready:
+        for cc in api.townhalls.of_type((UnitTypeId.COMMANDCENTERFLYING, UnitTypeId.ORBITALCOMMANDFLYING)).ready:
             enemies = api.all_enemy_units.closer_than(8, cc)
             if not enemies:
                 loc = min(self.map.expansions, key=lambda exp: exp.center.distance_to(cc))

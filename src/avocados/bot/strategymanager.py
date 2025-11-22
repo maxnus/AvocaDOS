@@ -237,19 +237,19 @@ class StrategyManager(BotManager):
 
     def _issue_attack_objective(self) -> None:
         if (len(self.objectives.objectives_of_type(AttackObjective)) == 0
-                and get_strength(self.bot.army) >= self.minimum_attack_strength):
+                and get_strength(api.army) >= self.minimum_attack_strength):
             enemy_structures = api.ext.enemy_major_structures
             late_game_score = self.get_late_game_score()
             self.logger.info("Late game score: {:.2%}", late_game_score)
             if late_game_score <= 0.25:
                 enemy_structures = enemy_structures.of_type(TOWNHALL_TYPE_IDS)
             if enemy_structures:
-                target = enemy_structures.closest_to(self.bot.army.center).position
+                target = enemy_structures.closest_to(api.army.center).position
             else:
                 reference_point = self.intel.last_known_enemy_base.center or self.map.center
                 targets = {exp: (time
                                  - 0.1 * exp.center.distance_to(reference_point)
-                                 - 0.1 * exp.center.distance_to(self.bot.army.center))
+                                 - 0.1 * exp.center.distance_to(api.army.center))
                            for exp, time in self.intel.get_time_since_expansions_last_visible().items()}
                 target = max(targets.keys(), key=targets.get).center
             area = Circle(target, 16.0)

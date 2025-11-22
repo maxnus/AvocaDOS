@@ -1,14 +1,9 @@
 from time import perf_counter
-from typing import TYPE_CHECKING
 
 from avocados import api
-from avocados.core.botobject import BotObject
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
-class Timings(BotObject):
+class Timings:
     """Per frame aggregation."""
     max_time: float
     total_time: float
@@ -17,8 +12,8 @@ class Timings(BotObject):
     _previous_step: int
     _time_step: float
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
-        super().__init__(bot)
+    def __init__(self) -> None:
+        super().__init__()
         self.reset()
 
     def __repr__(self) -> str:

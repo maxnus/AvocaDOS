@@ -3,11 +3,8 @@ from collections.abc import Callable, Hashable
 from enum import StrEnum
 from typing import Optional, Any, TYPE_CHECKING
 
-from avocados import api
-from avocados.core.manager import BotManager
-
 if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
+    from avocados import Api
 
 
 class WarningLevel(StrEnum):
@@ -25,13 +22,15 @@ warning_codes: dict[WarningLevel, str] = {
 }
 
 
-class LogManager(BotManager):
+class LogManager:
+    api: 'Api'
     _tags_to_send: set[str]
     _tags_sent: set[str]
     _warnings_sent: Counter[Hashable]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
-        super().__init__(bot)
+    def __init__(self, api: 'Api') -> None:
+        super().__init__()
+        self.api = api
         self._tags_to_send = set()
         self._tags_sent = set()
         self._warnings_sent = Counter()
@@ -41,8 +40,8 @@ class LogManager(BotManager):
     async def on_step(self, step: int) -> None:
         for tag in self._tags_to_send:
             full_tag = f'Tag:{tag}'
-            self.logger.info("Sending tag: {}", full_tag)
-            await api.client.chat_send(full_tag, team_only=False)
+            self.api.logger.info("Sending tag: {}", full_tag)
+            await self.api.client.chat_send(full_tag, team_only=False)
             self._tags_sent.add(tag)
         self._tags_to_send.clear()
 
@@ -60,7 +59,7 @@ class LogManager(BotManager):
 
     def tag(self, tag: str, *, add_time: bool = True) -> None:
         if add_time:
-            tag = f"[{api.time_formatted}]{tag}"
+            tag = f"[{self.api.time_formatted}]{tag}"
         if tag not in self._tags_sent:
             self._tags_to_send.add(tag)
 
@@ -83,11 +82,11 @@ class LogManager(BotManager):
     def _get_log_function(self, level: WarningLevel) -> Callable:
         match level:
             case WarningLevel.CAUTION:
-                return self.logger.warning
+                return self.api.logger.warning
             case WarningLevel.WARNING:
-                return self.logger.warning
+                return self.api.logger.warning
             case WarningLevel.ERROR:
-                return self.logger.error
+                return self.api.logger.error
             case WarningLevel.CRITICAL:
-                return self.logger.critical
+                return self.api.logger.critical
         raise ValueError(f"invalid warning level: {level}")

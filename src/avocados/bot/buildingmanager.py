@@ -118,7 +118,7 @@ class BuildingManager(BotManager):
                 return exp.center
 
             case _:
-                self.log.error("NoImplBuildLoc{}", structure.name)
+                api.log.error("NoImplBuildLoc{}", structure.name)
                 return None
 
     def _find_next_expansion(self, *, area: Optional[Rectangle] = None) -> Optional[ExpansionLocation]:
@@ -140,7 +140,7 @@ class BuildingManager(BotManager):
 
         building_area = area.overlap(self.map.playable_rect).enclosed_rect()
         if building_area.size == 0:
-            self.log.error("BuildAreaSize{}", building_area.size)
+            api.log.error("BuildAreaSize{}", building_area.size)
             return None
 
         # if self._can_place(structure, building_area.center, clearance=clearance, include_addon=include_addon):
@@ -182,12 +182,12 @@ class BuildingManager(BotManager):
         elif structure in VESPENE_GEYSER_TYPE_IDS | GAS_TYPE_IDS:
             width = height = 3
         elif (unit_type_data := api.ext.get_unit_type_data(structure)) is None:
-            self.log.error("NoUnitData{}", structure)
+            api.log.error("NoUnitData{}", structure)
             width = height = 0
         elif unit_type_data.footprint_radius is not None:
             width = height = int(2 * unit_type_data.footprint_radius)
         else:
-            self.logger.warning("Footprint radius of {} is None", structure)
+            api.logger.warning("Footprint radius of {} is None", structure)
             width = height = 0
 
         if include_addon and structure in ADDON_BUILDING_TYPE_IDS:
@@ -230,7 +230,7 @@ class BuildingManager(BotManager):
         try:
             points = grid_points[mask, :]
         except IndexError as exc:
-            if self.log.error("BooleanMaskIndexError"):
+            if api.log.error("BooleanMaskIndexError"):
                 self.logger.exception(exc)
                 self.logger.error('_rect_to_mask={}', self.map.placement_grid._rect_to_mask(building_area))
                 self.logger.error("building_area={}", building_area)
@@ -254,7 +254,7 @@ class BuildingManager(BotManager):
 
     def _update_blocking_grid(self) -> None:
         self.blocking_grid.data[:] = self.resource_blocking_grid.data
-        for structure in api.all_structures.not_flying:
+        for structure in (api.structures + api.enemy_structures).not_flying:
             footprint = self._get_footprint(structure.type_id, structure.position)
             self.blocking_grid[footprint] = False
 

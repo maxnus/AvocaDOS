@@ -94,7 +94,7 @@ class ScanManager(BotManager):
         # Careful: we loop over both units and BurrowedUnit - but they both have the position attribute
         for enemy_unit in [*hidden_enemies, *burrowed_enemies]:
             # Check if it can be attacked
-            friendly_strength = get_strength(self.bot.forces.closer_than(max_distance, enemy_unit.position))
+            friendly_strength = get_strength(api.forces.closer_than(max_distance, enemy_unit.position))
             enemy_strength = get_strength(api.enemy_units.closer_than(max_distance, enemy_unit.position))
             if friendly_strength >= max(1.2 * enemy_strength, min_strength):
                 targets.append((enemy_unit.position, 0.5))   # TODO different priorities

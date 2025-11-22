@@ -463,7 +463,7 @@ class DebugManager(BotManager):
         self.text_screen(lines, position=(0.005, 0.006))
 
     def _show_combat(self, *, show_weapon_cooldown: bool = False) -> None:
-        for unit in api.bot.units:
+        for unit in api.units:
             if show_weapon_cooldown and unit.weapon_cooldown != 0:
                 text = f'({math.ceil(unit.weapon_cooldown)})'
                 self.text(text, unit.position3d + Point3((0, 0, -0.5)), size=12, color=Color.CYAN)
