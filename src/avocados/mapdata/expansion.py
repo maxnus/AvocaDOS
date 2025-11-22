@@ -11,7 +11,6 @@ from avocados.geometry.region import Region
 from avocados.geometry import Circle, Rectangle, get_circle_intersections
 
 if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
     from avocados.mapdata import MapManager
 
 
@@ -32,8 +31,8 @@ class ExpansionLocation(BotObject):
     mining_gather_targets: dict[Point2, Point2]
     mining_return_targets: dict[Point2, Point2]
 
-    def __init__(self, bot: 'AvocaDOS', location: Point2, *, map_manager: 'MapManager') -> None:
-        super().__init__(bot)
+    def __init__(self, location: Point2, *, map_manager: 'MapManager') -> None:
+        super().__init__()
         self.map = map_manager
         self.center = location
         self.terrain_height = self.map.terrain_height[self.center]
@@ -153,8 +152,8 @@ class StartLocation(ExpansionLocation):
     _expansion_order: Optional[list[ExpansionLocation]]
     _region: Region
 
-    def __init__(self, bot: 'AvocaDOS', location: Point2, *, map_manager: 'MapManager') -> None:
-        super().__init__(bot, location, map_manager=map_manager)
+    def __init__(self, location: Point2, *, map_manager: 'MapManager') -> None:
+        super().__init__(location, map_manager=map_manager)
         self._ramp = None
         self._natural = None
         self._line_third = None

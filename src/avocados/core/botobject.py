@@ -1,24 +1,19 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from loguru._logger import Logger
 
 from avocados import api
 from avocados.geometry.util import unique_id
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class BotObject(ABC):
     id: int
-    bot: 'AvocaDOS'
     cache: dict[str, Any]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
+    def __init__(self) -> None:
         super().__init__()
         self.id = unique_id()
-        self.bot = bot
         self.cache: dict[str, Any] = {}
 
     def __repr__(self) -> str:

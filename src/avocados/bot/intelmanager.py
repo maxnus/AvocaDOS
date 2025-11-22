@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from time import perf_counter
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import numpy
 from numpy import ndarray
@@ -19,9 +19,6 @@ from avocados.geometry.field import Field
 from avocados.geometry.util import Rectangle
 from avocados.mapdata import MapManager
 from avocados.mapdata.expansion import ExpansionLocation
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 BURROW_TRACK_DURATION: int = 224  # 10 seconds
@@ -55,8 +52,8 @@ class IntelManager(BotManager):
     enemy_army_strength: Timeseries[float]
     enemy_utype_last_spotted: dict[UnitTypeId, int]
 
-    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
-        super().__init__(bot)
+    def __init__(self, map_manager: MapManager) -> None:
+        super().__init__()
         self.map = map_manager
 
         self.last_known_enemy_base = None

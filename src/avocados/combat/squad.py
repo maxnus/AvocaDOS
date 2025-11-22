@@ -72,10 +72,10 @@ class Squad(BotObject):
     _tasks: list[SquadTask]
     damage_taken: deque[float]
 
-    def __init__(self, bot, tags: Optional[set[int]] = None, *,
+    def __init__(self, tags: Optional[set[int]] = None, *,
                  target_strength: float,
                  _code: bool = False) -> None:
-        super().__init__(bot)
+        super().__init__()
         assert _code, "Squads should only be created by the SquadManager"
         self._tags = tags or set()
         self._tasks = []

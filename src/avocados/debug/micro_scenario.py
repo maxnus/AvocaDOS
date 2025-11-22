@@ -1,6 +1,6 @@
 import itertools
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
@@ -13,9 +13,6 @@ from avocados.core.botobject import BotObject
 from avocados.core.unitutil import UnitCost
 from avocados.combat.squad import Squad
 from avocados.mapdata import MapManager
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 @dataclass
@@ -52,7 +49,7 @@ class MicroScenario(BotObject):
     # Class Variables
     _id_counter = itertools.count()
 
-    def __init__(self, bot: 'AvocaDOS', *,
+    def __init__(self, *,
                  squad_manager: SquadManager,
                  map_manager: MapManager,
                  unit_types: dict[UnitTypeId, int] | tuple[dict[UnitTypeId, int], dict[UnitTypeId, int]],
@@ -60,7 +57,7 @@ class MicroScenario(BotObject):
                  spawns: Optional[tuple[Point2, Point2]] = None,
                  max_duration: float = 60,
                  ) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.squads = squad_manager
         self.map = map_manager
 

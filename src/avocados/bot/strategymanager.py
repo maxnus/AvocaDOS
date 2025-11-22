@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 import numpy
 from sc2.ids.unit_typeid import UnitTypeId
@@ -18,9 +18,6 @@ from avocados.core.constants import TOWNHALL_TYPE_IDS, PRODUCTION_BUILDING_TYPE_
 from avocados.bot.objective import AttackObjective, DefenseObjective, UnitObjective, ConstructionObjective
 from avocados.geometry import Circle
 from avocados.mapdata import MapManager
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 class StrategyManager(BotManager):
@@ -44,14 +41,14 @@ class StrategyManager(BotManager):
     # ClassVars
     max_workers: ClassVar[int] = 80
 
-    def __init__(self, bot: 'AvocaDOS', *,
+    def __init__(self, *,
                  map_manager: MapManager,
                  memory_manager: MemoryManager,
                  resource_manager: ResourceManager,
                  intel_manager: IntelManager,
                  expansion_manager: ExpansionManager,
                  objective_manager: ObjectiveManager) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.map = map_manager
         self.memory = memory_manager
         self.resources = resource_manager
@@ -68,7 +65,7 @@ class StrategyManager(BotManager):
         self.bonus_workers = 3
         self.absolute_bonus_supply = 1
         self.relative_bonus_supply = 0.05
-        self.expansion_score_threshold = 0.5
+        self.expansion_score_threshold = 0.40
         # Targets
         self.barracks_target: int = 0
 
@@ -159,7 +156,6 @@ class StrategyManager(BotManager):
         marine_rate = 2.778  # 50 minerals / 18 sec
         return mineral_rate / marine_rate
 
-
     # --- Scores
 
     def get_late_game_score(self) -> float:
@@ -175,7 +171,7 @@ class StrategyManager(BotManager):
         remaining_minerals = sum(mf.mineral_contents for mf in minerals)
         mineral_content_score = lerp(remaining_minerals, (0, 1), (2 * 10800, 0))
         missing_mining_spots = len(api.workers) - 2 * len(minerals)
-        mineral_field_score = lerp(missing_mining_spots, (0, 0), (16, 1))
+        mineral_field_score = lerp(missing_mining_spots, (0, 0), (8, 1))
         minerals_score = lerp(self.resources.minerals, (300, 0), (500, 1))
         return 0.3 * mineral_content_score + 0.3 * mineral_field_score + 0.4 * minerals_score
 

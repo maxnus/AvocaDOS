@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -16,21 +16,18 @@ from avocados.core.util import WithCallback
 from avocados.geometry.util import LineSegment
 from avocados.mapdata import MapManager
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class RequestManager(BotManager):
     map: MapManager
     squads: SquadManager
     expand: ExpansionManager
 
-    def __init__(self, bot: 'AvocaDOS', *,
+    def __init__(self, *,
                  map_manager: MapManager,
                  squad_manager: SquadManager,
                  expansion_manager: ExpansionManager
                  ) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.map = map_manager
         self.squads = squad_manager
         self.expand = expansion_manager

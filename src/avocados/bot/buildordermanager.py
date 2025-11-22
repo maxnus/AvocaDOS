@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 
@@ -6,19 +6,16 @@ from avocados.bot.objectivemanager import ObjectiveManager
 from avocados.core.manager import BotManager
 from avocados.mapdata import MapManager
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class BuildOrderManager(BotManager):
     map: MapManager
     objectives: ObjectiveManager
     build: Optional[str]
 
-    def __init__(self, bot: 'AvocaDOS', build: Optional[str] = 'default', *,
+    def __init__(self, build: Optional[str] = 'default', *,
                  map_manager: MapManager,
                  objective_manager: ObjectiveManager) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.map = map_manager
         self.objectives = objective_manager
 

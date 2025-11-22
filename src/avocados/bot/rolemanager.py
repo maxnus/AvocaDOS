@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
@@ -9,9 +9,6 @@ from sc2.unit import Unit
 from avocados import api
 from avocados.combat.squad import Squad
 from avocados.core.manager import BotManager
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 class Role(ABC):
@@ -69,8 +66,8 @@ class DefenseRole(Role):
 class RoleManager(BotManager):
     _roles: dict[int, Role]
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
-        super().__init__(bot)
+    def __init__(self) -> None:
+        super().__init__()
         self._roles = {}
 
     async def on_step_start(self, step: int) -> None:

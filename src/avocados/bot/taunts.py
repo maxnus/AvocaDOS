@@ -1,13 +1,9 @@
 import random
-from typing import TYPE_CHECKING
 
 from sc2.data import Race
 
 from avocados import api
 from avocados.core.manager import BotManager
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 cheese_taunts = [
@@ -128,8 +124,8 @@ class TauntManager(BotManager):
     queued: set[str]
     max_taunts: int
 
-    def __init__(self, bot: 'AvocaDOS', *, max_taunts: int = 1) -> None:
-        super().__init__(bot)
+    def __init__(self, *, max_taunts: int = 1) -> None:
+        super().__init__()
         self.used_taunts = set()
         self.queued = set()
         self.max_taunts = max_taunts

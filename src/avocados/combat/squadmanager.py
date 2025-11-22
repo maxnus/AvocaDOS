@@ -1,7 +1,7 @@
 import random
 from collections.abc import Iterator, Callable
 from time import perf_counter
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.position import Point2
 from sc2.unit import Unit
@@ -15,9 +15,6 @@ from avocados.geometry.util import squared_distance
 from avocados.core.unitutil import normalize_tags
 from avocados.combat.squad import Squad, SquadTask, SquadJoinTask, SquadRetreatTask
 from avocados.mapdata import MapManager
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 MAX_SQUAD_SIZE = 24
@@ -34,8 +31,8 @@ class SquadManager(BotManager):
     _squads: dict[int, Squad]
     _tag_to_squad: dict[int, int]
 
-    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager) -> None:
-        super().__init__(bot)
+    def __init__(self, *, map_manager: MapManager) -> None:
+        super().__init__()
         self.map = map_manager
 
         self._squads = {}
@@ -129,7 +126,7 @@ class SquadManager(BotManager):
             raise ValueError("No units given")
         if target_strength is None:
             target_strength = get_strength(units)
-        squad = Squad(self.bot, target_strength=target_strength, _code=True)
+        squad = Squad(target_strength=target_strength, _code=True)
         self.add_units(squad, units, remove_from_squads=remove_from_squads)
         self._squads[squad.id] = squad
         self.logger.debug("Created squad {}", squad)

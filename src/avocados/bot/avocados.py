@@ -68,38 +68,32 @@ class AvocaDOS:
 
         # Manager
         self.logger.debug("Initializing {}...", self)
-        self.roles = RoleManager(self)
-        self.map = MapManager(self)
-
-        self.memory = MemoryManager(self)
-        self.taunt = TauntManager(self)
-        # One dependency
-        self.intel = IntelManager(self, map_manager=self.map)
-        self.scan = ScanManager(self, intel_manager=self.intel)
-        self.squads = SquadManager(self, map_manager=self.map)
-        #
-        self.combat = CombatManager(self, memory_manager=self.memory, taunt_manager=self.taunt,
-                                    squad_manager=self.squads)
-
-        self.expand = ExpansionManager(self, map_manager=self.map, scan_manager=self.scan)
-        self.request = RequestManager(self, map_manager=self.map, squad_manager=self.squads,
-                                      expansion_manager=self.expand)
-        self.defense = DefenseManager(self, expansion_manager=self.expand)
-        self.resources = ResourceManager(self, expansion_manager=self.expand)
-        self.building = BuildingManager(self, map_manager=self.map)
-        self.objectives = ObjectiveManager(self, building_manager=self.building, resource_manager=self.resources,
+        self.roles = RoleManager()
+        self.map = MapManager()
+        self.memory = MemoryManager()
+        self.taunt = TauntManager()
+        self.intel = IntelManager(map_manager=self.map)
+        self.scan = ScanManager(intel_manager=self.intel)
+        self.squads = SquadManager(map_manager=self.map)
+        self.building = BuildingManager(map_manager=self.map)
+        self.combat = CombatManager(memory_manager=self.memory, taunt_manager=self.taunt, squad_manager=self.squads)
+        self.expand = ExpansionManager(map_manager=self.map, scan_manager=self.scan)
+        self.request = RequestManager(map_manager=self.map, squad_manager=self.squads, expansion_manager=self.expand)
+        self.defense = DefenseManager(expansion_manager=self.expand)
+        self.resources = ResourceManager(expansion_manager=self.expand)
+        self.objectives = ObjectiveManager(building_manager=self.building, resource_manager=self.resources,
                                            squad_manager=self.squads, request_manager=self.request)
-        self.build = BuildOrderManager(self, build=build, map_manager=self.map, objective_manager=self.objectives)
-        self.strategy = StrategyManager(self, map_manager=self.map, memory_manager=self.memory,
+        self.build = BuildOrderManager(build=build, map_manager=self.map, objective_manager=self.objectives)
+        self.strategy = StrategyManager(map_manager=self.map, memory_manager=self.memory,
                                         resource_manager=self.resources, intel_manager=self.intel,
                                         expansion_manager=self.expand, objective_manager=self.objectives)
-        self.debug = (DebugManager(self, map_manager=self.map, building_manager=self.building,
+        self.debug = (DebugManager(map_manager=self.map, building_manager=self.building,
                                    memory_manager=self.memory, intel_manager=self.intel,
                                    expansion_manager=self.expand, objective_manager=self.objectives,
                                    squad_manager=self.squads, scan_manager=self.scan, strategy_manager=self.strategy)
                       if (debug or micro_scenario) else None)
         if micro_scenario is not None:
-            self.micro_scenario = MicroScenarioManager(self, units=micro_scenario, map_manager=self.map,
+            self.micro_scenario = MicroScenarioManager(units=micro_scenario, map_manager=self.map,
                                                        squad_manager=self.squads, debug_manager=self.debug)
         else:
             self.micro_scenario = None

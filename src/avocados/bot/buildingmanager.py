@@ -1,5 +1,5 @@
 from time import perf_counter
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import numpy
 from sc2.ids.unit_typeid import UnitTypeId
@@ -17,9 +17,6 @@ from avocados.core.util import WithCallback
 from avocados.mapdata import MapManager
 from avocados.mapdata.expansion import ExpansionLocation
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class BuildingManager(BotManager):
     map: MapManager
@@ -28,8 +25,8 @@ class BuildingManager(BotManager):
     blocking_grid: Field[bool]
     resource_blocking_grid: Field[bool]
 
-    def __init__(self, bot: 'AvocaDOS', map_manager: MapManager) -> None:
-        super().__init__(bot)
+    def __init__(self, map_manager: MapManager) -> None:
+        super().__init__()
         self.map = map_manager
         # attributes initialized in on_start
 

@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from time import perf_counter
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -21,9 +21,6 @@ from avocados.geometry.util import squared_distance, get_best_score, Area
 from avocados.combat.squad import SquadDefendTask, SquadAttackTask, SquadStatus
 from avocados.mapdata.expansion import ExpansionLocation
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class ObjectiveManager(BotManager):
     building: BuildingManager
@@ -39,13 +36,13 @@ class ObjectiveManager(BotManager):
     supply_objective: Optional[SupplyObjective]
     expansion_objective: Optional[ExpansionObjective]
 
-    def __init__(self, bot: 'AvocaDOS', *,
+    def __init__(self, *,
                  building_manager: BuildingManager,
                  resource_manager: ResourceManager,
                  squad_manager: SquadManager,
                  request_manager: RequestManager,
                  ) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.building = building_manager
         self.resources = resource_manager
         self.squads = squad_manager

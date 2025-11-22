@@ -1,6 +1,6 @@
 import itertools
 from collections.abc import Callable, Collection
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import numpy
 from numpy import ndarray
@@ -15,9 +15,6 @@ from avocados.core.manager import BotManager
 from avocados.geometry.region import Region
 from avocados.geometry.util import Area, Rectangle
 from avocados.mapdata.expansion import ExpansionLocation, StartLocation
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 class MapManager(BotManager):
@@ -35,8 +32,8 @@ class MapManager(BotManager):
     enemy_start_locations: list[StartLocation]
     known_enemy_start_location: Optional[StartLocation] # Only set once known
 
-    def __init__(self, bot: 'AvocaDOS') -> None:
-        super().__init__(bot)
+    def __init__(self) -> None:
+        super().__init__()
         # Initialization of variables happens in on_start
 
     @property
@@ -128,12 +125,12 @@ class MapManager(BotManager):
 
         start_locations = [api.start_location] + api.enemy_start_locations
         self.expansions = [(StartLocation if location in start_locations else ExpansionLocation)
-                           (self.bot, location, map_manager=self)
+                           (location, map_manager=self)
                            for location in self._get_ordered_expansion()]
 
-        self.start_location = StartLocation(self.bot, api.start_location, map_manager=self)
+        self.start_location = StartLocation(api.start_location, map_manager=self)
         self.base = self.start_location # TODO: use later in case we lose the start_base
-        self.enemy_start_locations = [StartLocation(self.bot, loc, map_manager=self) for loc in api.enemy_start_locations]
+        self.enemy_start_locations = [StartLocation(loc, map_manager=self) for loc in api.enemy_start_locations]
         self.known_enemy_start_location = self.enemy_start_locations[0] if len(self.enemy_start_locations) == 1 else None
         self.logger.debug("on_start finished")
 

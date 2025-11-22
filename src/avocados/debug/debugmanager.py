@@ -2,7 +2,7 @@ import math
 from dataclasses import dataclass
 from enum import StrEnum
 from time import perf_counter
-from typing import TYPE_CHECKING, Optional, ClassVar, Protocol
+from typing import Optional, ClassVar, Protocol
 
 from sc2.client import Client
 from sc2.ids.ability_id import AbilityId
@@ -24,9 +24,6 @@ from avocados.core.manager import BotManager
 from avocados.geometry import Circle, Region, Rectangle
 from avocados.combat.squad import SquadAttackTask, SquadDefendTask, SquadJoinTask, SquadRetreatTask
 from avocados.mapdata import MapManager
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 class Color:
@@ -164,7 +161,7 @@ class DebugManager(BotManager):
     # Temporary displays
     debug_items: list[DebugItem]
 
-    def __init__(self, bot: 'AvocaDOS', *,
+    def __init__(self, *,
                  map_manager: MapManager,
                  building_manager: BuildingManager,
                  memory_manager: MemoryManager,
@@ -174,7 +171,7 @@ class DebugManager(BotManager):
                  squad_manager: SquadManager,
                  scan_manager: ScanManager,
                  strategy_manager: StrategyManager) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.map = map_manager
         self.building = building_manager
         self.memory = memory_manager

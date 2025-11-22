@@ -1,6 +1,5 @@
-from collections.abc import Iterable
 from time import perf_counter
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.buff_id import BuffId
@@ -22,9 +21,6 @@ from avocados.core.unitutil import get_closest_sq_distance
 from avocados.core.util import lerp, clip
 from avocados.geometry.util import squared_distance
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class CombatManager(BotManager):
     memory: MemoryManager
@@ -41,11 +37,11 @@ class CombatManager(BotManager):
     attack_priority_threshold: float
     defense_priority_threshold: float
 
-    def __init__(self, bot: 'AvocaDOS', *,
+    def __init__(self, *,
                  memory_manager: MemoryManager,
                  taunt_manager: TauntManager,
                  squad_manager: SquadManager) -> None:
-        super().__init__(bot)
+        super().__init__()
         self.memory = memory_manager
         self.taunt = taunt_manager
         self.squads = squad_manager

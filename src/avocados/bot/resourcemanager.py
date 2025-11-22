@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from sc2.game_data import Cost
 from sc2.ids.ability_id import AbilityId
@@ -11,9 +11,6 @@ from avocados import api
 from avocados.bot.expansionmanager import ExpansionManager
 from avocados.core.manager import BotManager
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class ResourceManager(BotManager):
     expand: ExpansionManager
@@ -22,8 +19,8 @@ class ResourceManager(BotManager):
     reserved_minerals: int
     reserved_vespene: int
 
-    def __init__(self, bot: 'AvocaDOS', *, expansion_manager: ExpansionManager) -> None:
-        super().__init__(bot)
+    def __init__(self, *, expansion_manager: ExpansionManager) -> None:
+        super().__init__()
         self.expand = expansion_manager
         self.spent_minerals = 0
         self.spent_vespene = 0

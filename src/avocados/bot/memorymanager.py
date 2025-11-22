@@ -1,6 +1,6 @@
 from pathlib import Path
 from time import perf_counter
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import numpy
 from sc2.unit import Unit
@@ -9,9 +9,6 @@ from avocados import api
 from avocados.combat.util import get_strength
 from avocados.core.manager import BotManager
 from avocados.core.timeseries import Timeseries
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 INITIAL_TIMESERIES_SIZE = 4096
@@ -29,8 +26,8 @@ class MemoryManager(BotManager):
     supply_workers: Timeseries[int]
     army_strength: Timeseries[float]
 
-    def __init__(self, bot: 'AvocaDOS', *, max_length: int = 1000) -> None:
-        super().__init__(bot)
+    def __init__(self, max_length: int = 1000) -> None:
+        super().__init__()
         self.max_length = max_length
         self.units_last_seen = {}
         #self.enemy_units = {}

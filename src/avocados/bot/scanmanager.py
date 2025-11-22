@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from time import perf_counter
-from typing import TYPE_CHECKING
 
 from sc2.data import Race
 from sc2.ids.ability_id import AbilityId
@@ -9,14 +8,10 @@ from sc2.position import Point2
 
 from avocados import api
 from avocados.bot.intelmanager import IntelManager
-from avocados.combat.combatmanager import CombatManager
 from avocados.combat.util import get_strength
 from avocados.core.constants import CLOACKABLE_TYPE_IDS
 from avocados.core.manager import BotManager
 from avocados.core.util import snap
-
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
 
 
 SCAN_DURATION: int = 196
@@ -34,8 +29,8 @@ class ScanManager(BotManager):
     scan_target: int
     ongoing_scans: list[Scan]
 
-    def __init__(self, bot: 'AvocaDOS', *, intel_manager: IntelManager) -> None:
-        super().__init__(bot)
+    def __init__(self, intel_manager: IntelManager) -> None:
+        super().__init__()
         self.intel = intel_manager
 
         self.scan_target = 0

@@ -1,7 +1,7 @@
 from collections import Counter
 from collections.abc import Iterable
 from time import perf_counter
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
@@ -19,17 +19,14 @@ from avocados.geometry.util import same_point, get_best_score
 from avocados.mapdata import MapManager
 from avocados.mapdata.expansion import ExpansionLocation
 
-if TYPE_CHECKING:
-    from avocados.bot.avocados import AvocaDOS
-
 
 class Expansion(BotObject):
     townhall_tag: int
     location: ExpansionLocation
     miners: dict[int, Point2]
 
-    def __init__(self, bot: 'AvocaDOS', townhall: Unit, location: ExpansionLocation) -> None:
-        super().__init__(bot)
+    def __init__(self, townhall: Unit, location: ExpansionLocation) -> None:
+        super().__init__()
         self.townhall_tag = townhall.tag
         self.location = location
         self.miners = {}
@@ -171,8 +168,8 @@ class ExpansionManager(BotManager):
     expansions: dict[ExpansionLocation, Expansion]
     """location -> townhall tag"""
 
-    def __init__(self, bot: 'AvocaDOS', *, map_manager: MapManager, scan_manager: ScanManager) -> None:
-        super().__init__(bot)
+    def __init__(self, *, map_manager: MapManager, scan_manager: ScanManager) -> None:
+        super().__init__()
         self.map = map_manager
         self.scan = scan_manager
 
@@ -222,7 +219,7 @@ class ExpansionManager(BotManager):
 
     def add_expansion(self, location: ExpansionLocation, townhall: Unit) -> None:
         self.logger.info("Adding {} at {}", townhall, location)
-        self.expansions[location] = Expansion(self.bot, townhall, location)
+        self.expansions[location] = Expansion(townhall, location)
 
     def remove_expansion(self, expansion: ExpansionLocation | Expansion) -> None:
         location = expansion.location if isinstance(expansion, Expansion) else expansion
